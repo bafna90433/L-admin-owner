@@ -1,0 +1,44 @@
+.salary-page-container {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+/* Print styles */
+@media print {
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  
+  .sidebar,
+  .btn,
+  .form-input,
+  .flex-between select,
+  .flex-between button {
+    display: none !important;
+  }
+  
+  .main-content {
+    padding: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  
+  .glass-panel {
+    background: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+  
+  .custom-table {
+    border: 1px solid #000 !important;
+  }
+  
+  .custom-table th, 
+  .custom-table td {
+    border: 1px solid #000 !important;
+    color: #000 !important;
+  }
+}
