@@ -27,7 +27,7 @@ import TaskDetailModal from './page/TaskDetailModal';
 import Settings from './page/Settings';
 import Profile from './page/Profile';
 
-const API_BASE = `http://${window.location.hostname}:5000/api`;
+const API_BASE = 'https://l-backend-production-ff32.up.railway.app/api';
 
 interface User {
   id: string;
