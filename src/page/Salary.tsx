@@ -73,13 +73,14 @@ export default function Salary({
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isRecordingCash, setIsRecordingCash] = useState(false);
   const [advanceToDeduct, setAdvanceToDeduct] = useState(0);
+  const [newAdvanceGiven, setNewAdvanceGiven] = useState(0);
 
   const calculatedNetSalary = selectedPayRecord 
-    ? Math.max(0, selectedPayRecord.grossSalary - advanceToDeduct)
+    ? Math.max(0, selectedPayRecord.grossSalary - advanceToDeduct + newAdvanceGiven)
     : 0;
 
   const remainingAdvance = selectedPayRecord 
-    ? Math.max(0, selectedPayRecord.totalAdvance - advanceToDeduct)
+    ? Math.max(0, selectedPayRecord.totalAdvance - advanceToDeduct + newAdvanceGiven)
     : 0;
 
   const handleAdvanceDeductChange = (val: number) => {
@@ -117,9 +118,10 @@ export default function Salary({
           amount: calculatedNetSalary,
           date: new Date(),
           category: 'salary-payment',
-          description: `Salary paid in cash to ${selectedPayRecord.labour.name} for ${getMonthName(salMonth)} ${salYear}${advanceToDeduct > 0 ? ` (Deducted ₹${advanceToDeduct} advance)` : ''}`,
+          description: `Salary paid in cash to ${selectedPayRecord.labour.name} for ${getMonthName(salMonth)} ${salYear}${advanceToDeduct > 0 ? ` (Deducted ₹${advanceToDeduct} advance)` : ''}${newAdvanceGiven > 0 ? ` (Gave ₹${newAdvanceGiven} new advance)` : ''}. Total: ₹${calculatedNetSalary}`,
           labourId: selectedPayRecord.labour._id,
-          advanceDeducted: advanceToDeduct
+          advanceDeducted: advanceToDeduct,
+          newAdvanceGiven: newAdvanceGiven
         })
       });
 
@@ -153,9 +155,10 @@ export default function Salary({
           amount: calculatedNetSalary,
           date: new Date(),
           category: 'salary-payment',
-          description: `Salary paid online (UPI) to ${selectedPayRecord.labour.name} for ${getMonthName(salMonth)} ${salYear}${advanceToDeduct > 0 ? ` (Deducted ₹${advanceToDeduct} advance)` : ''}`,
+          description: `Salary paid online (UPI) to ${selectedPayRecord.labour.name} for ${getMonthName(salMonth)} ${salYear}${advanceToDeduct > 0 ? ` (Deducted ₹${advanceToDeduct} advance)` : ''}${newAdvanceGiven > 0 ? ` (Gave ₹${newAdvanceGiven} new advance)` : ''}. Total: ₹${calculatedNetSalary}`,
           labourId: selectedPayRecord.labour._id,
-          advanceDeducted: advanceToDeduct
+          advanceDeducted: advanceToDeduct,
+          newAdvanceGiven: newAdvanceGiven
         })
       });
 
@@ -432,6 +435,7 @@ export default function Salary({
                               onClick={() => {
                                 setSelectedPayRecord(rec);
                                 setAdvanceToDeduct(Math.min(rec.grossSalary, rec.totalAdvance));
+                                setNewAdvanceGiven(0);
                                 setPayModalOpen(true);
                                 setActiveTab('dynamic');
                                 setIsRecordingCash(false);
@@ -506,13 +510,14 @@ export default function Salary({
               </div>
 
               <div className="flex-between">
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Total Outstanding Advance:</span>
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Existing Advance Balance:</span>
                 <span style={{ fontWeight: 600, color: 'var(--color-danger)' }}>₹{selectedPayRecord.totalAdvance.toLocaleString('en-IN')}</span>
               </div>
 
+              {/* Advance to Deduct Field */}
               {selectedPayRecord.totalAdvance > 0 && (
                 <div style={{ borderTop: '1px dashed var(--glass-border)', paddingTop: '10px', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>Advance to Deduct this Month:</label>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>Advance to Deduct from Salary (Minus):</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <input 
                       type="number"
@@ -540,11 +545,37 @@ export default function Salary({
                       Deduct Max
                     </button>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    <span>Remaining Advance: <b>₹{remainingAdvance.toLocaleString('en-IN')}</b></span>
-                  </div>
                 </div>
               )}
+
+              {/* New Advance to Give Field */}
+              <div style={{ borderTop: '1px dashed var(--glass-border)', paddingTop: '10px', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>New Advance to Give Today (Plus):</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <input 
+                    type="number"
+                    className="form-input"
+                    min={0}
+                    value={newAdvanceGiven}
+                    onChange={e => setNewAdvanceGiven(Math.max(0, parseFloat(e.target.value) || 0))}
+                    style={{ flexGrow: 1, padding: '6px 12px', fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--color-success)' }}
+                    placeholder="Enter new advance amount"
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => setNewAdvanceGiven(0)}
+                    className="btn btn-secondary"
+                    style={{ padding: '6px 10px', fontSize: '0.8rem' }}
+                  >
+                    Reset 0
+                  </button>
+                </div>
+              </div>
+
+              {/* Carryover Advance calculation feedback */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.01)', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--glass-border)' }}>
+                <span>Carryover Advance Balance: <b style={{ color: 'var(--color-danger)' }}>₹{remainingAdvance.toLocaleString('en-IN')}</b></span>
+              </div>
 
               <div style={{ borderTop: '1px solid var(--glass-border)', paddingTop: '10px', marginTop: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
