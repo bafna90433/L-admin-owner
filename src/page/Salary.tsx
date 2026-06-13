@@ -352,7 +352,7 @@ export default function Salary({
                   <th style={{ textAlign: 'center' }}>Absent (A)</th>
                   <th>Paid Days</th>
                   <th>Gross Earned</th>
-                  <th>Deductions (Advances)</th>
+                  <th>Total Advance</th>
                   <th style={{ color: 'var(--accent-secondary)' }}>Net Payable</th>
                 </tr>
               </thead>
