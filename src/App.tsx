@@ -415,6 +415,8 @@ export default function App() {
             advances={advances}
             expenses={expenses}
             showToast={showToast}
+            fetchAdvances={fetchAdvances}
+            fetchDashboardData={fetchDashboardData}
           />
         );
       case 'reminders':

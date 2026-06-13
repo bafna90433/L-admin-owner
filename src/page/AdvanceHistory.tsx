@@ -56,6 +56,8 @@ interface AdvanceHistoryProps {
   advances: AdvanceRequest[];
   expenses: CashTx[];
   showToast: (message: string, type?: 'success' | 'danger' | 'warning' | 'info') => void;
+  fetchAdvances: () => void;
+  fetchDashboardData: () => void;
 }
 
 export default function AdvanceHistory({
@@ -64,7 +66,9 @@ export default function AdvanceHistory({
   labours,
   advances,
   expenses,
-  showToast
+  showToast,
+  fetchAdvances,
+  fetchDashboardData
 }: AdvanceHistoryProps) {
   const [selectedLabourId, setSelectedLabourId] = useState<string>('all');
   const [sourceFilter, setSourceFilter] = useState<'all' | 'owner' | 'staff'>('all');
@@ -151,6 +155,60 @@ export default function AdvanceHistory({
       showToast('Error connecting to server', 'danger');
     } finally {
       setSubmittingNotice(false);
+    }
+  };
+
+  // Form states for giving Direct Advance
+  const [directLabId, setDirectLabId] = useState<string>('');
+  const [directAmount, setDirectAmount] = useState<string>('');
+  const [directReason, setDirectReason] = useState<string>('');
+  const [directDate, setDirectDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [submittingDirect, setSubmittingDirect] = useState<boolean>(false);
+
+  // Initialize selected employee for direct advance form
+  useEffect(() => {
+    if (labours.length > 0 && !directLabId) {
+      setDirectLabId(labours[0]._id);
+    }
+  }, [labours, directLabId]);
+
+  const handleCreateDirectAdvance = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!directLabId || !directAmount) return;
+    setSubmittingDirect(true);
+
+    try {
+      const res = await fetch(`${apiBase}/advances/direct`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          labourId: directLabId,
+          amount: parseFloat(directAmount),
+          reason: directReason,
+          date: directDate
+        })
+      });
+
+      if (res.ok) {
+        setDirectAmount('');
+        setDirectReason('');
+        setDirectDate(new Date().toISOString().split('T')[0]);
+        showToast('Direct advance recorded and issued successfully!', 'success');
+        fetchAdvances();
+        fetchDashboardData();
+        fetchFullExpenses();
+      } else {
+        const data = await res.json();
+        showToast(data.message || 'Failed to issue direct advance', 'danger');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Error connecting to server', 'danger');
+    } finally {
+      setSubmittingDirect(false);
     }
   };
 
@@ -276,7 +334,8 @@ export default function AdvanceHistory({
 
   const selectedLabour = labours.find(l => l._id === selectedLabourId);
   const ledgerData = getEmployeeLedger(selectedLabourId);
-  const stats = selectedLabourId !== 'all' ? getOutstandingStats(selectedLabourId) :  return (
+  const stats = selectedLabourId !== 'all' ? getOutstandingStats(selectedLabourId) : null;
+  return (
     <div className="advance-history-page-container animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
       <div className="flex-between">
         <div>
@@ -570,95 +629,166 @@ export default function AdvanceHistory({
       {/* Salary Delay Broadcast & History View */}
       {activeSubTab === 'delay-alerts' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
-          {/* Post notice card */}
-          <div className="glass-panel" style={{ height: 'fit-content', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <h3 className="gradient-text" style={{ fontSize: '1.25rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              📢 Broadcast Salary Delay Notice
-            </h3>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>
-              Announce a salary payout delay to all office staff and workers, prompting them to request advances if needed.
-            </p>
+          {/* Left Column: Forms */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            {/* Post notice card */}
+            <div className="glass-panel" style={{ height: 'fit-content', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <h3 className="gradient-text" style={{ fontSize: '1.25rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                📢 Broadcast Salary Delay Notice
+              </h3>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>
+                Announce a salary payout delay to all office staff and workers, prompting them to request advances if needed.
+              </p>
 
-            <form onSubmit={handleCreateDelayNotice} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <form onSubmit={handleCreateDelayNotice} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontSize: '0.8rem' }}>Salary Month</label>
+                    <select
+                      className="form-input"
+                      value={delayMonth}
+                      onChange={e => setDelayMonth(parseInt(e.target.value, 10))}
+                    >
+                      {Array.from({ length: 12 }, (_, i) => (
+                        <option key={i + 1} value={i + 1}>
+                          {new Date(0, i).toLocaleString('default', { month: 'long' })}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontSize: '0.8rem' }}>Salary Year</label>
+                    <input
+                      type="number"
+                      className="form-input"
+                      value={delayYear}
+                      onChange={e => setDelayYear(parseInt(e.target.value, 10))}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontSize: '0.8rem' }}>Delay Days</label>
+                    <input
+                      type="number"
+                      className="form-input"
+                      value={delayDays}
+                      onChange={e => {
+                        const days = parseInt(e.target.value, 10) || 0;
+                        setDelayDays(days);
+                        setExpectedDate(getDefaultExpectedDate(days));
+                      }}
+                      min={1}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontSize: '0.8rem' }}>Expected Payout Date</label>
+                    <input
+                      type="date"
+                      className="form-input"
+                      value={expectedDate}
+                      onChange={e => setExpectedDate(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
                 <div className="form-group">
-                  <label className="form-label" style={{ fontSize: '0.8rem' }}>Salary Month</label>
+                  <label className="form-label" style={{ fontSize: '0.8rem' }}>Additional Note / Reason (Optional)</label>
+                  <textarea
+                    className="form-input"
+                    placeholder="e.g. Due to bank holiday weekend / cash flow clearance delay..."
+                    value={delayReason}
+                    onChange={e => setDelayReason(e.target.value)}
+                    style={{ minHeight: '80px', resize: 'vertical' }}
+                  />
+                </div>
+
+                {/* Preview Box */}
+                <div style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px dashed rgba(239, 68, 68, 0.3)', borderRadius: '8px', padding: '12px', marginTop: '4px' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--color-danger)', display: 'block', marginBottom: '4px' }}>
+                    Live Preview of Notice:
+                  </span>
+                  <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0, lineHeight: '1.4' }}>
+                    ⚠️ Salary for {new Date(0, delayMonth - 1).toLocaleString('default', { month: 'long' })} {delayYear} is delayed by {delayDays} days. It will be paid around {new Date(expectedDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}. If anyone needs an advance, please apply now.{delayReason ? ` Reason: ${delayReason}` : ''}
+                  </p>
+                </div>
+
+                <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }} disabled={submittingNotice}>
+                  <Send size={16} /> {submittingNotice ? 'Broadcasting...' : 'Broadcast Notice to Staff'}
+                </button>
+              </form>
+            </div>
+
+            {/* Give Direct Advance Card */}
+            <div className="glass-panel" style={{ height: 'fit-content', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <h3 className="gradient-text" style={{ fontSize: '1.25rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                💸 Give Direct Advance to Employee
+              </h3>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>
+                Record and issue an advance payment directly to any office staff or labourer (pre-approved).
+              </p>
+
+              <form onSubmit={handleCreateDirectAdvance} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div className="form-group">
+                  <label className="form-label" style={{ fontSize: '0.8rem' }}>Select Employee (Staff / Labourer)</label>
                   <select
                     className="form-input"
-                    value={delayMonth}
-                    onChange={e => setDelayMonth(parseInt(e.target.value, 10))}
+                    value={directLabId}
+                    onChange={e => setDirectLabId(e.target.value)}
+                    required
                   >
-                    {Array.from({ length: 12 }, (_, i) => (
-                      <option key={i + 1} value={i + 1}>
-                        {new Date(0, i).toLocaleString('default', { month: 'long' })}
+                    {labours.map(lab => (
+                      <option key={lab._id} value={lab._id}>
+                        👤 {lab.name} ({lab.employeeType || 'labourer'}) - Salary: ₹{lab.monthlySalary.toLocaleString('en-IN')}
                       </option>
                     ))}
                   </select>
                 </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontSize: '0.8rem' }}>Advance Amount (₹)</label>
+                    <input
+                      type="number"
+                      className="form-input"
+                      placeholder="e.g. 5000"
+                      value={directAmount}
+                      onChange={e => setDirectAmount(e.target.value)}
+                      min={1}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label" style={{ fontSize: '0.8rem' }}>Payment Date</label>
+                    <input
+                      type="date"
+                      className="form-input"
+                      value={directDate}
+                      onChange={e => setDirectDate(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
                 <div className="form-group">
-                  <label className="form-label" style={{ fontSize: '0.8rem' }}>Salary Year</label>
+                  <label className="form-label" style={{ fontSize: '0.8rem' }}>Reason / Description</label>
                   <input
-                    type="number"
+                    type="text"
                     className="form-input"
-                    value={delayYear}
-                    onChange={e => setDelayYear(parseInt(e.target.value, 10))}
+                    placeholder="e.g. Medical emergency / festival advance"
+                    value={directReason}
+                    onChange={e => setDirectReason(e.target.value)}
                   />
                 </div>
-              </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div className="form-group">
-                  <label className="form-label" style={{ fontSize: '0.8rem' }}>Delay Days</label>
-                  <input
-                    type="number"
-                    className="form-input"
-                    value={delayDays}
-                    onChange={e => {
-                      const days = parseInt(e.target.value, 10) || 0;
-                      setDelayDays(days);
-                      setExpectedDate(getDefaultExpectedDate(days));
-                    }}
-                    min={1}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label" style={{ fontSize: '0.8rem' }}>Expected Payout Date</label>
-                  <input
-                    type="date"
-                    className="form-input"
-                    value={expectedDate}
-                    onChange={e => setExpectedDate(e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label" style={{ fontSize: '0.8rem' }}>Additional Note / Reason (Optional)</label>
-                <textarea
-                  className="form-input"
-                  placeholder="e.g. Due to bank holiday weekend / cash flow clearance delay..."
-                  value={delayReason}
-                  onChange={e => setDelayReason(e.target.value)}
-                  style={{ minHeight: '80px', resize: 'vertical' }}
-                />
-              </div>
-
-              {/* Preview Box */}
-              <div style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px dashed rgba(239, 68, 68, 0.3)', borderRadius: '8px', padding: '12px', marginTop: '4px' }}>
-                <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--color-danger)', display: 'block', marginBottom: '4px' }}>
-                  Live Preview of Notice:
-                </span>
-                <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0, lineHeight: '1.4' }}>
-                  ⚠️ Salary for {new Date(0, delayMonth - 1).toLocaleString('default', { month: 'long' })} {delayYear} is delayed by {delayDays} days. It will be paid around {new Date(expectedDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}. If anyone needs an advance, please apply now.{delayReason ? ` Reason: ${delayReason}` : ''}
-                </p>
-              </div>
-
-              <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }} disabled={submittingNotice}>
-                <Send size={16} /> {submittingNotice ? 'Broadcasting...' : 'Broadcast Notice to Staff'}
-              </button>
-            </form>
+                <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }} disabled={submittingDirect}>
+                  <Send size={16} /> {submittingDirect ? 'Issuing...' : 'Issue Direct Advance'}
+                </button>
+              </form>
+            </div>
           </div>
 
           {/* Notice history card */}
@@ -674,7 +804,7 @@ export default function AdvanceHistory({
                 No salary delay notices broadcasted yet.
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto', maxHeight: '480px', paddingRight: '4px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto', maxHeight: '720px', paddingRight: '4px' }}>
                 {delayNotices.map((notice) => (
                   <div key={notice._id} style={{ background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: '8px', padding: '16px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
