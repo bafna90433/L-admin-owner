@@ -34,6 +34,19 @@ interface AttendanceProps {
   showToast: (message: string, type?: 'success' | 'danger' | 'warning' | 'info') => void;
 }
 
+const getAvatarColor = (name: string) => {
+  if (!name) return { bg: 'rgba(99,102,241,0.15)', text: '#4f46e5' };
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const hue = Math.abs(hash) % 360;
+  return {
+    bg: `hsla(${hue}, 85%, 93%, 1)`,
+    text: `hsl(${hue}, 85%, 32%)`
+  };
+};
+
 export default function Attendance({
   token,
   apiBase,
@@ -298,10 +311,22 @@ export default function Attendance({
                           <img 
                             src={lab.imageUrl} 
                             alt={lab.name} 
-                            style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--glass-border)', flexShrink: 0 }}
+                            style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--glass-border)', flexShrink: 0 }}
                           />
                         ) : (
-                          <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', fontWeight: 'bold', flexShrink: 0 }}>
+                          <div style={{ 
+                            width: '32px', 
+                            height: '32px', 
+                            borderRadius: '50%', 
+                            background: getAvatarColor(lab.name).bg, 
+                            color: getAvatarColor(lab.name).text, 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            fontSize: '1.15rem', 
+                            fontWeight: '800', 
+                            flexShrink: 0 
+                          }}>
                             {lab.name.charAt(0).toUpperCase()}
                           </div>
                         )}
@@ -396,6 +421,7 @@ export default function Attendance({
                 {(() => {
                   const selectedLabourObj = labours.find(l => l.name === selectedBiometric.labourName);
                   const selectedLabourImage = selectedLabourObj?.imageUrl;
+                  const avatarColor = getAvatarColor(selectedBiometric.labourName);
                   return selectedLabourImage ? (
                     <img 
                       src={selectedLabourImage} 
@@ -403,7 +429,18 @@ export default function Attendance({
                       style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--glass-border)' }}
                     />
                   ) : (
-                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', fontWeight: 'bold' }}>
+                    <div style={{ 
+                      width: '40px', 
+                      height: '40px', 
+                      borderRadius: '50%', 
+                      background: avatarColor.bg, 
+                      color: avatarColor.text, 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center', 
+                      fontSize: '1.4rem', 
+                      fontWeight: '800' 
+                    }}>
                       {selectedBiometric.labourName.charAt(0).toUpperCase()}
                     </div>
                   );
