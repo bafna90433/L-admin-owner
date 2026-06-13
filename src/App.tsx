@@ -369,6 +369,7 @@ export default function App() {
             token={token}
             apiBase={API_BASE}
             labours={labours}
+            advances={advances}
             fetchLabours={fetchLabours}
             setConfirmModal={setConfirmModal}
             showToast={showToast}

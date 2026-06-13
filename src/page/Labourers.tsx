@@ -40,10 +40,20 @@ const getDepartmentColor = (dept: string) => {
   };
 };
 
+interface AdvanceRequest {
+  _id: string;
+  labourId: {
+    _id: string;
+  } | string;
+  amount: number;
+  status: 'pending' | 'approved' | 'rejected';
+}
+
 interface LabourersProps {
   token: string | null;
   apiBase: string;
   labours: Labour[];
+  advances: AdvanceRequest[];
   fetchLabours: () => void;
   setConfirmModal: (modal: { title: string; message: string; onConfirm: () => void } | null) => void;
   showToast: (message: string, type?: 'success' | 'danger' | 'warning' | 'info') => void;
@@ -53,6 +63,7 @@ export default function Labourers({
   token,
   apiBase,
   labours,
+  advances = [],
   fetchLabours,
   setConfirmModal,
   showToast
@@ -379,72 +390,99 @@ export default function Labourers({
 
       {/* Labour Cards Grid */}
       <div className="labour-grid">
-        {filteredLabours.map(lab => (
-          <div key={lab._id} className="glass-panel animate-fade-in labour-card">
-            <div className="labour-card-header">
-              <img 
-                src={lab.imageUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=100'} 
-                alt={lab.name} 
-                className="labour-card-avatar"
-              />
-              <div className="labour-card-info">
-                <h3>{lab.name}</h3>
-                <div style={{ display: 'flex', gap: '6px', marginTop: '4px', flexWrap: 'wrap' }}>
-                  <span className={`badge ${lab.status === 'active' ? 'badge-success' : 'badge-danger'}`}>
-                    {lab.status}
-                  </span>
-                  <span className={`badge ${lab.employeeType === 'staff' ? 'badge-warning' : 'badge-info'}`}>
-                    {lab.employeeType || 'labourer'}
-                  </span>
-                  {lab.department && (
-                    <span 
-                      style={{
-                        backgroundColor: getDepartmentColor(lab.department).bg,
-                        color: getDepartmentColor(lab.department).text,
-                        border: `1px solid ${getDepartmentColor(lab.department).border}`,
-                        padding: '2px 8px',
-                        borderRadius: '20px',
-                        fontSize: '0.7rem',
-                        fontWeight: 700,
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.05em'
-                      }}
-                    >
-                      {lab.department}
+        {filteredLabours.map(lab => {
+          const labAdvances = (advances || []).filter(a => {
+            const id = typeof a.labourId === 'object' ? a.labourId?._id : a.labourId;
+            return id === lab._id;
+          });
+          const totalApprovedAdvance = labAdvances
+            .filter(a => a.status === 'approved')
+            .reduce((sum, a) => sum + a.amount, 0);
+          const totalPendingAdvance = labAdvances
+            .filter(a => a.status === 'pending')
+            .reduce((sum, a) => sum + a.amount, 0);
+
+          return (
+            <div key={lab._id} className="glass-panel animate-fade-in labour-card">
+              <div className="labour-card-header">
+                <img 
+                  src={lab.imageUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=100'} 
+                  alt={lab.name} 
+                  className="labour-card-avatar"
+                />
+                <div className="labour-card-info">
+                  <h3>{lab.name}</h3>
+                  <div style={{ display: 'flex', gap: '6px', marginTop: '4px', flexWrap: 'wrap' }}>
+                    <span className={`badge ${lab.status === 'active' ? 'badge-success' : 'badge-danger'}`}>
+                      {lab.status}
                     </span>
-                  )}
+                    <span className={`badge ${lab.employeeType === 'staff' ? 'badge-warning' : 'badge-info'}`}>
+                      {lab.employeeType || 'labourer'}
+                    </span>
+                    {lab.department && (
+                      <span 
+                        style={{
+                          backgroundColor: getDepartmentColor(lab.department).bg,
+                          color: getDepartmentColor(lab.department).text,
+                          border: `1px solid ${getDepartmentColor(lab.department).border}`,
+                          padding: '2px 8px',
+                          borderRadius: '20px',
+                          fontSize: '0.7rem',
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em'
+                        }}
+                      >
+                        {lab.department}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="labour-card-details">
-              <div className="flex-between">
-                <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Monthly Salary</span>
-                <span style={{ fontWeight: 700, color: 'var(--accent-secondary)' }}>₹{lab.monthlySalary.toLocaleString('en-IN')}</span>
-              </div>
-              <div className="flex-between">
-                <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>WhatsApp No.</span>
-                <a 
-                  href={`https://wa.me/${lab.whatsapp}`} 
-                  target="_blank" 
-                  rel="noreferrer" 
-                  style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 500 }}
-                >
-                  <Phone size={14} style={{ color: 'var(--color-success)' }} /> {lab.whatsapp}
-                </a>
-              </div>
-            </div>
+              <div className="labour-card-details">
+                <div className="flex-between">
+                  <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Monthly Salary</span>
+                  <span style={{ fontWeight: 700, color: 'var(--accent-secondary)' }}>₹{lab.monthlySalary.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex-between">
+                  <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>WhatsApp No.</span>
+                  <a 
+                    href={`https://wa.me/${lab.whatsapp}`} 
+                    target="_blank" 
+                    rel="noreferrer" 
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 500 }}
+                  >
+                    <Phone size={14} style={{ color: 'var(--color-success)' }} /> {lab.whatsapp}
+                  </a>
+                </div>
 
-            <div className="labour-card-actions">
-              <button onClick={() => handleOpenEditLabour(lab)} className="btn btn-secondary" style={{ flexGrow: 1, padding: '10px' }}>
-                <Edit3 size={16} /> Edit
-              </button>
-              <button onClick={() => handleDeleteLabour(lab._id)} className="btn btn-danger" style={{ padding: '10px' }}>
-                <Trash2 size={16} />
-              </button>
+                <div className="flex-between" style={{ borderTop: '1px dashed var(--glass-border)', paddingTop: '8px', marginTop: '6px' }}>
+                  <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Total Advance</span>
+                  <span style={{ fontWeight: 700, color: totalApprovedAdvance > 0 ? 'var(--color-danger)' : 'var(--text-muted)' }}>
+                    ₹{totalApprovedAdvance.toLocaleString('en-IN')}
+                  </span>
+                </div>
+
+                {totalPendingAdvance > 0 && (
+                  <div className="flex-between" style={{ color: 'var(--color-warning)', marginTop: '4px' }}>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>Pending Advance</span>
+                    <span style={{ fontWeight: 700 }}>₹{totalPendingAdvance.toLocaleString('en-IN')}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="labour-card-actions">
+                <button onClick={() => handleOpenEditLabour(lab)} className="btn btn-secondary" style={{ flexGrow: 1, padding: '10px' }}>
+                  <Edit3 size={16} /> Edit
+                </button>
+                <button onClick={() => handleDeleteLabour(lab._id)} className="btn btn-danger" style={{ padding: '10px' }}>
+                  <Trash2 size={16} />
+                </button>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         {filteredLabours.length === 0 && (
           <div className="glass-panel" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '48px', color: 'var(--text-secondary)' }}>
             No employees found matching current filter and search query.
