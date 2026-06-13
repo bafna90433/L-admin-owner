@@ -281,7 +281,20 @@ export default function Attendance({
                 {labours.map(lab => (
                   <tr key={lab._id}>
                     <td className="sticky-row-cell">
-                      {lab.name}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {lab.imageUrl ? (
+                          <img 
+                            src={lab.imageUrl} 
+                            alt={lab.name} 
+                            style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--glass-border)', flexShrink: 0 }}
+                          />
+                        ) : (
+                          <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 'bold', flexShrink: 0 }}>
+                            {lab.name.slice(0, 2).toUpperCase()}
+                          </div>
+                        )}
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{lab.name}</span>
+                      </div>
                     </td>
                     {dayColumns.map(day => {
                       const date = new Date(attYear, attMonth - 1, day);
@@ -367,15 +380,31 @@ export default function Attendance({
         }}>
           <div className="glass-panel glass-panel-glow" style={{ width: '100%', maxWidth: '440px', padding: '24px 32px', borderRadius: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h3 className="gradient-text" style={{ fontSize: '1.35rem', fontWeight: 800 }}>Biometric Swipes</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                {(() => {
+                  const selectedLabourObj = labours.find(l => l.name === selectedBiometric.labourName);
+                  const selectedLabourImage = selectedLabourObj?.imageUrl;
+                  return selectedLabourImage ? (
+                    <img 
+                      src={selectedLabourImage} 
+                      alt={selectedBiometric.labourName} 
+                      style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--glass-border)' }}
+                    />
+                  ) : (
+                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.95rem', fontWeight: 'bold' }}>
+                      {selectedBiometric.labourName.slice(0, 2).toUpperCase()}
+                    </div>
+                  );
+                })()}
+                <div>
+                  <h3 className="gradient-text" style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>Biometric Swipes</h3>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{selectedBiometric.labourName}</span>
+                </div>
+              </div>
               <button onClick={() => setSelectedBiometric(null)} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.8rem' }}>Close</button>
             </div>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', color: 'var(--text-secondary)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--glass-border)', paddingBottom: '8px' }}>
-                <span style={{ fontWeight: 600 }}>Employee:</span>
-                <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{selectedBiometric.labourName}</span>
-              </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--glass-border)', paddingBottom: '8px' }}>
                 <span style={{ fontWeight: 600 }}>Date:</span>
                 <span style={{ color: 'var(--text-primary)' }}>{selectedBiometric.day} {new Date(attYear, attMonth - 1).toLocaleString('default', { month: 'long' })}, {attYear}</span>
