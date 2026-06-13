@@ -80,7 +80,6 @@ export default function AdvanceHistory({
   const [directLabId, setDirectLabId] = useState<string>('');
   const [directAmount, setDirectAmount] = useState<string>('');
   const [directReason, setDirectReason] = useState<string>('');
-  const [directDate, setDirectDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [submittingDirect, setSubmittingDirect] = useState<boolean>(false);
 
   // Initialize selected employee for direct advance form
@@ -105,15 +104,13 @@ export default function AdvanceHistory({
         body: JSON.stringify({
           labourId: directLabId,
           amount: parseFloat(directAmount),
-          reason: directReason,
-          date: directDate
+          reason: directReason
         })
       });
 
       if (res.ok) {
         setDirectAmount('');
         setDirectReason('');
-        setDirectDate(new Date().toISOString().split('T')[0]);
         showToast('Direct advance recorded and issued successfully!', 'success');
         fetchAdvances();
         fetchDashboardData();
@@ -257,7 +254,7 @@ export default function AdvanceHistory({
     <div className="advance-history-page-container animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
       <div className="flex-between">
         <div>
-          <h1 style={{ fontSize: '2.2rem' }} className="gradient-text">Advance Ledgers & History</h1>
+          <h1 style={{ fontSize: '2.2rem' }} className="gradient-text">Advance Ledger</h1>
           <p style={{ color: 'var(--text-secondary)' }}>Track running outstanding advance balances and historical deductions for all employees.</p>
         </div>
 
@@ -576,31 +573,18 @@ export default function AdvanceHistory({
                 </select>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div className="form-group">
-                  <label className="form-label" style={{ fontSize: '0.85rem', fontWeight: 600 }}>Advance Amount (₹)</label>
-                  <input
-                    type="number"
-                    className="form-input"
-                    placeholder="e.g. 5000"
-                    value={directAmount}
-                    onChange={e => setDirectAmount(e.target.value)}
-                    style={{ height: '42px' }}
-                    min={1}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label" style={{ fontSize: '0.85rem', fontWeight: 600 }}>Payment Date</label>
-                  <input
-                    type="date"
-                    className="form-input"
-                    value={directDate}
-                    onChange={e => setDirectDate(e.target.value)}
-                    style={{ height: '42px' }}
-                    required
-                  />
-                </div>
+              <div className="form-group">
+                <label className="form-label" style={{ fontSize: '0.85rem', fontWeight: 600 }}>Advance Amount (₹)</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  placeholder="e.g. 5000"
+                  value={directAmount}
+                  onChange={e => setDirectAmount(e.target.value)}
+                  style={{ height: '42px' }}
+                  min={1}
+                  required
+                />
               </div>
 
               <div className="form-group">

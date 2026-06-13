@@ -533,7 +533,7 @@ export default function App() {
             className={`nav-link btn-secondary ${activeTab === 'advance-history' ? 'active' : ''}`}
             style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
           >
-            <History size={18} /> Advance History
+            <History size={18} /> Advance Ledger
           </button>
           <button 
             onClick={() => setActiveTab('reminders')} 
