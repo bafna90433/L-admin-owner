@@ -22,6 +22,18 @@ interface AdvanceRequest {
   date: string;
   status: 'pending' | 'approved' | 'rejected';
   reason: string;
+  requestedBy?: {
+    _id: string;
+    name: string;
+    username: string;
+    role: string;
+  };
+  approvedBy?: {
+    _id: string;
+    name: string;
+    username: string;
+    role: string;
+  };
 }
 
 interface CashTx {
@@ -53,6 +65,7 @@ export default function AdvanceHistory({
   expenses
 }: AdvanceHistoryProps) {
   const [selectedLabourId, setSelectedLabourId] = useState<string>('all');
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'owner' | 'staff'>('all');
   const [localExpenses, setLocalExpenses] = useState<CashTx[]>(expenses || []);
 
   // Fetch full expenses history to get all past salary deductions accurately
@@ -86,7 +99,23 @@ export default function AdvanceHistory({
     const totalDeducted = labAdvances.reduce((sum, a) => sum + (a.deductedAmount || 0), 0);
     const balance = totalTaken - totalDeducted;
 
-    return { totalTaken, totalDeducted, balance };
+    // Calculate source breakdowns for outstanding balance
+    let ownerBalance = 0;
+    let staffBalance = 0;
+
+    labAdvances.forEach(a => {
+      const remaining = a.amount - (a.deductedAmount || 0);
+      if (remaining > 0) {
+        const isOwner = a.requestedBy?.role === 'owner' || !a.requestedBy || (typeof a.requestedBy === 'object' && a.requestedBy.username === 'owner');
+        if (isOwner) {
+          ownerBalance += remaining;
+        } else {
+          staffBalance += remaining;
+        }
+      }
+    });
+
+    return { totalTaken, totalDeducted, balance, ownerBalance, staffBalance };
   };
 
   // Build running ledger for selected employee
@@ -102,12 +131,15 @@ export default function AdvanceHistory({
     });
 
     labAdvances.forEach(a => {
+      const isOwner = a.requestedBy?.role === 'owner' || !a.requestedBy || (typeof a.requestedBy === 'object' && a.requestedBy.username === 'owner');
       timeline.push({
         date: a.date,
         type: 'advance',
         amount: a.amount,
         description: `New Advance: ${a.reason || 'Approved advance request'}`,
-        referenceId: a._id
+        referenceId: a._id,
+        source: isOwner ? 'owner' : 'staff',
+        requestedByName: a.requestedBy?.name || 'Staff'
       });
     });
 
@@ -128,7 +160,9 @@ export default function AdvanceHistory({
           type: 'deduction',
           amount: deducted,
           description: `Deducted during salary payout: ${t.description.split('.')[0] || 'Monthly wages'}`,
-          referenceId: t._id
+          referenceId: t._id,
+          source: 'owner',
+          requestedByName: 'Owner'
         });
       }
     });
@@ -166,22 +200,40 @@ export default function AdvanceHistory({
           <p style={{ color: 'var(--text-secondary)' }}>Track running outstanding advance balances and historical deductions for all employees.</p>
         </div>
 
-        {/* Dropdown selector */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-secondary)' }}>Filter Employee:</span>
-          <select
-            className="form-input"
-            value={selectedLabourId}
-            onChange={e => setSelectedLabourId(e.target.value)}
-            style={{ width: '220px', fontWeight: 600 }}
-          >
-            <option value="all">📁 All Employees Summary</option>
-            {labours.map(lab => (
-              <option key={lab._id} value={lab._id}>
-                👤 {lab.name} ({lab.employeeType || 'labourer'})
-              </option>
-            ))}
-          </select>
+        {/* Filter selectors */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          {/* Employee Filter */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Employee:</span>
+            <select
+              className="form-input"
+              value={selectedLabourId}
+              onChange={e => setSelectedLabourId(e.target.value)}
+              style={{ width: '200px', fontWeight: 600 }}
+            >
+              <option value="all">📁 All Employees Summary</option>
+              {labours.map(lab => (
+                <option key={lab._id} value={lab._id}>
+                  👤 {lab.name} ({lab.employeeType || 'labourer'})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Source Filter */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Source:</span>
+            <select
+              className="form-input"
+              value={sourceFilter}
+              onChange={e => setSourceFilter(e.target.value as 'all' | 'owner' | 'staff')}
+              style={{ width: '160px', fontWeight: 600 }}
+            >
+              <option value="all">📁 All Sources</option>
+              <option value="owner">👑 Direct Owner</option>
+              <option value="staff">👤 Staff Approval</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -238,8 +290,19 @@ export default function AdvanceHistory({
                         <td>₹{lab.monthlySalary.toLocaleString('en-IN')}</td>
                         <td style={{ textAlign: 'right', fontWeight: 600 }}>₹{s.totalTaken.toLocaleString('en-IN')}</td>
                         <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--color-success)' }}>₹{s.totalDeducted.toLocaleString('en-IN')}</td>
-                        <td style={{ textAlign: 'right', fontWeight: 750, color: s.balance > 0 ? 'var(--color-danger)' : 'var(--text-muted)' }}>
-                          ₹{s.balance.toLocaleString('en-IN')}
+                        <td style={{ textAlign: 'right', fontWeight: 750, color: s.balance > 0 ? 'var(--color-danger)' : 'var(--text-muted)', padding: '12px 10px' }}>
+                          <div style={{ fontSize: '1.05rem' }}>₹{s.balance.toLocaleString('en-IN')}</div>
+                          {s.balance > 0 && sourceFilter === 'all' && (
+                            <div style={{ fontSize: '0.72rem', fontWeight: 550, color: 'var(--text-secondary)', marginTop: '4px' }}>
+                              {s.ownerBalance > 0 && s.staffBalance > 0 ? (
+                                <span>👑 ₹{s.ownerBalance.toLocaleString('en-IN')} + 👤 ₹{s.staffBalance.toLocaleString('en-IN')}</span>
+                              ) : s.ownerBalance > 0 ? (
+                                <span style={{ color: 'var(--accent-secondary)' }}>👑 Owner Direct</span>
+                              ) : (
+                                <span>👤 Staff Request</span>
+                              )}
+                            </div>
+                          )}
                         </td>
                         <td style={{ textAlign: 'center' }}>
                           <button
@@ -304,6 +367,7 @@ export default function AdvanceHistory({
                     <th>Date</th>
                     <th>Reference</th>
                     <th>Type</th>
+                    <th>Given By / Source</th>
                     <th style={{ textAlign: 'right' }}>Amount</th>
                     <th style={{ textAlign: 'right', color: 'var(--accent-secondary)' }}>Outstanding Balance</th>
                   </tr>
@@ -338,6 +402,19 @@ export default function AdvanceHistory({
                           )}
                         </span>
                       </td>
+                      <td>
+                        <span style={{ fontSize: '0.88rem', fontWeight: 600 }}>
+                          {entry.type === 'advance' ? (
+                            entry.source === 'owner' ? (
+                              <span style={{ color: 'var(--accent-secondary)' }}>👑 Owner (Direct)</span>
+                            ) : (
+                              <span>👤 Staff: {entry.requestedByName}</span>
+                            )
+                          ) : (
+                            <span style={{ color: 'var(--text-muted)' }}>👑 Owner (Payout)</span>
+                          )}
+                        </span>
+                      </td>
                       <td style={{ 
                         textAlign: 'right', fontWeight: 700,
                         color: entry.type === 'advance' ? 'var(--color-danger)' : 'var(--color-success)'
@@ -352,7 +429,7 @@ export default function AdvanceHistory({
 
                   {ledgerData.length === 0 && (
                     <tr>
-                      <td colSpan={5} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-secondary)' }}>
+                      <td colSpan={6} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-secondary)' }}>
                         No advance ledger entries found for this employee.
                       </td>
                     </tr>
