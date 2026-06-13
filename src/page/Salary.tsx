@@ -28,6 +28,7 @@ interface AdvanceRequest {
     _id: string;
   };
   amount: number;
+  deductedAmount?: number;
   date: string;
   status: 'pending' | 'approved' | 'rejected';
 }
@@ -71,6 +72,20 @@ export default function Salary({
   const [activeTab, setActiveTab] = useState<'dynamic' | 'static' | 'cash'>('dynamic');
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isRecordingCash, setIsRecordingCash] = useState(false);
+  const [advanceToDeduct, setAdvanceToDeduct] = useState(0);
+
+  const calculatedNetSalary = selectedPayRecord 
+    ? Math.max(0, selectedPayRecord.grossSalary - advanceToDeduct)
+    : 0;
+
+  const remainingAdvance = selectedPayRecord 
+    ? Math.max(0, selectedPayRecord.totalAdvance - advanceToDeduct)
+    : 0;
+
+  const handleAdvanceDeductChange = (val: number) => {
+    const capped = Math.min(Math.max(0, val), selectedPayRecord?.totalAdvance || 0);
+    setAdvanceToDeduct(capped);
+  };
 
   const copyToClipboard = (text: string, field: string) => {
     navigator.clipboard.writeText(text);
@@ -99,16 +114,17 @@ export default function Salary({
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          amount: selectedPayRecord.netSalary,
+          amount: calculatedNetSalary,
           date: new Date(),
           category: 'salary-payment',
-          description: `Salary paid in cash to ${selectedPayRecord.labour.name} for ${getMonthName(salMonth)} ${salYear}`,
-          labourId: selectedPayRecord.labour._id
+          description: `Salary paid in cash to ${selectedPayRecord.labour.name} for ${getMonthName(salMonth)} ${salYear}${advanceToDeduct > 0 ? ` (Deducted ₹${advanceToDeduct} advance)` : ''}`,
+          labourId: selectedPayRecord.labour._id,
+          advanceDeducted: advanceToDeduct
         })
       });
 
       if (res.ok) {
-        showToast(`Hand cash payment of ₹${selectedPayRecord.netSalary.toLocaleString('en-IN')} recorded in expenses ledger!`, 'success');
+        showToast(`Hand cash payment of ₹${calculatedNetSalary.toLocaleString('en-IN')} recorded in expenses ledger!`, 'success');
         setPayModalOpen(false);
         setSelectedPayRecord(null);
         fetchSalarySheet();
@@ -134,16 +150,17 @@ export default function Salary({
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          amount: selectedPayRecord.netSalary,
+          amount: calculatedNetSalary,
           date: new Date(),
           category: 'salary-payment',
-          description: `Salary paid online (UPI) to ${selectedPayRecord.labour.name} for ${getMonthName(salMonth)} ${salYear}`,
-          labourId: selectedPayRecord.labour._id
+          description: `Salary paid online (UPI) to ${selectedPayRecord.labour.name} for ${getMonthName(salMonth)} ${salYear}${advanceToDeduct > 0 ? ` (Deducted ₹${advanceToDeduct} advance)` : ''}`,
+          labourId: selectedPayRecord.labour._id,
+          advanceDeducted: advanceToDeduct
         })
       });
 
       if (res.ok) {
-        showToast(`Online payment of ₹${selectedPayRecord.netSalary.toLocaleString('en-IN')} marked as paid!`, 'success');
+        showToast(`Online payment of ₹${calculatedNetSalary.toLocaleString('en-IN')} marked as paid!`, 'success');
         setPayModalOpen(false);
         setSelectedPayRecord(null);
         fetchSalarySheet();
@@ -211,12 +228,7 @@ export default function Salary({
       // Calculate details for each labourer
       const records = laboursList.map(lab => {
         const labAtt = attendanceList.filter(a => a.labourId === lab._id);
-        const labAdv = advancesList.filter(a => {
-          const d = new Date(a.date);
-          return a.labourId._id === lab._id && 
-                 (d.getMonth() + 1) === salMonth && 
-                 d.getFullYear() === salYear;
-        });
+        const labAdv = advancesList.filter(a => a.labourId._id === lab._id);
 
         let present = 0;
         let halfDay = 0;
@@ -253,7 +265,7 @@ export default function Salary({
         const dailyRate = lab.monthlySalary / daysInMonth;
         const grossSalary = dailyRate * totalPaidDays;
 
-        const totalAdvance = labAdv.reduce((sum, item) => sum + item.amount, 0);
+        const totalAdvance = labAdv.reduce((sum, item) => sum + (item.amount - (item.deductedAmount || 0)), 0);
         const netSalary = Math.max(0, grossSalary - totalAdvance);
         const isPaid = !!paidLabourMap[lab._id];
         const paymentMethod = paidLabourMap[lab._id] || undefined;
@@ -419,6 +431,7 @@ export default function Salary({
                             <button 
                               onClick={() => {
                                 setSelectedPayRecord(rec);
+                                setAdvanceToDeduct(Math.min(rec.grossSalary, rec.totalAdvance));
                                 setPayModalOpen(true);
                                 setActiveTab('dynamic');
                                 setIsRecordingCash(false);
@@ -482,20 +495,68 @@ export default function Salary({
               Transfer wages to <strong>{selectedPayRecord.labour.name}</strong> for {getMonthName(salMonth)} {salYear}.
             </p>
 
-            {/* Salary Summary Card */}
+            {/* Salary Breakdown & Dynamic Advance Deduction Card */}
             <div style={{
               background: 'rgba(255,255,255,0.03)', border: '1px solid var(--glass-border)',
-              padding: '16px', borderRadius: '12px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+              padding: '16px', borderRadius: '12px', marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '12px'
             }}>
-              <div>
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Net Payable Amount</span>
-                <span style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--color-success)' }}>
-                  ₹{selectedPayRecord.netSalary.toLocaleString('en-IN')}
+              <div className="flex-between">
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Gross Salary:</span>
+                <span style={{ fontWeight: 600 }}>₹{selectedPayRecord.grossSalary.toLocaleString('en-IN')}</span>
+              </div>
+
+              <div className="flex-between">
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Total Outstanding Advance:</span>
+                <span style={{ fontWeight: 600, color: 'var(--color-danger)' }}>₹{selectedPayRecord.totalAdvance.toLocaleString('en-IN')}</span>
+              </div>
+
+              {selectedPayRecord.totalAdvance > 0 && (
+                <div style={{ borderTop: '1px dashed var(--glass-border)', paddingTop: '10px', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>Advance to Deduct this Month:</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <input 
+                      type="number"
+                      className="form-input"
+                      min={0}
+                      max={selectedPayRecord.totalAdvance}
+                      value={advanceToDeduct}
+                      onChange={e => handleAdvanceDeductChange(parseFloat(e.target.value) || 0)}
+                      style={{ flexGrow: 1, padding: '6px 12px', fontSize: '0.9rem', fontWeight: 'bold' }}
+                    />
+                    <button 
+                      type="button" 
+                      onClick={() => setAdvanceToDeduct(0)}
+                      className="btn btn-secondary"
+                      style={{ padding: '6px 10px', fontSize: '0.8rem' }}
+                    >
+                      Deduct 0
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={() => setAdvanceToDeduct(Math.min(selectedPayRecord.grossSalary, selectedPayRecord.totalAdvance))}
+                      className="btn btn-secondary"
+                      style={{ padding: '6px 10px', fontSize: '0.8rem' }}
+                    >
+                      Deduct Max
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    <span>Remaining Advance: <b>₹{remainingAdvance.toLocaleString('en-IN')}</b></span>
+                  </div>
+                </div>
+              )}
+
+              <div style={{ borderTop: '1px solid var(--glass-border)', paddingTop: '10px', marginTop: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Net Payable Amount</span>
+                  <span style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--color-success)' }}>
+                    ₹{calculatedNetSalary.toLocaleString('en-IN')}
+                  </span>
+                </div>
+                <span className={`badge ${selectedPayRecord.labour.employeeType === 'staff' ? 'badge-warning' : 'badge-info'}`} style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
+                  {selectedPayRecord.labour.employeeType || 'labourer'}
                 </span>
               </div>
-              <span className={`badge ${selectedPayRecord.labour.employeeType === 'staff' ? 'badge-warning' : 'badge-info'}`} style={{ padding: '6px 12px', fontSize: '0.8rem' }}>
-                {selectedPayRecord.labour.employeeType || 'labourer'}
-              </span>
             </div>
 
             {/* Tabs */}
@@ -548,7 +609,7 @@ export default function Salary({
                   }}>
                     <img 
                       src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
-                        `upi://pay?pa=${getEmployeeUpiId(selectedPayRecord.labour)}&pn=${encodeURIComponent(selectedPayRecord.labour.name)}&am=${selectedPayRecord.netSalary}&cu=INR&tn=${encodeURIComponent(`Salary ${getMonthName(salMonth)} ${salYear}`)}`
+                        `upi://pay?pa=${getEmployeeUpiId(selectedPayRecord.labour)}&pn=${encodeURIComponent(selectedPayRecord.labour.name)}&am=${calculatedNetSalary}&cu=INR&tn=${encodeURIComponent(`Salary ${getMonthName(salMonth)} ${salYear}`)}`
                       )}`} 
                       alt="Dynamic UPI QR" 
                       style={{ width: '200px', height: '200px' }}
@@ -673,7 +734,7 @@ export default function Salary({
                     fontWeight: 700, fontSize: '0.95rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
                   }}
                 >
-                  {isRecordingCash ? 'Recording...' : `Record Payment of ₹${selectedPayRecord.netSalary.toLocaleString('en-IN')}`}
+                  {isRecordingCash ? 'Recording...' : `Record Payment of ₹${calculatedNetSalary.toLocaleString('en-IN')}`}
                 </button>
               </div>
             )}
