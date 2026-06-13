@@ -10,7 +10,8 @@ import {
   Bell, 
   MessageSquare,
   Settings as SettingsIcon,
-  User as UserIcon
+  User as UserIcon,
+  History
 } from 'lucide-react';
 
 // Import Modular Page Components
@@ -26,6 +27,7 @@ import Chat from './page/Chat';
 import TaskDetailModal from './page/TaskDetailModal';
 import Settings from './page/Settings';
 import Profile from './page/Profile';
+import AdvanceHistory from './page/AdvanceHistory';
 
 const API_BASE = 'https://l-backend-production-ff32.up.railway.app/api';
 
@@ -88,7 +90,7 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   
   // Router Tab
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'labourers' | 'attendance' | 'salary' | 'advances' | 'reminders' | 'tasks' | 'chat' | 'settings' | 'profile'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'labourers' | 'attendance' | 'salary' | 'advances' | 'advance-history' | 'reminders' | 'tasks' | 'chat' | 'settings' | 'profile'>('dashboard');
 
   // Shared Data States
   const [labours, setLabours] = useState<Labour[]>([]);
@@ -404,6 +406,16 @@ export default function App() {
             showToast={showToast}
           />
         );
+      case 'advance-history':
+        return (
+          <AdvanceHistory 
+            token={token}
+            apiBase={API_BASE}
+            labours={labours}
+            advances={advances}
+            expenses={expenses}
+          />
+        );
       case 'reminders':
         return (
           <Reminders 
@@ -512,6 +524,13 @@ export default function App() {
                 {advances.filter(a => a.status === 'pending').length}
               </span>
             )}
+          </button>
+          <button 
+            onClick={() => setActiveTab('advance-history')} 
+            className={`nav-link btn-secondary ${activeTab === 'advance-history' ? 'active' : ''}`}
+            style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
+          >
+            <History size={18} /> Advance History
           </button>
           <button 
             onClick={() => setActiveTab('reminders')} 
