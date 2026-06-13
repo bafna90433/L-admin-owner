@@ -7,6 +7,7 @@ interface Labour {
   name: string;
   whatsapp: string;
   monthlySalary: number;
+  workingHours?: number;
   imageUrl: string;
   status: string;
 }
@@ -47,6 +48,21 @@ const getAvatarColor = (name: string) => {
   };
 };
 
+const isFutureDate = (day: number, month: number, year: number) => {
+  const today = new Date();
+  const currentDay = today.getDate();
+  const currentMonth = today.getMonth() + 1; // 1-indexed
+  const currentYear = today.getFullYear();
+
+  if (year > currentYear) return true;
+  if (year < currentYear) return false;
+  
+  if (month > currentMonth) return true;
+  if (month < currentMonth) return false;
+
+  return day > currentDay;
+};
+
 export default function Attendance({
   token,
   apiBase,
@@ -62,6 +78,7 @@ export default function Attendance({
   const [selectedBiometric, setSelectedBiometric] = useState<{
     labourName: string;
     day: number;
+    workingHours?: number;
     record: AttendanceRecord;
   } | null>(null);
 
@@ -102,7 +119,7 @@ export default function Attendance({
     }
   };
 
-  const handleAttendanceChange = (labourId: string, day: number, status: string) => {
+  const handleAttendanceChange = (labourId: string, day: number, status: any) => {
     setAttendanceGrid(prev => {
       const grid = { ...prev };
       if (!grid[labourId]) grid[labourId] = {};
@@ -338,59 +355,84 @@ export default function Attendance({
                       const isSunday = date.getDay() === 0;
                       const cell = attendanceGrid[lab._id]?.[day] || { status: isSunday ? 'sunday' : 'absent', permissionHours: 0, remarks: '' } as AttendanceRecord;
 
+                      const isFuture = isFutureDate(day, attMonth, attYear);
+
                       return (
-                        <td key={day} className="attendance-day-cell">
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                            <select
-                              value={cell.status}
-                              onChange={e => handleAttendanceChange(lab._id, day, e.target.value)}
-                              className="attendance-status-select"
-                              style={{
-                                background: 
-                                  cell.status === 'present' ? 'rgba(16, 185, 129, 0.2)' :
-                                  cell.status === 'half-day' ? 'rgba(245, 158, 11, 0.2)' :
-                                  cell.status === 'sunday' ? 'rgba(99, 102, 241, 0.2)' :
-                                  cell.status === 'permission' ? 'rgba(165, 180, 252, 0.3)' :
-                                  'rgba(239, 68, 68, 0.1)',
-                                color:
-                                  cell.status === 'present' ? 'var(--color-success)' :
-                                  cell.status === 'half-day' ? 'var(--color-warning)' :
-                                  cell.status === 'sunday' ? 'var(--accent-primary)' :
-                                  cell.status === 'permission' ? '#4f46e5' :
-                                  'var(--color-danger)'
-                              }}
-                            >
-                              <option value="present">P</option>
-                              <option value="half-day">H</option>
-                              <option value="absent">A</option>
-                              <option value="sunday">SUN</option>
-                              <option value="permission">PRM</option>
-                            </select>
-                            {cell.checkIn && (
-                              <button 
-                                type="button"
-                                onClick={() => setSelectedBiometric({ labourName: lab.name, day, record: cell })}
-                                title="Show Biometric Punch Times"
-                                style={{ 
-                                  background: 'transparent', border: 'none', padding: 0, cursor: 'pointer',
-                                  color: cell.isPermissionApproved ? '#818cf8' : 'var(--text-secondary)',
-                                  display: 'flex', alignItems: 'center'
-                                }}
-                              >
-                                <Clock size={14} />
-                              </button>
-                            )}
-                          </div>
-                          {cell.status === 'permission' && !cell.checkIn && (
-                            <input 
-                              type="number"
-                              min={1}
-                              max={8}
-                              title="Permission Hours"
-                              value={cell.permissionHours || 2}
-                              onChange={e => handlePermissionHoursChange(lab._id, day, Math.min(8, Math.max(1, parseInt(e.target.value) || 2)))}
-                              className="permission-hours-input"
-                            />
+                        <td key={day} className="attendance-day-cell" style={{ background: isSunday ? 'rgba(99, 102, 241, 0.05)' : 'transparent' }}>
+                          {isFuture ? (
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <span style={{ 
+                                color: isSunday ? 'var(--accent-primary)' : 'var(--text-muted)', 
+                                fontSize: '0.75rem', 
+                                fontWeight: isSunday ? 750 : 400, 
+                                opacity: 0.5 
+                              }}>
+                                {isSunday ? 'SUN' : '-'}
+                              </span>
+                            </div>
+                          ) : (
+                            <>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                                <select
+                                  value={cell.status}
+                                  disabled={isFutureDate(day, attMonth, attYear)}
+                                  onChange={e => handleAttendanceChange(lab._id, day, e.target.value)}
+                                  className="attendance-status-select"
+                                  style={{
+                                    background: 
+                                      cell.status === 'present' ? 'rgba(16, 185, 129, 0.2)' :
+                                      cell.status === 'half-day' ? 'rgba(245, 158, 11, 0.2)' :
+                                      cell.status === 'sunday' ? 'rgba(99, 102, 241, 0.2)' :
+                                      cell.status === 'permission' ? 'rgba(165, 180, 252, 0.3)' :
+                                      'rgba(239, 68, 68, 0.1)',
+                                    color:
+                                      cell.status === 'present' ? 'var(--color-success)' :
+                                      cell.status === 'half-day' ? 'var(--color-warning)' :
+                                      cell.status === 'sunday' ? 'var(--accent-primary)' :
+                                      cell.status === 'permission' ? '#4f46e5' :
+                                      'var(--color-danger)',
+                                    opacity: isFutureDate(day, attMonth, attYear) ? 0.5 : 1,
+                                    cursor: isFutureDate(day, attMonth, attYear) ? 'not-allowed' : 'pointer'
+                                  }}
+                                >
+                                  <option value="present">P</option>
+                                  <option value="half-day">H</option>
+                                  <option value="absent">A</option>
+                                  <option value="sunday">SUN</option>
+                                  <option value="permission">PRM</option>
+                                </select>
+                                {cell.checkIn && (
+                                  <button 
+                                    className="punch-badge pulse"
+                                    onClick={() => setSelectedBiometric({ labourName: lab.name, day, workingHours: lab.workingHours, record: cell })}
+                                    title="Show Biometric Punch Times"
+                                    style={{ 
+                                      background: 'transparent', border: 'none', padding: 0, cursor: 'pointer',
+                                      color: cell.isPermissionApproved ? '#818cf8' : 'var(--text-secondary)',
+                                      display: 'flex', alignItems: 'center'
+                                    }}
+                                  >
+                                    <Clock size={14} />
+                                  </button>
+                                )}
+                              </div>
+                              {cell.status === 'permission' && !cell.checkIn && (
+                                <input 
+                                  type="number"
+                                  min={1}
+                                  max={8}
+                                  title="Permission Hours"
+                                  disabled={isFutureDate(day, attMonth, attYear)}
+                                  value={cell.permissionHours || 2}
+                                  onChange={e => handlePermissionHoursChange(lab._id, day, Math.min(8, Math.max(1, parseInt(e.target.value) || 2)))}
+                                  className="permission-hours-input"
+                                  style={{
+                                    opacity: isFutureDate(day, attMonth, attYear) ? 0.5 : 1,
+                                    cursor: isFutureDate(day, attMonth, attYear) ? 'not-allowed' : 'text'
+                                  }}
+                                />
+                              )}
+                            </>
                           )}
                         </td>
                       );
@@ -525,7 +567,7 @@ export default function Attendance({
                   borderRadius: '8px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px'
                 }}>
                   <p style={{ fontSize: '0.8rem', color: '#a5b4fc', lineHeight: 1.4 }}>
-                    Employee was away for <b>{selectedBiometric.record.awayHours.toFixed(1)} hours</b>. Approve this outing as permission to deduct it from their required 8h shift?
+                    Employee was away for <b>{selectedBiometric.record.awayHours.toFixed(1)} hours</b>. Approve this outing as permission to deduct it from their required {selectedBiometric.workingHours || 8}h shift?
                   </p>
                   
                   {selectedBiometric.record.isPermissionApproved ? (

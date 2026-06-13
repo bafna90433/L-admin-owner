@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { History, Calendar, ArrowDownCircle, ArrowUpCircle, AlertTriangle, Send } from 'lucide-react';
+import { History, Calendar, ArrowDownCircle, ArrowUpCircle, Send } from 'lucide-react';
 
 interface Labour {
   _id: string;
@@ -16,23 +16,26 @@ interface AdvanceRequest {
   labourId: {
     _id: string;
     name: string;
-  } | string;
+    imageUrl?: string;
+    monthlySalary?: number;
+    whatsapp?: string;
+  };
   amount: number;
   deductedAmount?: number;
   date: string;
-  status: 'pending' | 'approved' | 'rejected';
   reason: string;
+  status: 'pending' | 'approved' | 'rejected';
   requestedBy?: {
-    _id: string;
+    _id?: string;
     name: string;
-    username: string;
-    role: string;
+    username?: string;
+    role?: string;
   };
   approvedBy?: {
-    _id: string;
+    _id?: string;
     name: string;
-    username: string;
-    role: string;
+    username?: string;
+    role?: string;
   };
 }
 
@@ -74,13 +77,29 @@ export default function AdvanceHistory({
   const [sourceFilter, setSourceFilter] = useState<'all' | 'owner' | 'staff'>('all');
   const [localExpenses, setLocalExpenses] = useState<CashTx[]>(expenses || []);
 
-  const [activeSubTab, setActiveSubTab] = useState<'summary' | 'ledger' | 'give-advance'>('summary');
+  const [activeSubTab, setActiveSubTab] = useState<'summary' | 'ledger' | 'give-advance'>('give-advance');
 
   // Form states for giving Direct Advance
   const [directLabId, setDirectLabId] = useState<string>('');
   const [directAmount, setDirectAmount] = useState<string>('');
   const [directReason, setDirectReason] = useState<string>('');
   const [submittingDirect, setSubmittingDirect] = useState<boolean>(false);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [monthlyAttendance, setMonthlyAttendance] = useState<any[]>([]);
+
+  // Fetch current month's attendance records to calculate duties
+  useEffect(() => {
+    if (token) {
+      const month = new Date().getMonth() + 1;
+      const year = new Date().getFullYear();
+      fetch(`${apiBase}/attendance?month=${month}&year=${year}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+        .then(res => res.ok ? res.json() : [])
+        .then(data => setMonthlyAttendance(data))
+        .catch(err => console.error('Error fetching attendance in advance history:', err));
+    }
+  }, [token, apiBase]);
 
   // Initialize selected employee for direct advance form
   useEffect(() => {
@@ -88,6 +107,21 @@ export default function AdvanceHistory({
       setDirectLabId(labours[0]._id);
     }
   }, [labours, directLabId]);
+
+  // Update selected employee when filtered list changes to ensure valid selection
+  useEffect(() => {
+    if (searchQuery && labours.length > 0) {
+      const matched = labours.filter(lab =>
+        lab.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      if (matched.length > 0) {
+        const isSelectedInMatched = matched.some(m => m._id === directLabId);
+        if (!isSelectedInMatched) {
+          setDirectLabId(matched[0]._id);
+        }
+      }
+    }
+  }, [searchQuery, labours, directLabId]);
 
   const handleCreateDirectAdvance = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,6 +145,7 @@ export default function AdvanceHistory({
       if (res.ok) {
         setDirectAmount('');
         setDirectReason('');
+        setSearchQuery('');
         showToast('Direct advance recorded and issued successfully!', 'success');
         fetchAdvances();
         fetchDashboardData();
@@ -250,6 +285,26 @@ export default function AdvanceHistory({
   const selectedLabour = labours.find(l => l._id === selectedLabourId);
   const ledgerData = getEmployeeLedger(selectedLabourId);
   const stats = selectedLabourId !== 'all' ? getOutstandingStats(selectedLabourId) : null;
+
+  // Selected employee details for direct advance entry
+  const selectedEmp = labours.find(l => l._id === directLabId);
+  const selectedEmpStats = selectedEmp ? getOutstandingStats(selectedEmp._id) : null;
+  const filteredLabours = labours.filter(lab =>
+    lab.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Attendance stats (present, half-day, permission, absent, sunday) for selected employee in current month
+  const selectedEmpAttendance = selectedEmp ? monthlyAttendance.filter(rec => {
+    const id = typeof rec.labourId === 'object' ? rec.labourId?._id : rec.labourId;
+    return id === selectedEmp._id;
+  }) : [];
+
+  const presentCount = selectedEmpAttendance.filter(r => r.status === 'present').length;
+  const halfDayCount = selectedEmpAttendance.filter(r => r.status === 'half-day').length;
+  const permissionCount = selectedEmpAttendance.filter(r => r.status === 'permission').length;
+  const absentCount = selectedEmpAttendance.filter(r => r.status === 'absent').length;
+  const sundayCount = selectedEmpAttendance.filter(r => r.status === 'sunday').length;
+  const totalDuties = presentCount + (halfDayCount * 0.5);
   return (
     <div className="advance-history-page-container animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
       <div className="flex-between">
@@ -301,6 +356,13 @@ export default function AdvanceHistory({
       {/* Beautiful Sub tab Navigation */}
       <div style={{ display: 'flex', gap: '12px', borderBottom: '1px solid var(--glass-border)', paddingBottom: '8px', marginBottom: '8px' }}>
         <button
+          onClick={() => setActiveSubTab('give-advance')}
+          className={`btn ${activeSubTab === 'give-advance' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ padding: '8px 16px', borderRadius: '8px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}
+        >
+          💸 Give Direct Advance
+        </button>
+        <button
           onClick={() => {
             setActiveSubTab('summary');
             setSelectedLabourId('all');
@@ -321,13 +383,6 @@ export default function AdvanceHistory({
           style={{ padding: '8px 16px', borderRadius: '8px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}
         >
           👤 Individual Ledgers
-        </button>
-        <button
-          onClick={() => setActiveSubTab('give-advance')}
-          className={`btn ${activeSubTab === 'give-advance' ? 'btn-primary' : 'btn-secondary'}`}
-          style={{ padding: '8px 16px', borderRadius: '8px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}
-        >
-          💸 Give Direct Advance
         </button>
       </div>
 
@@ -543,8 +598,8 @@ export default function AdvanceHistory({
 
       {/* Give Direct Advance View */}
       {activeSubTab === 'give-advance' && (
-        <div style={{ maxWidth: '600px', margin: '0 auto', width: '100%' }}>
-          {/* Give Direct Advance Card */}
+        <div className="split-screen-container" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '24px', width: '100%' }}>
+          {/* Left Column: Give Direct Advance Form */}
           <div className="glass-panel glass-panel-glow" style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '32px' }}>
             <div style={{ borderBottom: '1px solid var(--glass-border)', paddingBottom: '16px' }}>
               <h3 className="gradient-text" style={{ fontSize: '1.5rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px', margin: 0 }}>
@@ -556,8 +611,19 @@ export default function AdvanceHistory({
             </div>
 
             <form onSubmit={handleCreateDirectAdvance} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <div className="form-group">
+              <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <label className="form-label" style={{ fontSize: '0.85rem', fontWeight: 600 }}>Select Employee (Staff / Labourer)</label>
+                
+                {/* Search field */}
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="🔍 Search employee by name..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  style={{ height: '42px', paddingLeft: '12px' }}
+                />
+
                 <select
                   className="form-input"
                   value={directLabId}
@@ -565,11 +631,14 @@ export default function AdvanceHistory({
                   style={{ height: '42px', fontWeight: 600 }}
                   required
                 >
-                  {labours.map(lab => (
+                  {filteredLabours.map(lab => (
                     <option key={lab._id} value={lab._id}>
-                      👤 {lab.name} ({lab.employeeType || 'labourer'}) - Salary: ₹{lab.monthlySalary.toLocaleString('en-IN')}
+                      👤 {lab.name} ({lab.employeeType || 'labourer'})
                     </option>
                   ))}
+                  {filteredLabours.length === 0 && (
+                    <option value="" disabled>No employees found</option>
+                  )}
                 </select>
               </div>
 
@@ -603,6 +672,94 @@ export default function AdvanceHistory({
                 <Send size={18} /> {submittingDirect ? 'Issuing...' : 'Issue Direct Advance'}
               </button>
             </form>
+          </div>
+
+          {/* Right Column: Selected Employee Details */}
+          <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '24px', padding: '32px', justifyContent: 'flex-start' }}>
+            {selectedEmp ? (
+              <>
+                <div style={{ borderBottom: '1px solid var(--glass-border)', paddingBottom: '16px' }}>
+                  <h3 className="gradient-text" style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0 }}>
+                    👤 Employee Profile Details
+                  </h3>
+                  <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '6px', marginBottom: 0 }}>
+                    Overview of the selected employee's current salary, advance stats, and duty ledger.
+                  </p>
+                </div>
+
+                {/* Profile Picture and Type */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '20px', background: 'rgba(255, 255, 255, 0.03)', borderRadius: '16px', padding: '16px', border: '1px solid var(--glass-border)' }}>
+                  <img
+                    src={selectedEmp.imageUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150'}
+                    alt={selectedEmp.name}
+                    style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--btn-primary-bg)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                  />
+                  <div>
+                    <h4 style={{ fontSize: '1.25rem', fontWeight: 750, margin: 0, color: 'var(--text-primary)' }}>{selectedEmp.name}</h4>
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
+                      <span className="badge badge-primary" style={{ fontSize: '0.75rem', textTransform: 'capitalize' }}>
+                        {selectedEmp.employeeType || 'labourer'}
+                      </span>
+                      {selectedEmp.department && (
+                        <span className="badge" style={{ fontSize: '0.75rem', background: 'var(--glass-border)', color: 'var(--text-secondary)' }}>
+                          {selectedEmp.department}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Financial Summary */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <h4 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Financial Summary</h4>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                    <div style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-danger)', fontWeight: 600, textTransform: 'uppercase' }}>Outstanding Advance</div>
+                      <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--color-danger)', marginTop: '6px' }}>
+                        ₹{selectedEmpStats ? selectedEmpStats.balance.toLocaleString('en-IN') : '0'}
+                      </div>
+                    </div>
+                    <div style={{ background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.2)', borderRadius: '12px', padding: '16px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-success)', fontWeight: 600, textTransform: 'uppercase' }}>Monthly Salary</div>
+                      <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--color-success)', marginTop: '6px' }}>
+                        ₹{selectedEmp.monthlySalary.toLocaleString('en-IN')}
+                      </div>
+                    </div>
+                  </div>
+                  {selectedEmpStats && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', color: 'var(--text-secondary)', padding: '0 4px', marginTop: '4px' }}>
+                      <span>Gross Advances Taken: <strong>₹{selectedEmpStats.totalTaken.toLocaleString('en-IN')}</strong></span>
+                      <span>Total Recovered: <strong>₹{selectedEmpStats.totalDeducted.toLocaleString('en-IN')}</strong></span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Duty / Attendance Summary */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', borderTop: '1px solid var(--glass-border)', paddingTop: '20px' }}>
+                  <h4 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Attendance & Duty Summary (Current Month)</h4>
+                  
+                  <div style={{ background: 'rgba(99, 102, 241, 0.06)', border: '1px solid rgba(99, 102, 241, 0.15)', borderRadius: '12px', padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Total Calculated Duties</div>
+                      <div style={{ fontSize: '1.8rem', fontWeight: 850, color: 'var(--btn-primary-bg)', marginTop: '6px' }}>
+                        {totalDuties} Days
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                      <div>✅ Present: <strong>{presentCount} d</strong></div>
+                      <div>🌗 Half-day: <strong>{halfDayCount} d</strong></div>
+                      <div>🕒 Permission: <strong>{permissionCount} d</strong></div>
+                      {absentCount > 0 && <div style={{ color: 'var(--color-danger)' }}>❌ Absent: <strong>{absentCount} d</strong></div>}
+                      {sundayCount > 0 && <div>☀️ Sundays: <strong>{sundayCount} d</strong></div>}
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
+                Please select an employee to view details.
+              </div>
+            )}
           </div>
         </div>
       )}

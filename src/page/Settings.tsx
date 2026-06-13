@@ -1,4 +1,4 @@
-import { Loader, Edit3, Settings as SettingsIcon, Trash2, Clock } from 'lucide-react';
+import { Loader, Edit3, Settings as SettingsIcon, Trash2, Clock, MapPin, Bell } from 'lucide-react';
 import '../styles/Settings.css';
 
 import { useState, useEffect } from 'react';
@@ -47,10 +47,22 @@ export default function Settings({
   const [endMinute, setEndMinute] = useState('30');
   const [savingKioskHours, setSavingKioskHours] = useState(false);
 
+  // Kiosk Location state
+  const [lat, setLat] = useState('10.997544');
+  const [lng, setLng] = useState('76.878663');
+  const [savingLocation, setSavingLocation] = useState(false);
+
+  // Kiosk Alarm state
+  const [alarmHour, setAlarmHour] = useState('08');
+  const [alarmMinute, setAlarmMinute] = useState('30');
+  const [savingAlarm, setSavingAlarm] = useState(false);
+
   useEffect(() => {
     if (token) {
       fetchDepartments();
       fetchKioskHours();
+      fetchKioskLocation();
+      fetchKioskAlarm();
     }
   }, [token]);
 
@@ -71,6 +83,41 @@ export default function Settings({
       }
     } catch (err) {
       console.error('Error fetching kiosk hours:', err);
+    }
+  };
+
+  const fetchKioskLocation = async () => {
+    try {
+      const res = await fetch(`${apiBase}/settings/kiosk_location`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.value) {
+          setLat(data.value.lat.toString());
+          setLng(data.value.lng.toString());
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching kiosk location:', err);
+    }
+  };
+
+  const fetchKioskAlarm = async () => {
+    try {
+      const res = await fetch(`${apiBase}/settings/kiosk_alarm`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.value) {
+          const { alarmHour: ah, alarmMinute: am } = data.value;
+          setAlarmHour(ah.toString().padStart(2, '0'));
+          setAlarmMinute(am.toString().padStart(2, '0'));
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching kiosk alarm:', err);
     }
   };
 
@@ -115,6 +162,96 @@ export default function Settings({
       showToast('Error connecting to server', 'danger');
     } finally {
       setSavingKioskHours(false);
+    }
+  };
+
+  const handleSaveLocation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const l = parseFloat(lat);
+    const g = parseFloat(lng);
+
+    if (isNaN(l) || isNaN(g)) {
+      showToast('Please enter valid latitude and longitude', 'danger');
+      return;
+    }
+
+    setSavingLocation(true);
+    try {
+      const res = await fetch(`${apiBase}/settings/kiosk_location`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          value: { lat: l, lng: g }
+        })
+      });
+      if (res.ok) {
+        showToast('Kiosk location updated successfully!', 'success');
+      } else {
+        const data = await res.json();
+        showToast(data.message || 'Failed to update location', 'danger');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Error connecting to server', 'danger');
+    } finally {
+      setSavingLocation(false);
+    }
+  };
+
+  const handleSaveAlarm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const ah = parseInt(alarmHour, 10);
+    const am = parseInt(alarmMinute, 10);
+
+    if (isNaN(ah) || ah < 0 || ah > 23 || isNaN(am) || am < 0 || am > 59) {
+      showToast('Please enter valid hours (0-23) and minutes (0-59)', 'danger');
+      return;
+    }
+
+    setSavingAlarm(true);
+    try {
+      const res = await fetch(`${apiBase}/settings/kiosk_alarm`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          value: { alarmHour: ah, alarmMinute: am }
+        })
+      });
+      if (res.ok) {
+        showToast('Kiosk alarm time updated successfully!', 'success');
+      } else {
+        const data = await res.json();
+        showToast(data.message || 'Failed to update alarm time', 'danger');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Error connecting to server', 'danger');
+    } finally {
+      setSavingAlarm(false);
+    }
+  };
+
+  const handleGetCurrentLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setLat(position.coords.latitude.toFixed(6));
+          setLng(position.coords.longitude.toFixed(6));
+          showToast('Location fetched successfully!', 'success');
+        },
+        (error) => {
+          console.error(error);
+          showToast('Failed to get location. Please allow location access.', 'danger');
+        }
+      );
+    } else {
+      showToast('Geolocation is not supported by your browser', 'danger');
     }
   };
 
@@ -505,6 +642,112 @@ export default function Settings({
 
             <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={savingKioskHours}>
               {savingKioskHours ? <Loader className="spinner" size={16} /> : 'Save Operational Hours'}
+            </button>
+          </form>
+        </div>
+      </div>
+
+      {/* Kiosk Location & Alarm Section */}
+      <div style={{ marginTop: '48px' }}>
+        <h2 style={{ fontSize: '1.6rem', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <MapPin size={24} /> Advanced Kiosk Settings
+        </h2>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>Configure factory location for geofencing and set the default alarm time for un-punched attendance.</p>
+      </div>
+
+      <div className="settings-grid" style={{ marginBottom: '48px' }}>
+        {/* Left Card: Location */}
+        <div className="glass-panel" style={{ height: 'fit-content' }}>
+          <h3 style={{ fontSize: '1.25rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <MapPin size={18} /> Geofencing Location
+          </h3>
+          <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+            Set the latitude and longitude of the factory. The kiosk app allows punching only within 100 meters.
+          </p>
+          <form onSubmit={handleSaveLocation} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div style={{ display: 'flex', gap: '16px' }}>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label className="form-label">Latitude</label>
+                <input 
+                  type="number" step="any"
+                  className="form-input" 
+                  value={lat}
+                  onChange={e => setLat(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label className="form-label">Longitude</label>
+                <input 
+                  type="number" step="any"
+                  className="form-input" 
+                  value={lng}
+                  onChange={e => setLng(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button 
+                type="button" 
+                className="btn btn-secondary" 
+                style={{ flex: 1, fontSize: '0.85rem' }} 
+                onClick={handleGetCurrentLocation}
+              >
+                📍 Use My Location
+              </button>
+              <button 
+                type="button" 
+                className="btn btn-secondary" 
+                style={{ flex: 1, fontSize: '0.85rem' }} 
+                onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`, '_blank')}
+              >
+                🗺️ View on Map
+              </button>
+            </div>
+
+            <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={savingLocation}>
+              {savingLocation ? <Loader className="spinner" size={16} /> : 'Save Location'}
+            </button>
+          </form>
+        </div>
+
+        {/* Right Card: Alarm */}
+        <div className="glass-panel" style={{ height: 'fit-content' }}>
+          <h3 style={{ fontSize: '1.25rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Bell size={18} /> Daily App Alarm
+          </h3>
+          <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+            Set the time when the kiosk app alarm starts ringing if an employee hasn't punched.
+          </p>
+          <form onSubmit={handleSaveAlarm} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div className="form-group">
+              <label className="form-label">Alarm Time (24h)</label>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <input 
+                  type="number" min="0" max="23"
+                  className="form-input" 
+                  placeholder="HH"
+                  value={alarmHour}
+                  onChange={e => setAlarmHour(e.target.value.slice(0, 2))}
+                  required
+                  style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '1.1rem' }}
+                />
+                <span style={{ fontWeight: 'bold' }}>:</span>
+                <input 
+                  type="number" min="0" max="59"
+                  className="form-input" 
+                  placeholder="MM"
+                  value={alarmMinute}
+                  onChange={e => setAlarmMinute(e.target.value.slice(0, 2))}
+                  required
+                  style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '1.1rem' }}
+                />
+              </div>
+            </div>
+            <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={savingAlarm}>
+              {savingAlarm ? <Loader className="spinner" size={16} /> : 'Save Alarm Time'}
             </button>
           </form>
         </div>

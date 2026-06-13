@@ -16,6 +16,10 @@ interface Labour {
   name: string;
   whatsapp: string;
   monthlySalary: number;
+  workingHours?: number;
+  shiftStart?: string;
+  shiftEnd?: string;
+  gender?: string;
   imageUrl: string;
   status: string;
   employeeType?: 'labourer' | 'staff';
@@ -59,6 +63,35 @@ interface LabourersProps {
   showToast: (message: string, type?: 'success' | 'danger' | 'warning' | 'info') => void;
 }
 
+const formatTime12Hour = (time24: string) => {
+  if (!time24) return '';
+  const [h, m] = time24.split(':');
+  const hours = parseInt(h, 10);
+  const ampm = hours >= 12 ? 'pm' : 'am';
+  const hours12 = hours % 12 || 12;
+  return `${hours12}:${m} ${ampm}`;
+};
+
+const TIME_OPTIONS = (() => {
+  const options = [];
+  for (let h = 0; h < 24; h++) {
+    for (let m = 0; m < 60; m += 30) {
+      const time24 = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+      options.push({ value: time24, label: formatTime12Hour(time24) });
+    }
+  }
+  return options;
+})();
+
+const calculateHours = (start: string, end: string) => {
+  if (!start || !end) return 8;
+  const [startH, startM] = start.split(':').map(Number);
+  const [endH, endM] = end.split(':').map(Number);
+  let diff = (endH + endM / 60) - (startH + startM / 60);
+  if (diff < 0) diff += 24;
+  return Number(diff.toFixed(2));
+};
+
 export default function Labourers({
   token,
   apiBase,
@@ -77,6 +110,9 @@ export default function Labourers({
   const [labourName, setLabourName] = useState('');
   const [labourWhatsapp, setLabourWhatsapp] = useState('');
   const [labourSalary, setLabourSalary] = useState('');
+  const [shiftStart, setShiftStart] = useState('08:30');
+  const [shiftEnd, setShiftEnd] = useState('20:30');
+  const [gender, setGender] = useState('Male');
   const [labourImage, setLabourImage] = useState<File | null>(null);
   const [labourImagePreview, setLabourImagePreview] = useState('');
   const [labourImageUrl, setLabourImageUrl] = useState('');
@@ -213,6 +249,9 @@ export default function Labourers({
         name: labourName,
         whatsapp: labourWhatsapp,
         monthlySalary: parseFloat(labourSalary),
+        shiftStart,
+        shiftEnd,
+        gender,
         imageUrl: finalUrl,
         status: labourStatus,
         employeeType,
@@ -243,6 +282,9 @@ export default function Labourers({
         setLabourName('');
         setLabourWhatsapp('');
         setLabourSalary('');
+        setShiftStart('08:30');
+        setShiftEnd('20:30');
+        setGender('Male');
         setLabourImage(null);
         setLabourImagePreview('');
         setLabourImageUrl('');
@@ -299,6 +341,9 @@ export default function Labourers({
     setLabourName(lab.name);
     setLabourWhatsapp(lab.whatsapp);
     setLabourSalary(lab.monthlySalary.toString());
+    setShiftStart(lab.shiftStart || '08:30');
+    setShiftEnd(lab.shiftEnd || '20:30');
+    setGender(lab.gender || 'Male');
     setLabourImageUrl(lab.imageUrl || '');
     setLabourImagePreview(lab.imageUrl || '');
     setLabourStatus(lab.status || 'active');
@@ -327,6 +372,9 @@ export default function Labourers({
           setLabourName(''); 
           setLabourWhatsapp(''); 
           setLabourSalary(''); 
+          setShiftStart('08:30');
+          setShiftEnd('20:30');
+          setGender('Male');
           setLabourImage(null); 
           setLabourImagePreview(''); 
           setLabourImageUrl(''); 
@@ -413,12 +461,29 @@ export default function Labourers({
                 <div className="labour-card-info">
                   <h3>{lab.name}</h3>
                   <div style={{ display: 'flex', gap: '6px', marginTop: '4px', flexWrap: 'wrap' }}>
-                    <span className={`badge ${lab.status === 'active' ? 'badge-success' : 'badge-danger'}`}>
-                      {lab.status}
+                    <span className={`status-badge ${lab.status === 'active' ? 'active' : 'inactive'}`}>
+                      {lab.status.toUpperCase()}
                     </span>
-                    <span className={`badge ${lab.employeeType === 'staff' ? 'badge-warning' : 'badge-info'}`}>
-                      {lab.employeeType || 'labourer'}
+                    <span 
+                      className="status-badge"
+                      style={{
+                        background: 'rgba(99, 102, 241, 0.1)',
+                        color: 'var(--accent-secondary)'
+                      }}
+                    >
+                      {lab.employeeType?.toUpperCase() || 'LABOURER'}
                     </span>
+                    {lab.gender && (
+                      <span 
+                        className="status-badge"
+                        style={{
+                          background: 'rgba(168, 85, 247, 0.1)',
+                          color: '#a855f7'
+                        }}
+                      >
+                        {lab.gender.toUpperCase()}
+                      </span>
+                    )}
                     {lab.department && (
                       <span 
                         style={{
@@ -444,6 +509,13 @@ export default function Labourers({
                 <div className="flex-between">
                   <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Monthly Salary</span>
                   <span style={{ fontWeight: 700, color: 'var(--accent-secondary)' }}>₹{lab.monthlySalary.toLocaleString('en-IN')}</span>
+                </div>
+                <div className="flex-between">
+                  <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Shift Timings</span>
+                  <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
+                    {formatTime12Hour(lab.shiftStart || '08:30')} to {formatTime12Hour(lab.shiftEnd || '20:30')} <br />
+                    <small style={{ color: 'var(--text-secondary)', fontWeight: 'normal' }}>({calculateHours(lab.shiftStart || '08:30', lab.shiftEnd || '20:30')} hrs)</small>
+                  </span>
                 </div>
                 <div className="flex-between">
                   <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>WhatsApp No.</span>
@@ -537,6 +609,35 @@ export default function Labourers({
                 />
               </div>
 
+              <div style={{ display: 'flex', gap: '16px' }}>
+                <div className="form-group" style={{ flex: 1 }}>
+                  <label className="form-label">Shift Start Time</label>
+                  <select 
+                    className="form-input" 
+                    value={shiftStart}
+                    onChange={e => setShiftStart(e.target.value)}
+                    required
+                  >
+                    {TIME_OPTIONS.map(opt => (
+                      <option key={`start-${opt.value}`} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group" style={{ flex: 1 }}>
+                  <label className="form-label">Shift End Time</label>
+                  <select 
+                    className="form-input" 
+                    value={shiftEnd}
+                    onChange={e => setShiftEnd(e.target.value)}
+                    required
+                  >
+                    {TIME_OPTIONS.map(opt => (
+                      <option key={`end-${opt.value}`} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
               <div className="form-group">
                 <label className="form-label">Employee Type</label>
                 <select 
@@ -546,6 +647,19 @@ export default function Labourers({
                 >
                   <option value="labourer">Labourer</option>
                   <option value="staff">Staff</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Gender</label>
+                <select 
+                  className="form-input"
+                  value={gender}
+                  onChange={e => setGender(e.target.value)}
+                >
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
                 </select>
               </div>
 
@@ -709,6 +823,9 @@ export default function Labourers({
                   setLabourName('');
                   setLabourWhatsapp('');
                   setLabourSalary('');
+                  setShiftStart('08:30');
+                  setShiftEnd('20:30');
+                  setGender('Male');
                   setLabourImage(null);
                   setLabourImagePreview('');
                   setLabourImageUrl('');

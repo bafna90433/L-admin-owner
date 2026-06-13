@@ -69,19 +69,26 @@ interface AdvanceRequest {
   labourId: {
     _id: string;
     name: string;
-    imageUrl: string;
-    monthlySalary: number;
-    whatsapp: string;
+    imageUrl?: string;
+    monthlySalary?: number;
+    whatsapp?: string;
   };
   amount: number;
+  deductedAmount?: number;
   date: string;
   reason: string;
   status: 'pending' | 'approved' | 'rejected';
-  requestedBy: {
+  requestedBy?: {
+    _id?: string;
     name: string;
+    username?: string;
+    role?: string;
   };
   approvedBy?: {
+    _id?: string;
     name: string;
+    username?: string;
+    role?: string;
   };
 }
 

@@ -7,6 +7,7 @@ interface Labour {
   name: string;
   whatsapp: string;
   monthlySalary: number;
+  workingHours?: number;
   imageUrl: string;
   employeeType?: 'labourer' | 'staff';
   department?: string;
@@ -262,8 +263,9 @@ export default function Salary({
           }
         }
 
-        // 8 hours standard workday. Weight = 1 - (hours / 8)
-        const permissionPaidContribution = permissions - (permissionHoursTotal / 8);
+        // Use staff's assigned workingHours, defaulting to 8
+        const shiftHours = lab.workingHours || 8;
+        const permissionPaidContribution = permissions - (permissionHoursTotal / shiftHours);
         const totalPaidDays = Number((present + (halfDay * 0.5) + sundays + permissionPaidContribution).toFixed(2));
         const dailyRate = lab.monthlySalary / daysInMonth;
         const grossSalary = dailyRate * totalPaidDays;
