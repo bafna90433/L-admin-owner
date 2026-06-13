@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { History, Calendar, ArrowDownCircle, ArrowUpCircle } from 'lucide-react';
+import { History, Calendar, ArrowDownCircle, ArrowUpCircle, AlertTriangle, Send } from 'lucide-react';
 
 interface Labour {
   _id: string;
@@ -55,6 +55,7 @@ interface AdvanceHistoryProps {
   labours: Labour[];
   advances: AdvanceRequest[];
   expenses: CashTx[];
+  showToast: (message: string, type?: 'success' | 'danger' | 'warning' | 'info') => void;
 }
 
 export default function AdvanceHistory({
@@ -62,11 +63,96 @@ export default function AdvanceHistory({
   apiBase,
   labours,
   advances,
-  expenses
+  expenses,
+  showToast
 }: AdvanceHistoryProps) {
   const [selectedLabourId, setSelectedLabourId] = useState<string>('all');
   const [sourceFilter, setSourceFilter] = useState<'all' | 'owner' | 'staff'>('all');
   const [localExpenses, setLocalExpenses] = useState<CashTx[]>(expenses || []);
+
+  const [activeSubTab, setActiveSubTab] = useState<'summary' | 'ledger' | 'delay-alerts'>('summary');
+
+  // Form states for Salary Delay notice
+  const [delayDays, setDelayDays] = useState<number>(5);
+  const [delayMonth, setDelayMonth] = useState<number>(new Date().getMonth() + 1);
+  const [delayYear, setDelayYear] = useState<number>(new Date().getFullYear());
+  
+  const getDefaultExpectedDate = (days: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    return d.toISOString().split('T')[0];
+  };
+  const [expectedDate, setExpectedDate] = useState<string>(getDefaultExpectedDate(5));
+  const [delayReason, setDelayReason] = useState<string>('');
+  const [submittingNotice, setSubmittingNotice] = useState<boolean>(false);
+  const [delayNotices, setDelayNotices] = useState<any[]>([]);
+  const [loadingNotices, setLoadingNotices] = useState<boolean>(false);
+
+  // Fetch salary delay notices on mount
+  useEffect(() => {
+    if (token) {
+      fetchDelayNotices();
+    }
+  }, [token]);
+
+  const fetchDelayNotices = async () => {
+    setLoadingNotices(true);
+    try {
+      const res = await fetch(`${apiBase}/reminders`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // Filter only salary-delay type notices
+        const filtered = data.filter((rem: any) => rem.type === 'salary-delay');
+        setDelayNotices(filtered);
+      }
+    } catch (err) {
+      console.error('Error fetching delay notices:', err);
+    } finally {
+      setLoadingNotices(false);
+    }
+  };
+
+  const handleCreateDelayNotice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!delayDays || !expectedDate) return;
+    setSubmittingNotice(true);
+
+    const monthName = new Date(0, delayMonth - 1).toLocaleString('default', { month: 'long' });
+    const formattedExpDate = new Date(expectedDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    
+    // Construct the standard message
+    const message = `⚠️ Salary for ${monthName} ${delayYear} is delayed by ${delayDays} days. It will be paid around ${formattedExpDate}. If anyone needs an advance, please apply now.${delayReason ? ` Reason: ${delayReason}` : ''}`;
+
+    try {
+      const res = await fetch(`${apiBase}/reminders`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          message,
+          targetDate: expectedDate,
+          type: 'salary-delay'
+        })
+      });
+
+      if (res.ok) {
+        setDelayReason('');
+        showToast('Salary delay notice broadcasted successfully!', 'success');
+        fetchDelayNotices();
+      } else {
+        showToast('Failed to broadcast salary delay notice', 'danger');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Error connecting to server', 'danger');
+    } finally {
+      setSubmittingNotice(false);
+    }
+  };
 
   // Fetch full expenses history to get all past salary deductions accurately
   useEffect(() => {
@@ -190,9 +276,7 @@ export default function AdvanceHistory({
 
   const selectedLabour = labours.find(l => l._id === selectedLabourId);
   const ledgerData = getEmployeeLedger(selectedLabourId);
-  const stats = selectedLabourId !== 'all' ? getOutstandingStats(selectedLabourId) : null;
-
-  return (
+  const stats = selectedLabourId !== 'all' ? getOutstandingStats(selectedLabourId) :  return (
     <div className="advance-history-page-container animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
       <div className="flex-between">
         <div>
@@ -200,45 +284,81 @@ export default function AdvanceHistory({
           <p style={{ color: 'var(--text-secondary)' }}>Track running outstanding advance balances and historical deductions for all employees.</p>
         </div>
 
-        {/* Filter selectors */}
+        {/* Filter selectors (only show if matching the active sub-tab) */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          {/* Employee Filter */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Employee:</span>
-            <select
-              className="form-input"
-              value={selectedLabourId}
-              onChange={e => setSelectedLabourId(e.target.value)}
-              style={{ width: '200px', fontWeight: 600 }}
-            >
-              <option value="all">📁 All Employees Summary</option>
-              {labours.map(lab => (
-                <option key={lab._id} value={lab._id}>
-                  👤 {lab.name} ({lab.employeeType || 'labourer'})
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Employee Filter - only show in Ledger tab */}
+          {activeSubTab === 'ledger' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Employee:</span>
+              <select
+                className="form-input"
+                value={selectedLabourId}
+                onChange={e => setSelectedLabourId(e.target.value)}
+                style={{ width: '200px', fontWeight: 600 }}
+              >
+                {labours.map(lab => (
+                  <option key={lab._id} value={lab._id}>
+                    👤 {lab.name} ({lab.employeeType || 'labourer'})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
-          {/* Source Filter */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Source:</span>
-            <select
-              className="form-input"
-              value={sourceFilter}
-              onChange={e => setSourceFilter(e.target.value as 'all' | 'owner' | 'staff')}
-              style={{ width: '160px', fontWeight: 600 }}
-            >
-              <option value="all">📁 All Sources</option>
-              <option value="owner">👑 Direct Owner</option>
-              <option value="staff">👤 Staff Approval</option>
-            </select>
-          </div>
+          {/* Source Filter - only show in Summary tab */}
+          {activeSubTab === 'summary' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>Source:</span>
+              <select
+                className="form-input"
+                value={sourceFilter}
+                onChange={e => setSourceFilter(e.target.value as 'all' | 'owner' | 'staff')}
+                style={{ width: '160px', fontWeight: 600 }}
+              >
+                <option value="all">📁 All Sources</option>
+                <option value="owner">👑 Direct Owner</option>
+                <option value="staff">👤 Staff Approval</option>
+              </select>
+            </div>
+          )}
         </div>
       </div>
 
+      {/* Beautiful Sub tab Navigation */}
+      <div style={{ display: 'flex', gap: '12px', borderBottom: '1px solid var(--glass-border)', paddingBottom: '8px', marginBottom: '8px' }}>
+        <button
+          onClick={() => {
+            setActiveSubTab('summary');
+            setSelectedLabourId('all');
+          }}
+          className={`btn ${activeSubTab === 'summary' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ padding: '8px 16px', borderRadius: '8px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}
+        >
+          📊 Outstanding Summary
+        </button>
+        <button
+          onClick={() => {
+            setActiveSubTab('ledger');
+            if (selectedLabourId === 'all' && labours.length > 0) {
+              setSelectedLabourId(labours[0]._id);
+            }
+          }}
+          className={`btn ${activeSubTab === 'ledger' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ padding: '8px 16px', borderRadius: '8px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}
+        >
+          👤 Individual Ledgers
+        </button>
+        <button
+          onClick={() => setActiveSubTab('delay-alerts')}
+          className={`btn ${activeSubTab === 'delay-alerts' ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ padding: '8px 16px', borderRadius: '8px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}
+        >
+          📢 Salary Delay Alerts
+        </button>
+      </div>
+
       {/* Summary View (All Employees) */}
-      {selectedLabourId === 'all' && (
+      {activeSubTab === 'summary' && (
         <div className="glass-panel">
           <h3 className="gradient-text" style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '16px' }}>Outstanding Advance Summary</h3>
           <div className="table-container">
@@ -306,7 +426,10 @@ export default function AdvanceHistory({
                         </td>
                         <td style={{ textAlign: 'center' }}>
                           <button
-                            onClick={() => setSelectedLabourId(lab._id)}
+                            onClick={() => {
+                              setSelectedLabourId(lab._id);
+                              setActiveSubTab('ledger');
+                            }}
                             className="btn btn-secondary"
                             style={{ padding: '6px 12px', fontSize: '0.8rem' }}
                           >
@@ -324,7 +447,7 @@ export default function AdvanceHistory({
       )}
 
       {/* Individual Employee Ledger View */}
-      {selectedLabourId !== 'all' && selectedLabour && stats && (
+      {activeSubTab === 'ledger' && selectedLabour && stats && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           
           {/* Stats Breakdown cards */}
@@ -352,7 +475,10 @@ export default function AdvanceHistory({
                 <History size={18} /> Running Ledger Statement - {selectedLabour.name}
               </h3>
               <button
-                onClick={() => setSelectedLabourId('all')}
+                onClick={() => {
+                  setSelectedLabourId('all');
+                  setActiveSubTab('summary');
+                }}
                 className="btn btn-secondary"
                 style={{ padding: '6px 12px', fontSize: '0.8rem' }}
               >
@@ -438,7 +564,145 @@ export default function AdvanceHistory({
               </table>
             </div>
           </div>
+        </div>
+      )}
 
+      {/* Salary Delay Broadcast & History View */}
+      {activeSubTab === 'delay-alerts' && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
+          {/* Post notice card */}
+          <div className="glass-panel" style={{ height: 'fit-content', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <h3 className="gradient-text" style={{ fontSize: '1.25rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              📢 Broadcast Salary Delay Notice
+            </h3>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>
+              Announce a salary payout delay to all office staff and workers, prompting them to request advances if needed.
+            </p>
+
+            <form onSubmit={handleCreateDelayNotice} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="form-group">
+                  <label className="form-label" style={{ fontSize: '0.8rem' }}>Salary Month</label>
+                  <select
+                    className="form-input"
+                    value={delayMonth}
+                    onChange={e => setDelayMonth(parseInt(e.target.value, 10))}
+                  >
+                    {Array.from({ length: 12 }, (_, i) => (
+                      <option key={i + 1} value={i + 1}>
+                        {new Date(0, i).toLocaleString('default', { month: 'long' })}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label" style={{ fontSize: '0.8rem' }}>Salary Year</label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    value={delayYear}
+                    onChange={e => setDelayYear(parseInt(e.target.value, 10))}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="form-group">
+                  <label className="form-label" style={{ fontSize: '0.8rem' }}>Delay Days</label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    value={delayDays}
+                    onChange={e => {
+                      const days = parseInt(e.target.value, 10) || 0;
+                      setDelayDays(days);
+                      setExpectedDate(getDefaultExpectedDate(days));
+                    }}
+                    min={1}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label" style={{ fontSize: '0.8rem' }}>Expected Payout Date</label>
+                  <input
+                    type="date"
+                    className="form-input"
+                    value={expectedDate}
+                    onChange={e => setExpectedDate(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" style={{ fontSize: '0.8rem' }}>Additional Note / Reason (Optional)</label>
+                <textarea
+                  className="form-input"
+                  placeholder="e.g. Due to bank holiday weekend / cash flow clearance delay..."
+                  value={delayReason}
+                  onChange={e => setDelayReason(e.target.value)}
+                  style={{ minHeight: '80px', resize: 'vertical' }}
+                />
+              </div>
+
+              {/* Preview Box */}
+              <div style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px dashed rgba(239, 68, 68, 0.3)', borderRadius: '8px', padding: '12px', marginTop: '4px' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--color-danger)', display: 'block', marginBottom: '4px' }}>
+                  Live Preview of Notice:
+                </span>
+                <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0, lineHeight: '1.4' }}>
+                  ⚠️ Salary for {new Date(0, delayMonth - 1).toLocaleString('default', { month: 'long' })} {delayYear} is delayed by {delayDays} days. It will be paid around {new Date(expectedDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}. If anyone needs an advance, please apply now.{delayReason ? ` Reason: ${delayReason}` : ''}
+                </p>
+              </div>
+
+              <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }} disabled={submittingNotice}>
+                <Send size={16} /> {submittingNotice ? 'Broadcasting...' : 'Broadcast Notice to Staff'}
+              </button>
+            </form>
+          </div>
+
+          {/* Notice history card */}
+          <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <h3 className="gradient-text" style={{ fontSize: '1.25rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              📢 Broadcast History
+            </h3>
+
+            {loadingNotices ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>Loading history...</div>
+            ) : delayNotices.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
+                No salary delay notices broadcasted yet.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto', maxHeight: '480px', paddingRight: '4px' }}>
+                {delayNotices.map((notice) => (
+                  <div key={notice._id} style={{ background: 'var(--glass-bg)', border: '1px solid var(--glass-border)', borderRadius: '8px', padding: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                      <span className="badge badge-danger" style={{ fontSize: '0.75rem', fontWeight: 700 }}>
+                        Expected Payout: {new Date(notice.targetDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </span>
+                      <span className={`badge ${notice.status === 'acknowledged' ? 'badge-success' : 'badge-warning'}`} style={{ fontSize: '0.7rem', textTransform: 'uppercase' }}>
+                        {notice.status}
+                      </span>
+                    </div>
+
+                    <p style={{ fontSize: '0.92rem', fontWeight: 600, margin: '8px 0', color: 'var(--text-primary)', lineHeight: '1.4' }}>
+                      {notice.message}
+                    </p>
+
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '12px', borderTop: '1px solid rgba(0,0,0,0.05)', paddingTop: '8px' }}>
+                      Broadcasted on {new Date(notice.createdAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      {notice.status === 'acknowledged' && notice.acknowledgedBy && (
+                        <div style={{ marginTop: '4px', color: 'var(--color-success)', fontWeight: 600 }}>
+                          ✅ Acknowledged by {notice.acknowledgedBy.name}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

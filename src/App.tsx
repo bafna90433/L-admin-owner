@@ -414,6 +414,7 @@ export default function App() {
             labours={labours}
             advances={advances}
             expenses={expenses}
+            showToast={showToast}
           />
         );
       case 'reminders':
