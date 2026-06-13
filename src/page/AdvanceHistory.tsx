@@ -202,41 +202,58 @@ export default function AdvanceHistory({
                 </tr>
               </thead>
               <tbody>
-                {labours.map(lab => {
-                  const s = getOutstandingStats(lab._id);
-                  return (
-                    <tr key={lab._id}>
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <img
-                            src={lab.imageUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=50'}
-                            alt={lab.name}
-                            style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }}
-                          />
-                          <div>
-                            <span style={{ fontWeight: 600, display: 'block' }}>{lab.name}</span>
-                            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{lab.employeeType || 'labourer'}</span>
+                {(() => {
+                  const activeLabours = labours.filter(lab => {
+                    const s = getOutstandingStats(lab._id);
+                    return s.balance > 0;
+                  });
+
+                  if (activeLabours.length === 0) {
+                    return (
+                      <tr>
+                        <td colSpan={6} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-secondary)' }}>
+                          No employees with outstanding advance balance.
+                        </td>
+                      </tr>
+                    );
+                  }
+
+                  return activeLabours.map(lab => {
+                    const s = getOutstandingStats(lab._id);
+                    return (
+                      <tr key={lab._id}>
+                        <td>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <img
+                              src={lab.imageUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=50'}
+                              alt={lab.name}
+                              style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover' }}
+                            />
+                            <div>
+                              <span style={{ fontWeight: 600, display: 'block' }}>{lab.name}</span>
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{lab.employeeType || 'labourer'}</span>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td>₹{lab.monthlySalary.toLocaleString('en-IN')}</td>
-                      <td style={{ textAlign: 'right', fontWeight: 600 }}>₹{s.totalTaken.toLocaleString('en-IN')}</td>
-                      <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--color-success)' }}>₹{s.totalDeducted.toLocaleString('en-IN')}</td>
-                      <td style={{ textAlign: 'right', fontWeight: 750, color: s.balance > 0 ? 'var(--color-danger)' : 'var(--text-muted)' }}>
-                        ₹{s.balance.toLocaleString('en-IN')}
-                      </td>
-                      <td style={{ textAlign: 'center' }}>
-                        <button
-                          onClick={() => setSelectedLabourId(lab._id)}
-                          className="btn btn-secondary"
-                          style={{ padding: '6px 12px', fontSize: '0.8rem' }}
-                        >
-                          View Ledger
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
+                        </td>
+                        <td>₹{lab.monthlySalary.toLocaleString('en-IN')}</td>
+                        <td style={{ textAlign: 'right', fontWeight: 600 }}>₹{s.totalTaken.toLocaleString('en-IN')}</td>
+                        <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--color-success)' }}>₹{s.totalDeducted.toLocaleString('en-IN')}</td>
+                        <td style={{ textAlign: 'right', fontWeight: 750, color: s.balance > 0 ? 'var(--color-danger)' : 'var(--text-muted)' }}>
+                          ₹{s.balance.toLocaleString('en-IN')}
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <button
+                            onClick={() => setSelectedLabourId(lab._id)}
+                            className="btn btn-secondary"
+                            style={{ padding: '6px 12px', fontSize: '0.8rem' }}
+                          >
+                            View Ledger
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  });
+                })()}
               </tbody>
             </table>
           </div>
