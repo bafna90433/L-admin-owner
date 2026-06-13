@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Loader, Save } from 'lucide-react';
+import { Loader, Save, Clock } from 'lucide-react';
 import '../styles/Attendance.css';
 
 interface Labour {
@@ -18,6 +18,13 @@ interface AttendanceRecord {
   status: 'present' | 'half-day' | 'absent' | 'sunday' | 'permission';
   permissionHours?: number;
   remarks?: string;
+  checkIn?: string;
+  checkOut?: string;
+  punches?: string[];
+  activeHours?: number;
+  awayHours?: number;
+  isPermissionApproved?: boolean;
+  overtimeHours?: number;
 }
 
 interface AttendanceProps {
@@ -35,9 +42,14 @@ export default function Attendance({
 }: AttendanceProps) {
   const [attYear, setAttYear] = useState(new Date().getFullYear());
   const [attMonth, setAttMonth] = useState(new Date().getMonth() + 1); // 1-indexed
-  const [attendanceGrid, setAttendanceGrid] = useState<Record<string, Record<number, { status: string; permissionHours?: number; remarks: string }>>>({});
+  const [attendanceGrid, setAttendanceGrid] = useState<Record<string, Record<number, AttendanceRecord>>>({});
   const [attLoading, setAttLoading] = useState(false);
   const [attSaving, setAttSaving] = useState(false);
+  const [selectedBiometric, setSelectedBiometric] = useState<{
+    labourName: string;
+    day: number;
+    record: AttendanceRecord;
+  } | null>(null);
 
   useEffect(() => {
     if (token) {
@@ -54,19 +66,15 @@ export default function Attendance({
       if (res.ok) {
         const data: AttendanceRecord[] = await res.json();
         
-        // Convert array to grid lookup: grid[labourId][day] = { status, permissionHours, remarks }
-        const grid: Record<string, Record<number, { status: string; permissionHours?: number; remarks: string }>> = {};
+        // Convert array to grid lookup: grid[labourId][day] = record
+        const grid: Record<string, Record<number, AttendanceRecord>> = {};
         data.forEach(rec => {
           const date = new Date(rec.date);
           const day = date.getDate();
           if (!grid[rec.labourId]) {
             grid[rec.labourId] = {};
           }
-          grid[rec.labourId][day] = { 
-            status: rec.status, 
-            permissionHours: rec.permissionHours || 0,
-            remarks: rec.remarks || '' 
-          };
+          grid[rec.labourId][day] = rec;
         });
         setAttendanceGrid(grid);
       } else {
@@ -147,6 +155,44 @@ export default function Attendance({
       showToast('Error connecting to server', 'danger');
     } finally {
       setAttSaving(false);
+    }
+  };
+
+  const handleTogglePermission = async (recordId: string, approve: boolean) => {
+    try {
+      const res = await fetch(`${apiBase}/attendance/${recordId}/permission`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ isApproved: approve })
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const updatedRecord = json.record;
+        
+        // Update grid state
+        setAttendanceGrid(prev => {
+          const grid = { ...prev };
+          const date = new Date(updatedRecord.date);
+          const day = date.getDate();
+          const labourId = updatedRecord.labourId;
+          
+          if (!grid[labourId]) grid[labourId] = {};
+          grid[labourId][day] = updatedRecord;
+          return grid;
+        });
+
+        // Update active biometric details state to refresh modal UI
+        setSelectedBiometric(prev => prev ? { ...prev, record: updatedRecord } : null);
+        showToast(`Permission ${approve ? 'approved' : 'removed'} successfully!`, 'success');
+      } else {
+        showToast('Failed to update permission status', 'danger');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Error connecting to server', 'danger');
     }
   };
 
@@ -240,36 +286,52 @@ export default function Attendance({
                     {dayColumns.map(day => {
                       const date = new Date(attYear, attMonth - 1, day);
                       const isSunday = date.getDay() === 0;
-                      const cell = attendanceGrid[lab._id]?.[day] || { status: isSunday ? 'sunday' : 'absent', permissionHours: 0, remarks: '' };
+                      const cell = attendanceGrid[lab._id]?.[day] || { status: isSunday ? 'sunday' : 'absent', permissionHours: 0, remarks: '' } as AttendanceRecord;
 
                       return (
                         <td key={day} className="attendance-day-cell">
-                          <select
-                            value={cell.status}
-                            onChange={e => handleAttendanceChange(lab._id, day, e.target.value)}
-                            className="attendance-status-select"
-                            style={{
-                              background: 
-                                cell.status === 'present' ? 'rgba(16, 185, 129, 0.2)' :
-                                cell.status === 'half-day' ? 'rgba(245, 158, 11, 0.2)' :
-                                cell.status === 'sunday' ? 'rgba(99, 102, 241, 0.2)' :
-                                cell.status === 'permission' ? 'rgba(165, 180, 252, 0.3)' :
-                                'rgba(239, 68, 68, 0.1)',
-                              color:
-                                cell.status === 'present' ? 'var(--color-success)' :
-                                cell.status === 'half-day' ? 'var(--color-warning)' :
-                                cell.status === 'sunday' ? 'var(--accent-primary)' :
-                                cell.status === 'permission' ? '#4f46e5' :
-                                'var(--color-danger)'
-                            }}
-                          >
-                            <option value="present">P</option>
-                            <option value="half-day">H</option>
-                            <option value="absent">A</option>
-                            <option value="sunday">SUN</option>
-                            <option value="permission">PRM</option>
-                          </select>
-                          {cell.status === 'permission' && (
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                            <select
+                              value={cell.status}
+                              onChange={e => handleAttendanceChange(lab._id, day, e.target.value)}
+                              className="attendance-status-select"
+                              style={{
+                                background: 
+                                  cell.status === 'present' ? 'rgba(16, 185, 129, 0.2)' :
+                                  cell.status === 'half-day' ? 'rgba(245, 158, 11, 0.2)' :
+                                  cell.status === 'sunday' ? 'rgba(99, 102, 241, 0.2)' :
+                                  cell.status === 'permission' ? 'rgba(165, 180, 252, 0.3)' :
+                                  'rgba(239, 68, 68, 0.1)',
+                                color:
+                                  cell.status === 'present' ? 'var(--color-success)' :
+                                  cell.status === 'half-day' ? 'var(--color-warning)' :
+                                  cell.status === 'sunday' ? 'var(--accent-primary)' :
+                                  cell.status === 'permission' ? '#4f46e5' :
+                                  'var(--color-danger)'
+                              }}
+                            >
+                              <option value="present">P</option>
+                              <option value="half-day">H</option>
+                              <option value="absent">A</option>
+                              <option value="sunday">SUN</option>
+                              <option value="permission">PRM</option>
+                            </select>
+                            {cell.checkIn && (
+                              <button 
+                                type="button"
+                                onClick={() => setSelectedBiometric({ labourName: lab.name, day, record: cell })}
+                                title="Show Biometric Punch Times"
+                                style={{ 
+                                  background: 'transparent', border: 'none', padding: 0, cursor: 'pointer',
+                                  color: cell.isPermissionApproved ? '#818cf8' : 'var(--text-secondary)',
+                                  display: 'flex', alignItems: 'center'
+                                }}
+                              >
+                                <Clock size={14} />
+                              </button>
+                            )}
+                          </div>
+                          {cell.status === 'permission' && !cell.checkIn && (
                             <input 
                               type="number"
                               min={1}
@@ -297,6 +359,122 @@ export default function Attendance({
           </div>
         )}
       </div>
+
+      {selectedBiometric && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200
+        }}>
+          <div className="glass-panel glass-panel-glow" style={{ width: '100%', maxWidth: '440px', padding: '24px 32px', borderRadius: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 className="gradient-text" style={{ fontSize: '1.35rem', fontWeight: 800 }}>Biometric Swipes</h3>
+              <button onClick={() => setSelectedBiometric(null)} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.8rem' }}>Close</button>
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', color: 'var(--text-secondary)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--glass-border)', paddingBottom: '8px' }}>
+                <span style={{ fontWeight: 600 }}>Employee:</span>
+                <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{selectedBiometric.labourName}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--glass-border)', paddingBottom: '8px' }}>
+                <span style={{ fontWeight: 600 }}>Date:</span>
+                <span style={{ color: 'var(--text-primary)' }}>{selectedBiometric.day} {new Date(attYear, attMonth - 1).toLocaleString('default', { month: 'long' })}, {attYear}</span>
+              </div>
+              
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--glass-border)', paddingBottom: '8px' }}>
+                <span style={{ fontWeight: 600 }}>First In:</span>
+                <span style={{ color: 'var(--color-success)', fontWeight: 700 }}>
+                  {selectedBiometric.record.checkIn ? new Date(selectedBiometric.record.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--glass-border)', paddingBottom: '8px' }}>
+                <span style={{ fontWeight: 600 }}>Last Out:</span>
+                <span style={{ color: 'var(--color-danger)', fontWeight: 700 }}>
+                  {selectedBiometric.record.checkOut ? new Date(selectedBiometric.record.checkOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--glass-border)', paddingBottom: '8px' }}>
+                <span style={{ fontWeight: 600 }}>Active Hours:</span>
+                <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{selectedBiometric.record.activeHours?.toFixed(1) || '0.0'} hrs</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--glass-border)', paddingBottom: '8px' }}>
+                <span style={{ fontWeight: 600 }}>Away Hours:</span>
+                <span style={{ color: 'var(--color-warning)', fontWeight: 700 }}>{selectedBiometric.record.awayHours?.toFixed(1) || '0.0'} hrs</span>
+              </div>
+
+              {selectedBiometric.record.overtimeHours !== undefined && selectedBiometric.record.overtimeHours > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--glass-border)', paddingBottom: '8px' }}>
+                  <span style={{ fontWeight: 600 }}>Overtime:</span>
+                  <span style={{ color: '#c084fc', fontWeight: 700 }}>{selectedBiometric.record.overtimeHours.toFixed(1)} hrs</span>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--glass-border)', paddingBottom: '8px' }}>
+                <span style={{ fontWeight: 600 }}>Current Status:</span>
+                <span style={{ 
+                  color: selectedBiometric.record.status === 'present' ? 'var(--color-success)' : 'var(--color-warning)',
+                  fontWeight: 700, textTransform: 'capitalize' 
+                }}>
+                  {selectedBiometric.record.status}
+                </span>
+              </div>
+
+              {/* All punches list */}
+              <div style={{ marginTop: '12px' }}>
+                <span style={{ fontWeight: 600, fontSize: '0.85rem', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>All Punch Logs:</span>
+                <div style={{ 
+                  background: 'rgba(255,255,255,0.03)', border: '1px solid var(--glass-border)', 
+                  borderRadius: '8px', padding: '8px 12px', marginTop: '6px', maxHeight: '100px', overflowY: 'auto',
+                  display: 'flex', flexDirection: 'column', gap: '4px' 
+                }}>
+                  {selectedBiometric.record.punches?.map((p, idx) => (
+                    <div key={idx} style={{ fontSize: '0.85rem', color: 'var(--text-primary)', display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Punch #{idx + 1}</span>
+                      <span>{new Date(p).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+                    </div>
+                  ))}
+                  {(!selectedBiometric.record.punches || selectedBiometric.record.punches.length === 0) && (
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>No logs recorded.</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Permission Action Panel */}
+              {selectedBiometric.record.awayHours !== undefined && selectedBiometric.record.awayHours > 0 && selectedBiometric.record._id && (
+                <div style={{ 
+                  marginTop: '16px', background: 'rgba(129, 140, 248, 0.1)', border: '1px dashed rgba(129, 140, 248, 0.3)',
+                  borderRadius: '8px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px'
+                }}>
+                  <p style={{ fontSize: '0.8rem', color: '#a5b4fc', lineHeight: 1.4 }}>
+                    Employee was away for <b>{selectedBiometric.record.awayHours.toFixed(1)} hours</b>. Approve this outing as permission to deduct it from their required 8h shift?
+                  </p>
+                  
+                  {selectedBiometric.record.isPermissionApproved ? (
+                    <button 
+                      type="button"
+                      onClick={() => handleTogglePermission(selectedBiometric.record._id!, false)}
+                      className="btn btn-secondary" 
+                      style={{ background: 'rgba(239, 68, 68, 0.2)', color: 'var(--color-danger)', border: 'none', padding: '8px 12px', width: '100%', fontSize: '0.85rem', fontWeight: 'bold' }}
+                    >
+                      Remove Approved Permission
+                    </button>
+                  ) : (
+                    <button 
+                      type="button"
+                      onClick={() => handleTogglePermission(selectedBiometric.record._id!, true)}
+                      className="btn btn-primary" 
+                      style={{ background: '#4f46e5', color: '#fff', border: 'none', padding: '8px 12px', width: '100%', fontSize: '0.85rem', fontWeight: 'bold' }}
+                    >
+                      Approve Permission
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
