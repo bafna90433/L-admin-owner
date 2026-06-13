@@ -1,4 +1,4 @@
-import { Loader, Edit3, Settings as SettingsIcon, Trash2 } from 'lucide-react';
+import { Loader, Edit3, Settings as SettingsIcon, Trash2, Clock } from 'lucide-react';
 import '../styles/Settings.css';
 
 import { useState, useEffect } from 'react';
@@ -40,11 +40,83 @@ export default function Settings({
   const [newDeptName, setNewDeptName] = useState('');
   const [addingDept, setAddingDept] = useState(false);
 
+  // Kiosk operational hours state
+  const [startHour, setStartHour] = useState('08');
+  const [startMinute, setStartMinute] = useState('30');
+  const [endHour, setEndHour] = useState('20');
+  const [endMinute, setEndMinute] = useState('30');
+  const [savingKioskHours, setSavingKioskHours] = useState(false);
+
   useEffect(() => {
     if (token) {
       fetchDepartments();
+      fetchKioskHours();
     }
   }, [token]);
+
+  const fetchKioskHours = async () => {
+    try {
+      const res = await fetch(`${apiBase}/settings/kiosk_hours`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.value) {
+          const { startHour: sh, startMinute: sm, endHour: eh, endMinute: em } = data.value;
+          setStartHour(sh.toString().padStart(2, '0'));
+          setStartMinute(sm.toString().padStart(2, '0'));
+          setEndHour(eh.toString().padStart(2, '0'));
+          setEndMinute(em.toString().padStart(2, '0'));
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching kiosk hours:', err);
+    }
+  };
+
+  const handleSaveKioskHours = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const sh = parseInt(startHour, 10);
+    const sm = parseInt(startMinute, 10);
+    const eh = parseInt(endHour, 10);
+    const em = parseInt(endMinute, 10);
+
+    if (isNaN(sh) || sh < 0 || sh > 23 || isNaN(sm) || sm < 0 || sm > 59 ||
+        isNaN(eh) || eh < 0 || eh > 23 || isNaN(em) || em < 0 || em > 59) {
+      showToast('Please enter valid hours (0-23) and minutes (0-59)', 'danger');
+      return;
+    }
+
+    setSavingKioskHours(true);
+    try {
+      const res = await fetch(`${apiBase}/settings/kiosk_hours`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          value: {
+            startHour: sh,
+            startMinute: sm,
+            endHour: eh,
+            endMinute: em
+          }
+        })
+      });
+      if (res.ok) {
+        showToast('Kiosk operational hours updated successfully!', 'success');
+      } else {
+        const data = await res.json();
+        showToast(data.message || 'Failed to update operational hours', 'danger');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Error connecting to server', 'danger');
+    } finally {
+      setSavingKioskHours(false);
+    }
+  };
 
   const fetchDepartments = async () => {
     try {
@@ -324,6 +396,115 @@ export default function Settings({
 
             <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={addingDept}>
               {addingDept ? <Loader className="spinner" size={16} /> : 'Create Department'}
+            </button>
+          </form>
+        </div>
+      </div>
+
+      {/* Kiosk Operational Hours Section */}
+      <div style={{ marginTop: '48px' }}>
+        <h2 style={{ fontSize: '1.6rem', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <Clock size={24} /> Kiosk Operational Hours
+        </h2>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>Configure the working hours for the attendance kiosk app. Outside of these hours, biometric scans will be blocked.</p>
+      </div>
+
+      <div className="settings-grid" style={{ marginBottom: '48px' }}>
+        {/* Left Card: Information & Helper */}
+        <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <h3 style={{ fontSize: '1.25rem' }}>Timing Restrictions</h3>
+          <p style={{ fontSize: '0.95rem', lineHeight: '1.6', color: 'var(--text-secondary)' }}>
+            Attendance registration is locked outside the configured operational window.
+            This prevents employees from registering attendance too early or marking attendance after work hours have ended.
+          </p>
+          <div style={{
+            background: 'rgba(79, 70, 229, 0.04)',
+            border: '1px solid var(--glass-border)',
+            borderRadius: '12px',
+            padding: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px'
+          }}>
+            <div style={{
+              background: 'var(--accent-primary)',
+              borderRadius: '50%',
+              width: '10px',
+              height: '10px',
+              boxShadow: '0 0 8px var(--accent-primary)'
+            }} />
+            <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+              Active Window: {startHour}:{startMinute} to {endHour}:{endMinute} (24h format)
+            </span>
+          </div>
+        </div>
+
+        {/* Right Card: Form Input */}
+        <div className="glass-panel" style={{ height: 'fit-content' }}>
+          <h3 style={{ fontSize: '1.25rem', marginBottom: '16px' }}>Set Kiosk Timing</h3>
+          <form onSubmit={handleSaveKioskHours} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div style={{ display: 'flex', gap: '16px' }}>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label className="form-label">Start Time</label>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <input 
+                    type="number" 
+                    min="0" 
+                    max="23"
+                    className="form-input" 
+                    placeholder="HH"
+                    value={startHour}
+                    onChange={e => setStartHour(e.target.value.slice(0, 2))}
+                    required
+                    style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '1.1rem' }}
+                  />
+                  <span style={{ fontWeight: 'bold' }}>:</span>
+                  <input 
+                    type="number" 
+                    min="0" 
+                    max="59"
+                    className="form-input" 
+                    placeholder="MM"
+                    value={startMinute}
+                    onChange={e => setStartMinute(e.target.value.slice(0, 2))}
+                    required
+                    style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '1.1rem' }}
+                  />
+                </div>
+              </div>
+
+              <div className="form-group" style={{ flex: 1 }}>
+                <label className="form-label">End Time</label>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <input 
+                    type="number" 
+                    min="0" 
+                    max="23"
+                    className="form-input" 
+                    placeholder="HH"
+                    value={endHour}
+                    onChange={e => setEndHour(e.target.value.slice(0, 2))}
+                    required
+                    style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '1.1rem' }}
+                  />
+                  <span style={{ fontWeight: 'bold' }}>:</span>
+                  <input 
+                    type="number" 
+                    min="0" 
+                    max="59"
+                    className="form-input" 
+                    placeholder="MM"
+                    value={endMinute}
+                    onChange={e => setEndMinute(e.target.value.slice(0, 2))}
+                    required
+                    style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '1.1rem' }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={savingKioskHours}>
+              {savingKioskHours ? <Loader className="spinner" size={16} /> : 'Save Operational Hours'}
             </button>
           </form>
         </div>

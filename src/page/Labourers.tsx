@@ -23,6 +23,7 @@ interface Labour {
   phonePeNumber?: string;
   upiId?: string;
   phonePeQrUrl?: string;
+  empCode?: string;
 }
 
 const getDepartmentColor = (dept: string) => {
@@ -84,6 +85,7 @@ export default function Labourers({
   // Payment Validation States
   const [phonePeNumberError, setPhonePeNumberError] = useState('');
   const [upiIdError, setUpiIdError] = useState('');
+  const [empCode, setEmpCode] = useState('');
 
   const handlePhonePeNumberChange = (value: string) => {
     setPhonePeNumber(value);
@@ -206,7 +208,8 @@ export default function Labourers({
         department,
         phonePeNumber,
         upiId,
-        phonePeQrUrl: finalQrUrl
+        phonePeQrUrl: finalQrUrl,
+        empCode
       };
 
       const url = editingLabour 
@@ -235,6 +238,7 @@ export default function Labourers({
         setLabourStatus('active');
         setEmployeeType('labourer');
         setDepartment('');
+        setEmpCode('');
         setPhonePeNumber('');
         setUpiId('');
         setPhonePeQrFile(null);
@@ -289,6 +293,7 @@ export default function Labourers({
     setLabourStatus(lab.status || 'active');
     setEmployeeType(lab.employeeType || 'labourer');
     setDepartment(lab.department || '');
+    setEmpCode(lab.empCode || '');
     setPhonePeNumber(lab.phonePeNumber || '');
     setUpiId(lab.upiId || '');
     setPhonePeQrUrl(lab.phonePeQrUrl || '');
@@ -317,6 +322,7 @@ export default function Labourers({
           setLabourStatus('active'); 
           setEmployeeType('labourer'); 
           setDepartment(''); 
+          setEmpCode('');
           setPhonePeNumber('');
           setUpiId('');
           setPhonePeQrFile(null);
@@ -522,6 +528,17 @@ export default function Labourers({
                 </datalist>
               </div>
 
+              <div className="form-group">
+                <label className="form-label">Biometric Device ID (empCode)</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="e.g. 71, 72 (Optional)"
+                  value={empCode}
+                  onChange={e => setEmpCode(e.target.value)}
+                />
+              </div>
+
               {editingLabour && (
                 <div className="form-group">
                   <label className="form-label">Status</label>
@@ -660,6 +677,7 @@ export default function Labourers({
                   setLabourStatus('active');
                   setEmployeeType('labourer');
                   setDepartment('');
+                  setEmpCode('');
                   setPhonePeNumber('');
                   setUpiId('');
                   setPhonePeQrFile(null);

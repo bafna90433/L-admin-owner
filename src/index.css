@@ -237,22 +237,26 @@ h1, h2, h3, h4, h5, h6 {
 .nav-link {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
+  gap: 14px;
+  padding: 12px 18px;
   color: var(--text-secondary);
   text-decoration: none;
-  font-weight: 500;
+  font-weight: 600;
   border-radius: var(--border-radius-sm);
   transition: var(--transition-smooth);
+  border-left: 4px solid transparent;
 }
-.nav-link:hover, .nav-link.active {
-  color: var(--text-primary);
-  background: var(--bg-tertiary);
+.nav-link:hover {
+  color: var(--accent-primary);
+  background: rgba(99, 102, 241, 0.05);
+  transform: translateX(6px);
 }
 .nav-link.active {
-  background: rgba(99, 102, 241, 0.08);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(99, 102, 241, 0.02) 100%);
   color: var(--accent-primary);
-  border-left: 3px solid var(--accent-primary);
+  border-left: 4px solid var(--accent-primary);
+  font-weight: 700;
+  box-shadow: inset 1px 0 0 rgba(99, 102, 241, 0.05);
 }
 
 /* Cards & Stats */

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Loader } from 'lucide-react';
+import { Loader, Save } from 'lucide-react';
 import '../styles/Attendance.css';
 
 interface Labour {
@@ -157,7 +157,7 @@ export default function Attendance({
     <div className="attendance-page-container">
       <div className="flex-between">
         <div>
-          <h1 style={{ fontSize: '2.2rem' }}>Attendance Ledger</h1>
+          <h1 style={{ fontSize: '2.2rem' }} className="gradient-text">Attendance Ledger</h1>
           <p style={{ color: 'var(--text-secondary)' }}>Add or modify daily duties: Present (Full day), Half day, Absent, or Sunday.</p>
         </div>
         
@@ -166,7 +166,7 @@ export default function Attendance({
             className="form-input" 
             value={attMonth} 
             onChange={e => setAttMonth(parseInt(e.target.value))}
-            style={{ width: '120px' }}
+            style={{ width: '150px', fontWeight: 600 }}
           >
             {Array.from({ length: 12 }, (_, i) => (
               <option key={i + 1} value={i + 1}>
@@ -178,7 +178,7 @@ export default function Attendance({
             className="form-input" 
             value={attYear} 
             onChange={e => setAttYear(parseInt(e.target.value))}
-            style={{ width: '100px' }}
+            style={{ width: '110px', fontWeight: 600 }}
           >
             {[2025, 2026, 2027].map(y => (
               <option key={y} value={y}>{y}</option>
@@ -188,9 +188,22 @@ export default function Attendance({
             onClick={handleSaveAttendance} 
             className="btn btn-primary"
             disabled={attSaving || labours.length === 0}
+            style={{ padding: '12px 28px', gap: '8px' }}
           >
-            {attSaving ? <Loader className="spinner" size={16} /> : 'Save Attendance'}
+            {attSaving ? <Loader className="spinner" size={16} /> : <><Save size={18} /> Save Attendance</>}
           </button>
+        </div>
+      </div>
+
+      {/* Legend Bar */}
+      <div className="glass-panel attendance-legend-card" style={{ padding: '16px 24px', display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Status Legend:</span>
+        <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+          <span className="legend-item"><span className="legend-dot" style={{ background: 'var(--color-success)' }}></span> Present (P)</span>
+          <span className="legend-item"><span className="legend-dot" style={{ background: 'var(--color-warning)' }}></span> Half-day (H)</span>
+          <span className="legend-item"><span className="legend-dot" style={{ background: 'var(--color-danger)' }}></span> Absent (A)</span>
+          <span className="legend-item"><span className="legend-dot" style={{ background: 'var(--accent-primary)' }}></span> Sunday (SUN)</span>
+          <span className="legend-item"><span className="legend-dot" style={{ background: '#818cf8' }}></span> Permission (PRM)</span>
         </div>
       </div>
 
