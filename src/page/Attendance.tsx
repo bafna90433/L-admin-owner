@@ -45,6 +45,7 @@ export default function Attendance({
   const [attendanceGrid, setAttendanceGrid] = useState<Record<string, Record<number, AttendanceRecord>>>({});
   const [attLoading, setAttLoading] = useState(false);
   const [attSaving, setAttSaving] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedBiometric, setSelectedBiometric] = useState<{
     labourName: string;
     day: number;
@@ -198,6 +199,9 @@ export default function Attendance({
 
   const daysInMonth = new Date(attYear, attMonth, 0).getDate();
   const dayColumns = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+  const filteredLabours = labours.filter(lab => 
+    lab.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div className="attendance-page-container">
@@ -208,6 +212,14 @@ export default function Attendance({
         </div>
         
         <div className="attendance-header-actions">
+          <input 
+            type="text"
+            className="form-input"
+            placeholder="Search employee..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            style={{ width: '200px', fontWeight: 500 }}
+          />
           <select 
             className="form-input" 
             value={attMonth} 
@@ -278,7 +290,7 @@ export default function Attendance({
                 </tr>
               </thead>
               <tbody>
-                {labours.map(lab => (
+                {filteredLabours.map(lab => (
                   <tr key={lab._id}>
                     <td className="sticky-row-cell">
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -289,8 +301,8 @@ export default function Attendance({
                             style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--glass-border)', flexShrink: 0 }}
                           />
                         ) : (
-                          <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 'bold', flexShrink: 0 }}>
-                            {lab.name.slice(0, 2).toUpperCase()}
+                          <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', fontWeight: 'bold', flexShrink: 0 }}>
+                            {lab.name.charAt(0).toUpperCase()}
                           </div>
                         )}
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{lab.name}</span>
@@ -360,10 +372,10 @@ export default function Attendance({
                     })}
                   </tr>
                 ))}
-                {labours.length === 0 && (
+                {filteredLabours.length === 0 && (
                   <tr>
                     <td colSpan={dayColumns.length + 1} style={{ textAlign: 'center', padding: '24px' }}>
-                      No labourers registered yet.
+                      {labours.length === 0 ? 'No labourers registered yet.' : 'No employees matched your search.'}
                     </td>
                   </tr>
                 )}
@@ -391,8 +403,8 @@ export default function Attendance({
                       style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--glass-border)' }}
                     />
                   ) : (
-                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.95rem', fontWeight: 'bold' }}>
-                      {selectedBiometric.labourName.slice(0, 2).toUpperCase()}
+                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', fontWeight: 'bold' }}>
+                      {selectedBiometric.labourName.charAt(0).toUpperCase()}
                     </div>
                   );
                 })()}
