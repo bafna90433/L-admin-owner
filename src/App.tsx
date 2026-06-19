@@ -10,7 +10,6 @@ import {
   Bell, 
   MessageSquare,
   Settings as SettingsIcon,
-  User as UserIcon,
   History
 } from 'lucide-react';
 
