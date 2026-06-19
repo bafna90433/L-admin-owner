@@ -97,7 +97,16 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   
   // Router Tab
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'labourers' | 'attendance' | 'salary' | 'advances' | 'advance-history' | 'reminders' | 'tasks' | 'chat' | 'settings' | 'profile'>('dashboard');
+  const adminValidTabs = ['dashboard', 'labourers', 'attendance', 'salary', 'advances', 'advance-history', 'reminders', 'tasks', 'chat', 'settings', 'profile'] as const;
+  type AdminTabType = typeof adminValidTabs[number];
+  const adminSavedTab = localStorage.getItem('admin_active_tab') as AdminTabType | null;
+  const [activeTab, setActiveTab] = useState<AdminTabType>(adminSavedTab && adminValidTabs.includes(adminSavedTab) ? adminSavedTab : 'dashboard');
+
+  const navigateTo = (tab: AdminTabType) => {
+    localStorage.setItem('admin_active_tab', tab);
+    setActiveTab(tab);
+  };
+
 
   // Shared Data States
   const [labours, setLabours] = useState<Labour[]>([]);
@@ -199,6 +208,7 @@ export default function App() {
 
   const handleLogout = () => {
     localStorage.removeItem('admin_token');
+    localStorage.removeItem('admin_active_tab');
     setToken(null);
     setUser(null);
     setActiveTab('dashboard');
@@ -433,6 +443,7 @@ export default function App() {
             apiBase={API_BASE}
             reminders={reminders}
             fetchReminders={fetchReminders}
+            allStaff={allStaff}
             showToast={showToast}
           />
         );
@@ -496,61 +507,21 @@ export default function App() {
 
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '8px', flexGrow: 1 }}>
           <button 
-            onClick={() => setActiveTab('dashboard')} 
+            onClick={() => navigateTo('dashboard')} 
             className={`nav-link btn-secondary ${activeTab === 'dashboard' ? 'active' : ''}`}
             style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
           >
             <TrendingUp size={18} /> Dashboard
           </button>
           <button 
-            onClick={() => setActiveTab('labourers')} 
-            className={`nav-link btn-secondary ${activeTab === 'labourers' ? 'active' : ''}`}
-            style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
-          >
-            <Users size={18} /> Labour Directory
-          </button>
-          <button 
-            onClick={() => setActiveTab('attendance')} 
-            className={`nav-link btn-secondary ${activeTab === 'attendance' ? 'active' : ''}`}
-            style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
-          >
-            <Calendar size={18} /> Attendance Ledger
-          </button>
-          <button 
-            onClick={() => setActiveTab('salary')} 
-            className={`nav-link btn-secondary ${activeTab === 'salary' ? 'active' : ''}`}
-            style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
-          >
-            <IndianRupee size={18} /> Salary Generator
-          </button>
-          <button 
-            onClick={() => setActiveTab('advances')} 
-            className={`nav-link btn-secondary ${activeTab === 'advances' ? 'active' : ''}`}
-            style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
-          >
-            <ArrowUpRight size={18} /> Advance Approvals
-            {advances.filter(a => a.status === 'pending').length > 0 && (
-              <span className="badge badge-danger" style={{ marginLeft: 'auto', padding: '2px 6px' }}>
-                {advances.filter(a => a.status === 'pending').length}
-              </span>
-            )}
-          </button>
-          <button 
-            onClick={() => setActiveTab('advance-history')} 
-            className={`nav-link btn-secondary ${activeTab === 'advance-history' ? 'active' : ''}`}
-            style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
-          >
-            <History size={18} /> Advance Ledger
-          </button>
-          <button 
-            onClick={() => setActiveTab('reminders')} 
+            onClick={() => navigateTo('reminders')} 
             className={`nav-link btn-secondary ${activeTab === 'reminders' ? 'active' : ''}`}
             style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
           >
             <Bell size={18} /> Staff Reminders
           </button>
           <button 
-            onClick={() => setActiveTab('tasks')} 
+            onClick={() => navigateTo('tasks')} 
             className={`nav-link btn-secondary ${activeTab === 'tasks' ? 'active' : ''}`}
             style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
           >
@@ -562,7 +533,7 @@ export default function App() {
             )}
           </button>
           <button 
-            onClick={() => setActiveTab('chat')} 
+            onClick={() => navigateTo('chat')} 
             className={`nav-link btn-secondary ${activeTab === 'chat' ? 'active' : ''}`}
             style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
           >
@@ -574,23 +545,73 @@ export default function App() {
             )}
           </button>
           <button 
-            onClick={() => setActiveTab('settings')} 
+            onClick={() => navigateTo('settings')} 
             className={`nav-link btn-secondary ${activeTab === 'settings' ? 'active' : ''}`}
             style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
           >
             <SettingsIcon size={18} /> Settings
           </button>
+
+          <hr style={{ border: 'none', borderTop: '1px solid var(--glass-border)', margin: '8px 0' }} />
+
           <button 
-            onClick={() => setActiveTab('profile')} 
-            className={`nav-link btn-secondary ${activeTab === 'profile' ? 'active' : ''}`}
+            onClick={() => navigateTo('labourers')} 
+            className={`nav-link btn-secondary ${activeTab === 'labourers' ? 'active' : ''}`}
             style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
           >
-            <UserIcon size={18} /> My Profile
+            <Users size={18} /> Labour Directory
+          </button>
+          <button 
+            onClick={() => navigateTo('attendance')} 
+            className={`nav-link btn-secondary ${activeTab === 'attendance' ? 'active' : ''}`}
+            style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
+          >
+            <Calendar size={18} /> Attendance Ledger
+          </button>
+          <button 
+            onClick={() => navigateTo('salary')} 
+            className={`nav-link btn-secondary ${activeTab === 'salary' ? 'active' : ''}`}
+            style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
+          >
+            <IndianRupee size={18} /> Salary Generator
+          </button>
+          <button 
+            onClick={() => navigateTo('advances')} 
+            className={`nav-link btn-secondary ${activeTab === 'advances' ? 'active' : ''}`}
+            style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
+          >
+            <ArrowUpRight size={18} /> Advance Approvals
+            {advances.filter(a => a.status === 'pending').length > 0 && (
+              <span className="badge badge-danger" style={{ marginLeft: 'auto', padding: '2px 6px' }}>
+                {advances.filter(a => a.status === 'pending').length}
+              </span>
+            )}
+          </button>
+          <button 
+            onClick={() => navigateTo('advance-history')} 
+            className={`nav-link btn-secondary ${activeTab === 'advance-history' ? 'active' : ''}`}
+            style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
+          >
+            <History size={18} /> Advance Ledger
           </button>
         </nav>
 
         <div style={{ marginTop: 'auto' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+          <div 
+            onClick={() => navigateTo('profile')}
+            className={`profile-bottom-btn ${activeTab === 'profile' ? 'active' : ''}`}
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '12px', 
+              marginBottom: '16px', 
+              cursor: 'pointer',
+              padding: '8px',
+              borderRadius: '8px',
+              transition: 'background 0.2s',
+              background: activeTab === 'profile' ? 'rgba(0,0,0,0.05)' : 'transparent'
+            }}
+          >
             {user?.imageUrl ? (
               <img 
                 src={user.imageUrl} 
@@ -599,12 +620,12 @@ export default function App() {
               />
             ) : (
               <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
-                {user?.name ? user.name.slice(0, 2).toUpperCase() : 'OA'}
+                MD
               </div>
             )}
             <div>
-              <p style={{ fontWeight: 600, fontSize: '0.9rem' }}>{user?.name}</p>
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Administrator</p>
+              <p style={{ fontWeight: 600, fontSize: '0.9rem' }}>{user?.name === 'Owner Admin' ? 'MD' : (user?.name || 'MD')}</p>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Managing Director</p>
             </div>
           </div>
           <button onClick={handleLogout} className="btn btn-danger" style={{ width: '100%', padding: '10px' }}>

@@ -8,6 +8,7 @@ interface User {
   username: string;
   name: string;
   role: string;
+  imageUrl?: string;
 }
 
 interface Task {
@@ -26,6 +27,7 @@ interface Task {
   };
   completedAt?: string;
   comments?: any[];
+  createdAt: string;
 }
 
 interface TasksProps {
@@ -62,6 +64,23 @@ export default function Tasks({
   // List filters
   const [taskFilterStatus, setTaskFilterStatus] = useState<'all' | 'pending' | 'completed'>('all');
   const [taskFilterType, setTaskFilterType] = useState<'all' | 'regular' | 'reminder-sir' | 'custom'>('all');
+
+  // Tab state for staff filtering
+  const [selectedStaffId, setSelectedStaffId] = useState<string | 'all' | 'unassigned'>('all');
+
+  // Calculate days elapsed since task creation
+  const getDaysElapsed = (createdAt: string) => {
+    if (!createdAt) return 0;
+    const createdDate = new Date(createdAt);
+    const today = new Date();
+    // Set to start of day for exact calendar day difference
+    const createdZero = new Date(createdDate.getFullYear(), createdDate.getMonth(), createdDate.getDate());
+    const todayZero = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    
+    const diffTime = todayZero.getTime() - createdZero.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays < 0 ? 0 : diffDays;
+  };
 
   const handleStartEditTask = (task: Task) => {
     setEditingTask(task);
@@ -212,7 +231,6 @@ export default function Tasks({
                 >
                   <option value="custom">Custom Task</option>
                   <option value="regular">Regular Work</option>
-                  <option value="reminder-sir">Reminder for Sir</option>
                 </select>
               </div>
 
@@ -285,117 +303,188 @@ export default function Tasks({
               >
                 <option value="all">All Categories</option>
                 <option value="regular">Regular Work</option>
-                <option value="reminder-sir">Reminders for Sir</option>
                 <option value="custom">Custom Duties</option>
               </select>
             </div>
           </div>
 
-          <div className="tasks-scroll-list">
-            {filteredTasks.map((t) => {
-              const isCompleted = t.status === 'completed';
+          {/* Horizontal Staff Tabs */}
+          <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '12px', borderBottom: '1px solid var(--glass-border)', marginTop: '8px' }}>
+            <button
+              onClick={() => setSelectedStaffId('all')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px',
+                background: selectedStaffId === 'all' ? 'var(--accent-primary)' : 'var(--bg-tertiary)',
+                color: selectedStaffId === 'all' ? '#fff' : 'var(--text-primary)',
+                border: selectedStaffId === 'all' ? 'none' : '1px solid var(--glass-border)',
+                borderRadius: '24px', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.2s', fontWeight: 600
+              }}
+            >
+              📑 All Tasks
+            </button>
+
+            {allStaff.map(staff => {
+              const staffId = staff.id || staff._id || '';
+              const isSelected = selectedStaffId === staffId;
+              
               return (
-                <div 
-                  key={t._id} 
-                  className="task-item-card animate-fade-in"
-                  style={{ 
-                    border: `1px solid ${isCompleted ? 'rgba(16, 185, 129, 0.4)' : 'var(--glass-border)'}`,
-                    background: isCompleted ? 'rgba(16, 185, 129, 0.05)' : 'var(--bg-tertiary)',
+                <button
+                  key={staffId}
+                  onClick={() => setSelectedStaffId(staffId)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 16px 4px 4px',
+                    background: isSelected ? 'var(--accent-primary)' : 'var(--bg-tertiary)',
+                    color: isSelected ? '#fff' : 'var(--text-primary)',
+                    border: isSelected ? 'none' : '1px solid var(--glass-border)',
+                    borderRadius: '24px', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.2s', fontWeight: 600
                   }}
                 >
-                  <div className="flex-between" style={{ marginBottom: '8px', gap: '8px' }}>
-                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                      <span className={`badge ${
-                        t.taskType === 'regular' ? 'badge-info' : 
-                        t.taskType === 'reminder-sir' ? 'badge-warning' : 
-                        'badge-success'
-                      }`} style={{ textTransform: 'capitalize' }}>
-                        {t.taskType === 'reminder-sir' ? 'sir reminder' : t.taskType}
-                      </span>
-                      <span className="badge badge-secondary" style={{ textTransform: 'capitalize' }}>
-                        {t.frequency}
-                      </span>
+                  {staff.imageUrl ? (
+                    <img src={`${apiBase}${staff.imageUrl}`} alt={staff.name} style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: isSelected ? 'rgba(255,255,255,0.2)' : 'linear-gradient(135deg, #6366f1, #a855f7)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 'bold', fontSize: '0.8rem' }}>
+                      {staff.name.charAt(0).toUpperCase()}
                     </div>
-                    <span className={`badge ${isCompleted ? 'badge-success' : 'badge-danger'}`} style={{ textTransform: 'uppercase' }}>
-                      {t.status}
-                    </span>
-                  </div>
-
-                  <p style={{ 
-                    fontWeight: 600, 
-                    fontSize: '1.05rem', 
-                    margin: '8px 0', 
-                    color: 'var(--text-primary)', 
-                    textDecoration: isCompleted ? 'line-through' : 'none', 
-                    opacity: isCompleted ? 0.7 : 1 
-                  }}>
-                    {t.title}
-                  </p>
-
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', paddingTop: '8px', borderTop: '1px solid rgba(0,0,0,0.05)', flexWrap: 'wrap', gap: '8px' }}>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                      {isCompleted ? (
-                        <div>
-                          ✅ Completed by <span style={{ fontWeight: 600 }}>{t.completedBy?.name || 'Staff'}</span> on {new Date(t.completedAt || '').toLocaleDateString('en-GB')}
-                        </div>
-                      ) : (
-                        <div>
-                          👤 Assigned to: <span style={{ fontWeight: 600 }}>{t.assignedTo?.name || 'All Staff'}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button 
-                        type="button"
-                        onClick={() => setSelectedTaskForComments(t)}
-                        className="btn btn-secondary" 
-                        style={{ padding: '6px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-                      >
-                        💬 {t.comments?.length || 0} Comments
-                      </button>
-                      
-                      {isCompleted && (
-                        <button 
-                          type="button"
-                          onClick={() => handleResetTask(t._id)}
-                          className="btn btn-secondary" 
-                          style={{ padding: '6px 12px', fontSize: '0.8rem', color: 'var(--color-warning)' }}
-                        >
-                          Reopen
-                        </button>
-                      )}
-
-                      <button 
-                        type="button"
-                        onClick={() => handleStartEditTask(t)}
-                        className="btn btn-secondary" 
-                        style={{ padding: '6px', fontSize: '0.8rem' }}
-                        title="Edit task"
-                      >
-                        <Edit3 size={14} />
-                      </button>
-
-                      <button 
-                        type="button"
-                        onClick={() => handleDeleteTask(t._id)}
-                        className="btn btn-danger" 
-                        style={{ padding: '6px', fontSize: '0.8rem' }}
-                        title="Delete task"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                  )}
+                  {staff.name}
+                </button>
               );
             })}
+          </div>
 
-            {filteredTasks.length === 0 && (
-              <div style={{ textAlign: 'center', padding: '48px', color: 'var(--text-secondary)' }}>
-                No tasks match the selected filters.
-              </div>
-            )}
+          <div className="tasks-scroll-list">
+            {(() => {
+              let displayTasks = filteredTasks;
+              if (selectedStaffId !== 'all') {
+                displayTasks = filteredTasks.filter(t => t.assignedTo && (t.assignedTo._id === selectedStaffId));
+              }
+              displayTasks = [...displayTasks].sort((a, b) => {
+                if (a.status !== b.status) {
+                  return a.status === 'completed' ? 1 : -1;
+                }
+                // Same status: oldest tasks first (earliest createdAt first, i.e., highest days elapsed first)
+                const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+                return timeA - timeB;
+              });
+
+              if (displayTasks.length === 0) {
+                return (
+                  <div style={{ textAlign: 'center', padding: '48px', color: 'var(--text-secondary)' }}>
+                    No tasks match the selected staff/filters.
+                  </div>
+                );
+              }
+
+              return displayTasks.map((t) => {
+                const isCompleted = t.status === 'completed';
+                return (
+                  <div 
+                    key={t._id} 
+                    className="task-item-card animate-fade-in"
+                    style={{ 
+                      border: `1px solid ${isCompleted ? 'rgba(16, 185, 129, 0.4)' : 'var(--glass-border)'}`,
+                      background: isCompleted ? 'rgba(16, 185, 129, 0.05)' : 'var(--bg-tertiary)',
+                    }}
+                  >
+                    <div className="flex-between" style={{ marginBottom: '8px', gap: '8px' }}>
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                        <span className={`badge ${
+                          t.taskType === 'regular' ? 'badge-info' : 
+                          t.taskType === 'reminder-sir' ? 'badge-warning' : 
+                          'badge-success'
+                        }`} style={{ textTransform: 'capitalize' }}>
+                          {t.taskType === 'reminder-sir' ? 'sir reminder' : t.taskType}
+                        </span>
+                        <span className="badge badge-secondary" style={{ textTransform: 'capitalize' }}>
+                          {t.frequency}
+                        </span>
+                        {!isCompleted && t.createdAt && (
+                          <span className="badge" style={{ 
+                            background: 'rgba(79, 70, 229, 0.1)', 
+                            color: 'var(--accent-primary)',
+                            textTransform: 'lowercase',
+                            fontWeight: 700
+                          }}>
+                            {getDaysElapsed(t.createdAt)} {getDaysElapsed(t.createdAt) === 1 ? 'day' : 'days'}
+                          </span>
+                        )}
+                      </div>
+                      <span className={`badge ${isCompleted ? 'badge-success' : 'badge-danger'}`} style={{ textTransform: 'uppercase' }}>
+                        {t.status}
+                      </span>
+                    </div>
+
+                    <p style={{ 
+                      fontWeight: 600, 
+                      fontSize: '1.05rem', 
+                      margin: '8px 0', 
+                      color: 'var(--text-primary)', 
+                      textDecoration: isCompleted ? 'line-through' : 'none', 
+                      opacity: isCompleted ? 0.7 : 1 
+                    }}>
+                      {t.title}
+                    </p>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', paddingTop: '8px', borderTop: '1px solid rgba(0,0,0,0.05)', flexWrap: 'wrap', gap: '8px' }}>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                        {isCompleted ? (
+                          <div>
+                            ✅ Completed by <span style={{ fontWeight: 600 }}>{t.completedBy?.name || 'Staff'}</span> on {new Date(t.completedAt || '').toLocaleDateString('en-GB')}
+                          </div>
+                        ) : (
+                          <div>
+                            👤 Assigned to: <span style={{ fontWeight: 600 }}>{t.assignedTo?.name || 'All Staff'}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button 
+                          type="button"
+                          onClick={() => setSelectedTaskForComments(t)}
+                          className="btn btn-secondary" 
+                          style={{ padding: '6px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                        >
+                          💬 {t.comments?.length || 0} Comments
+                        </button>
+                        
+                        {isCompleted && (
+                          <button 
+                            type="button"
+                            onClick={() => handleResetTask(t._id)}
+                            className="btn btn-secondary" 
+                            style={{ padding: '6px 12px', fontSize: '0.8rem', color: 'var(--color-warning)' }}
+                          >
+                            Reopen
+                          </button>
+                        )}
+
+                        <button 
+                          type="button"
+                          onClick={() => handleStartEditTask(t)}
+                          className="btn btn-secondary" 
+                          style={{ padding: '6px', fontSize: '0.8rem' }}
+                          title="Edit task"
+                        >
+                          <Edit3 size={14} />
+                        </button>
+
+                        <button 
+                          type="button"
+                          onClick={() => handleDeleteTask(t._id)}
+                          className="btn btn-danger" 
+                          style={{ padding: '6px', fontSize: '0.8rem' }}
+                          title="Delete task"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              });
+            })()}
           </div>
         </div>
 

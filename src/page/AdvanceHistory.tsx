@@ -613,34 +613,45 @@ export default function AdvanceHistory({
             <form onSubmit={handleCreateDirectAdvance} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <label className="form-label" style={{ fontSize: '0.85rem', fontWeight: 600 }}>Select Employee (Staff / Labourer)</label>
-                
-                {/* Search field */}
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="🔍 Search employee by name..."
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  style={{ height: '42px', paddingLeft: '12px' }}
-                />
 
-                <select
-                  className="form-input"
-                  value={directLabId}
-                  onChange={e => setDirectLabId(e.target.value)}
-                  style={{ height: '42px', fontWeight: 600 }}
-                  required
-                >
-                  {filteredLabours.map(lab => (
-                    <option key={lab._id} value={lab._id}>
-                      👤 {lab.name} ({lab.employeeType || 'labourer'})
-                    </option>
-                  ))}
-                  {filteredLabours.length === 0 && (
-                    <option value="" disabled>No employees found</option>
-                  )}
-                </select>
+                {/* Combined Search + Dropdown */}
+                <div style={{ position: 'relative' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--glass-border)', borderRadius: '8px', overflow: 'hidden', background: 'var(--bg-secondary)', height: '44px' }}>
+                    <span style={{ padding: '0 10px', color: 'var(--text-secondary)', flexShrink: 0 }}>🔍</span>
+                    <input
+                      type="text"
+                      placeholder="Search employee by name..."
+                      value={searchQuery}
+                      onChange={e => {
+                        setSearchQuery(e.target.value);
+                        setDirectLabId('');
+                      }}
+                      style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', color: 'var(--text-primary)', fontSize: '0.95rem', height: '100%', padding: '0 8px' }}
+                    />
+                    <select
+                      value={directLabId}
+                      onChange={e => {
+                        setDirectLabId(e.target.value);
+                        const sel = filteredLabours.find(l => l._id === e.target.value);
+                        if (sel) setSearchQuery(sel.name);
+                      }}
+                      required
+                      style={{ border: 'none', outline: 'none', background: 'transparent', color: 'var(--text-primary)', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer', height: '100%', padding: '0 8px', borderLeft: '1px solid var(--glass-border)', flexShrink: 0, maxWidth: '200px' }}
+                    >
+                      <option value="">-- Select --</option>
+                      {filteredLabours.map(lab => (
+                        <option key={lab._id} value={lab._id}>
+                          {lab.name} ({lab.employeeType || 'labourer'})
+                        </option>
+                      ))}
+                      {filteredLabours.length === 0 && (
+                        <option value="" disabled>No employees found</option>
+                      )}
+                    </select>
+                  </div>
+                </div>
               </div>
+
 
               <div className="form-group">
                 <label className="form-label" style={{ fontSize: '0.85rem', fontWeight: 600 }}>Advance Amount (₹)</label>

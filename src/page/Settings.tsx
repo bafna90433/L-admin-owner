@@ -1,4 +1,4 @@
-import { Loader, Edit3, Settings as SettingsIcon, Trash2, Clock, MapPin, Bell } from 'lucide-react';
+import { Loader, Edit3, Settings as SettingsIcon, Trash2, Clock, MapPin, Bell, IndianRupee } from 'lucide-react';
 import '../styles/Settings.css';
 
 import { useState, useEffect } from 'react';
@@ -57,14 +57,39 @@ export default function Settings({
   const [alarmMinute, setAlarmMinute] = useState('30');
   const [savingAlarm, setSavingAlarm] = useState(false);
 
+  // Grace Period state
+  const [gracePeriod, setGracePeriod] = useState('10');
+  const [savingGracePeriod, setSavingGracePeriod] = useState(false);
+
+  // Advance Auto Approval Limit state
+  const [autoApproveLimit, setAutoApproveLimit] = useState('5000');
+  const [savingAutoApproveLimit, setSavingAutoApproveLimit] = useState(false);
+
   useEffect(() => {
     if (token) {
       fetchDepartments();
       fetchKioskHours();
       fetchKioskLocation();
       fetchKioskAlarm();
+      fetchAutoApproveLimit();
     }
   }, [token]);
+
+  const fetchAutoApproveLimit = async () => {
+    try {
+      const res = await fetch(`${apiBase}/settings/advance_auto_approval_limit`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.value !== undefined) {
+          setAutoApproveLimit(data.value.toString());
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching auto approve limit:', err);
+    }
+  };
 
   const fetchKioskHours = async () => {
     try {
@@ -105,19 +130,60 @@ export default function Settings({
 
   const fetchKioskAlarm = async () => {
     try {
-      const res = await fetch(`${apiBase}/settings/kiosk_alarm`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.value) {
-          const { alarmHour: ah, alarmMinute: am } = data.value;
-          setAlarmHour(ah.toString().padStart(2, '0'));
-          setAlarmMinute(am.toString().padStart(2, '0'));
-        }
-      }
+      // Fetch alarm
+      fetch(`${apiBase}/settings/kiosk_alarm`, { headers: { 'Authorization': `Bearer ${token}` } })
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.value && data.value.alarmHour !== undefined) {
+            setAlarmHour(data.value.alarmHour.toString().padStart(2, '0'));
+            setAlarmMinute(data.value.alarmMinute.toString().padStart(2, '0'));
+          }
+        })
+        .catch(err => console.error(err));
+
+      // Fetch grace period
+      fetch(`${apiBase}/settings/grace_period`, { headers: { 'Authorization': `Bearer ${token}` } })
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.value) {
+            setGracePeriod(data.value.toString());
+          }
+        })
+        .catch(err => console.error(err));
     } catch (err) {
       console.error('Error fetching kiosk alarm:', err);
+    }
+  };
+
+  const handleSaveAutoApproveLimit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const limit = parseFloat(autoApproveLimit);
+    if (isNaN(limit) || limit < 0) {
+      showToast('Please enter a valid positive amount', 'danger');
+      return;
+    }
+
+    setSavingAutoApproveLimit(true);
+    try {
+      const res = await fetch(`${apiBase}/settings/advance_auto_approval_limit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ value: limit })
+      });
+      if (res.ok) {
+        showToast('Advance auto-approval limit updated successfully!', 'success');
+      } else {
+        const data = await res.json();
+        showToast(data.message || 'Failed to update limit', 'danger');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Error connecting to server', 'danger');
+    } finally {
+      setSavingAutoApproveLimit(false);
     }
   };
 
@@ -234,6 +300,39 @@ export default function Settings({
       showToast('Error connecting to server', 'danger');
     } finally {
       setSavingAlarm(false);
+    }
+  };
+
+  const handleSaveGracePeriod = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const gp = parseInt(gracePeriod, 10);
+
+    if (isNaN(gp) || gp < 0) {
+      showToast('Please enter a valid number of minutes', 'danger');
+      return;
+    }
+
+    setSavingGracePeriod(true);
+    try {
+      const res = await fetch(`${apiBase}/settings/grace_period`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ value: gp })
+      });
+      if (res.ok) {
+        showToast('Grace period updated successfully!', 'success');
+      } else {
+        const data = await res.json();
+        showToast(data.message || 'Failed to update grace period', 'danger');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Error connecting to server', 'danger');
+    } finally {
+      setSavingGracePeriod(false);
     }
   };
 
@@ -538,6 +637,37 @@ export default function Settings({
         </div>
       </div>
 
+      {/* Advance Auto Approval Limit Section */}
+      <div style={{ marginTop: '48px' }}>
+        <h2 style={{ fontSize: '1.6rem', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <IndianRupee size={24} /> Labour Advance Auto-Approval
+        </h2>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>Configure the maximum advance amount that staff can give without owner approval.</p>
+      </div>
+
+      <div className="glass-panel" style={{ marginBottom: '40px' }}>
+        <form onSubmit={handleSaveAutoApproveLimit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div className="form-group">
+            <label className="form-label">Auto-Approval Limit (₹)</label>
+            <input 
+              type="number" 
+              className="form-input" 
+              placeholder="e.g. 5000"
+              value={autoApproveLimit}
+              onChange={e => setAutoApproveLimit(e.target.value)}
+              required
+            />
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '8px' }}>
+              Advance requests equal to or below this amount will be automatically approved and deducted. Requests above this limit will remain pending for your approval.
+            </p>
+          </div>
+
+          <button type="submit" className="btn btn-primary" style={{ alignSelf: 'flex-start', padding: '12px 24px' }} disabled={savingAutoApproveLimit}>
+            {savingAutoApproveLimit ? <Loader className="spinner" size={16} /> : 'Save Limit'}
+          </button>
+        </form>
+      </div>
+
       {/* Kiosk Operational Hours Section */}
       <div style={{ marginTop: '48px' }}>
         <h2 style={{ fontSize: '1.6rem', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -647,7 +777,6 @@ export default function Settings({
         </div>
       </div>
 
-      {/* Kiosk Location & Alarm Section */}
       <div style={{ marginTop: '48px' }}>
         <h2 style={{ fontSize: '1.6rem', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
           <MapPin size={24} /> Advanced Kiosk Settings
@@ -748,6 +877,34 @@ export default function Settings({
             </div>
             <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={savingAlarm}>
               {savingAlarm ? <Loader className="spinner" size={16} /> : 'Save Alarm Time'}
+            </button>
+          </form>
+        </div>
+      </div>
+
+      {/* Grace Period Card */}
+      <div className="settings-grid" style={{ marginBottom: '48px' }}>
+        <div className="glass-panel" style={{ height: 'fit-content' }}>
+          <h3 style={{ fontSize: '1.25rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Clock size={18} /> Grace Period
+          </h3>
+          <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+            Allow a delay in punch times before calculating short duty.
+          </p>
+          <form onSubmit={handleSaveGracePeriod} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div className="form-group">
+              <label className="form-label">Grace Period (Minutes)</label>
+              <input 
+                type="number" min="0" max="120"
+                className="form-input" 
+                value={gracePeriod}
+                onChange={e => setGracePeriod(e.target.value)}
+                required
+                style={{ fontWeight: 'bold', fontSize: '1.1rem' }}
+              />
+            </div>
+            <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={savingGracePeriod}>
+              {savingGracePeriod ? <Loader className="spinner" size={16} /> : 'Save Grace Period'}
             </button>
           </form>
         </div>

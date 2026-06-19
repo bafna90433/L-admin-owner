@@ -401,21 +401,19 @@ export default function Attendance({
                                   <option value="sunday">SUN</option>
                                   <option value="permission">PRM</option>
                                 </select>
-                                {cell.checkIn && (
                                   <button 
                                     className="punch-badge pulse"
                                     onClick={() => setSelectedBiometric({ labourName: lab.name, day, workingHours: lab.workingHours, record: cell })}
-                                    title="Show Biometric Punch Times"
+                                    title="Show/Edit Biometric Punch Times"
                                     style={{ 
                                       background: 'transparent', border: 'none', padding: 0, cursor: 'pointer',
-                                      color: cell.isPermissionApproved ? '#818cf8' : 'var(--text-secondary)',
+                                      color: cell.isPermissionApproved ? '#818cf8' : (cell.checkIn ? 'var(--text-primary)' : 'rgba(156, 163, 175, 0.4)'),
                                       display: 'flex', alignItems: 'center'
                                     }}
                                   >
                                     <Clock size={14} />
                                   </button>
-                                )}
-                              </div>
+                                </div>
                               {cell.status === 'permission' && !cell.checkIn && (
                                 <input 
                                   type="number"

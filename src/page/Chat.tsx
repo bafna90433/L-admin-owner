@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Loader, Send, Paperclip, MessageSquare } from 'lucide-react';
+import { Loader, Send, Paperclip, MessageSquare, Trash2, AlertTriangle, X } from 'lucide-react';
 import '../styles/Chat.css';
 
 const IMAGEKIT_PUBLIC_KEY = 'public_LB0AyCgim15VO491kDtVm0Fo798=';
@@ -49,16 +49,16 @@ export default function Chat({
   const [chatFile, setChatFile] = useState<File | null>(null);
   const [chatFilePreview, setChatFilePreview] = useState('');
   const [chatSending, setChatSending] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [sidebarSearch, setSidebarSearch] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Chat message auto scroll
+  // Auto-scroll to latest message
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
 
-  // Fetch unread count
   const fetchUnreadCounts = async () => {
     if (!token) return;
     try {
@@ -75,7 +75,6 @@ export default function Chat({
     }
   };
 
-  // Fetch chat messages for active chat
   const fetchChatMessages = async (userId: string) => {
     if (!token) return;
     try {
@@ -92,18 +91,13 @@ export default function Chat({
     }
   };
 
-  // Chat messages polling loop
   useEffect(() => {
     if (!token) return;
     fetchUnreadCounts();
-    if (activeChatStaffId) {
-      fetchChatMessages(activeChatStaffId);
-    }
+    if (activeChatStaffId) fetchChatMessages(activeChatStaffId);
     const interval = setInterval(() => {
       fetchUnreadCounts();
-      if (activeChatStaffId) {
-        fetchChatMessages(activeChatStaffId);
-      }
+      if (activeChatStaffId) fetchChatMessages(activeChatStaffId);
     }, 4000);
     return () => clearInterval(interval);
   }, [token, activeChatStaffId]);
@@ -112,11 +106,8 @@ export default function Chat({
     const authRes = await fetch(`${apiBase}/imagekit/auth`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
-    if (!authRes.ok) {
-      throw new Error('Could not fetch ImageKit signature');
-    }
+    if (!authRes.ok) throw new Error('Could not fetch ImageKit signature');
     const authParams = await authRes.json();
-
     const formData = new FormData();
     formData.append('file', file);
     formData.append('fileName', file.name);
@@ -124,15 +115,8 @@ export default function Chat({
     formData.append('signature', authParams.signature);
     formData.append('expire', authParams.expire.toString());
     formData.append('token', authParams.token);
-
-    const upRes = await fetch('https://upload.imagekit.io/api/v1/files/upload', {
-      method: 'POST',
-      body: formData
-    });
-
-    if (!upRes.ok) {
-      throw new Error('Image upload failed');
-    }
+    const upRes = await fetch('https://upload.imagekit.io/api/v1/files/upload', { method: 'POST', body: formData });
+    if (!upRes.ok) throw new Error('Image upload failed');
     const upData = await upRes.json();
     return upData.url;
   };
@@ -148,7 +132,7 @@ export default function Chat({
         try {
           mediaUrl = await handleImageUpload(chatFile);
           mediaType = 'image';
-        } catch (err) {
+        } catch {
           showToast('Failed to upload attachment', 'danger');
           setChatSending(false);
           return;
@@ -156,51 +140,96 @@ export default function Chat({
       }
       const res = await fetch(`${apiBase}/messages`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          receiverId: activeChatStaffId,
-          text: chatInputText,
-          mediaUrl,
-          mediaType
-        })
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ receiverId: activeChatStaffId, text: chatInputText, mediaUrl, mediaType })
       });
       if (res.ok) {
         setChatInputText('');
         setChatFile(null);
         setChatFilePreview('');
         fetchChatMessages(activeChatStaffId);
+        inputRef.current?.focus();
       } else {
         showToast('Failed to send message', 'danger');
       }
-    } catch (err) {
-      console.error(err);
+    } catch {
       showToast('Error sending message', 'danger');
     } finally {
       setChatSending(false);
     }
   };
 
+  const executeClearChat = async () => {
+    setShowClearConfirm(false);
+    if (!activeChatStaffId) return;
+    try {
+      const res = await fetch(`${apiBase}/messages/${activeChatStaffId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        showToast('Chat cleared successfully', 'success');
+        setChatMessages([]);
+      } else {
+        showToast('Failed to clear chat', 'danger');
+      }
+    } catch {
+      showToast('Error clearing chat', 'danger');
+    }
+  };
+
   const activeStaffMember = allStaff.find(s => s.id === activeChatStaffId || s._id === activeChatStaffId);
+  const filteredStaff = allStaff.filter(s => s.name.toLowerCase().includes(sidebarSearch.toLowerCase()));
+
+  // Group messages by date
+  const groupMessagesByDate = (messages: ChatMessage[]) => {
+    const groups: { date: string; msgs: ChatMessage[] }[] = [];
+    messages.forEach(msg => {
+      const d = new Date(msg.createdAt);
+      const today = new Date();
+      const yesterday = new Date(today);
+      yesterday.setDate(today.getDate() - 1);
+      let label = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+      if (d.toDateString() === today.toDateString()) label = 'Today';
+      else if (d.toDateString() === yesterday.toDateString()) label = 'Yesterday';
+      const last = groups[groups.length - 1];
+      if (last && last.date === label) last.msgs.push(msg);
+      else groups.push({ date: label, msgs: [msg] });
+    });
+    return groups;
+  };
+
+  const messageGroups = groupMessagesByDate(chatMessages);
 
   return (
     <div className="chat-page-container">
-      <div>
-        <h1 style={{ fontSize: '2.2rem', marginBottom: '4px' }}>Chat Hub</h1>
-        <p style={{ color: 'var(--text-secondary)' }}>Communicate with office staff members in real-time, share files and receipts.</p>
+      <div className="chat-page-title">
+        <div>
+          <h1>💬 Chat Hub</h1>
+          <p>Communicate with office staff members in real-time, share files and receipts.</p>
+        </div>
       </div>
 
-      <div className="glass-panel chat-grid-container">
-        
-        {/* Left pane: User List */}
+      <div className="chat-grid-container">
+
+        {/* ─── LEFT SIDEBAR ─── */}
         <div className="chat-sidebar">
           <div className="chat-sidebar-header">
-            💬 Office Staff List
+            <MessageSquare size={18} />
+            Conversations
           </div>
+
+          <div className="chat-sidebar-search">
+            <input
+              type="text"
+              placeholder="🔍 Search staff..."
+              value={sidebarSearch}
+              onChange={e => setSidebarSearch(e.target.value)}
+            />
+          </div>
+
           <div className="chat-user-list">
-            {allStaff.map(staff => {
+            {filteredStaff.map(staff => {
               const staffId = staff.id || staff._id || '';
               const isActive = activeChatStaffId === staffId;
               const unreadCount = unreadCounts[staffId] || 0;
@@ -210,128 +239,137 @@ export default function Chat({
                   onClick={() => {
                     setActiveChatStaffId(staffId);
                     fetchChatMessages(staffId);
+                    setTimeout(() => inputRef.current?.focus(), 100);
                   }}
                   className={`chat-user-item ${isActive ? 'active' : ''}`}
                 >
                   {staff.imageUrl ? (
-                    <img 
-                      src={staff.imageUrl} 
-                      alt={staff.name} 
-                      style={{ 
-                        width: '40px', 
-                        height: '40px', 
-                        borderRadius: '50%', 
-                        objectFit: 'cover', 
-                        border: isActive ? '2px solid var(--accent-primary)' : '1px solid var(--glass-border)' 
-                      }} 
+                    <img
+                      src={staff.imageUrl}
+                      alt={staff.name}
+                      style={{ width: '42px', height: '42px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
                     />
                   ) : (
                     <div className="chat-user-avatar">
                       {staff.name.slice(0, 2).toUpperCase()}
                     </div>
                   )}
-                  <div style={{ flexGrow: 1, textAlign: 'left' }}>
-                    <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)' }}>{staff.name}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>@{staff.username}</div>
+                  <div className="chat-user-info">
+                    <div className="chat-user-name">{staff.name}</div>
+                    <div className="chat-user-role">@{staff.username}</div>
                   </div>
                   {unreadCount > 0 && (
-                    <span className="badge badge-danger" style={{ padding: '4px 8px', borderRadius: '50%', fontSize: '0.75rem' }}>
-                      {unreadCount}
-                    </span>
+                    <span className="chat-unread-badge">{unreadCount}</span>
                   )}
                 </button>
               );
             })}
-            {allStaff.length === 0 && (
-              <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
-                No staff users registered.
+            {filteredStaff.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.85rem' }}>
+                No staff found
               </div>
             )}
           </div>
         </div>
 
-        {/* Right pane: Chat Area */}
+        {/* ─── RIGHT CHAT WINDOW ─── */}
         <div className="chat-main-window">
           {activeChatStaffId ? (
             <>
-              {/* Chat Header */}
+              {/* Header */}
               <div className="chat-active-header">
                 {activeStaffMember?.imageUrl ? (
-                  <img 
-                    src={activeStaffMember.imageUrl} 
-                    alt={activeStaffMember.name} 
-                    style={{ 
-                      width: '36px', 
-                      height: '36px', 
-                      borderRadius: '50%', 
-                      objectFit: 'cover', 
-                      border: '1px solid var(--glass-border)' 
-                    }} 
+                  <img
+                    src={activeStaffMember.imageUrl}
+                    alt={activeStaffMember.name}
+                    style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
                   />
                 ) : (
                   <div className="chat-active-avatar">
                     {activeStaffMember?.name.slice(0, 2).toUpperCase()}
                   </div>
                 )}
-                <div>
-                  <div style={{ fontWeight: 700 }}>{activeStaffMember?.name}</div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--color-success)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span className="chat-status-dot"></span> Online / Active Chat
+                <div style={{ flexGrow: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)' }}>
+                    {activeStaffMember?.name}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--color-success)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <span className="chat-status-dot"></span>
+                    Active Chat
                   </div>
                 </div>
+                <button
+                  onClick={() => setShowClearConfirm(true)}
+                  className="chat-clear-btn"
+                  title="Clear Chat"
+                >
+                  <Trash2 size={17} />
+                </button>
               </div>
 
-              {/* Messages Window */}
+              {/* Messages */}
               <div className="chat-messages-window">
-                {chatMessages.map((msg, index) => {
-                  const isSender = msg.sender === (user?._id || user?.id);
-                  return (
-                    <div
-                      key={msg._id || index}
-                      className="chat-message-bubble-wrapper"
-                      style={{ alignSelf: isSender ? 'flex-end' : 'flex-start' }}
-                    >
-                      <div className={`chat-message-bubble ${isSender ? 'sender' : 'receiver'}`}>
-                        {msg.mediaUrl && msg.mediaType === 'image' && (
-                          <a href={msg.mediaUrl} target="_blank" rel="noreferrer">
-                            <img
-                              src={msg.mediaUrl}
-                              alt="Attachment"
-                              className="chat-message-img"
-                            />
-                          </a>
-                        )}
-                        <p className="message-text">
-                          {msg.text}
-                        </p>
-                        <div className="chat-message-meta">
-                          <span>{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                          {isSender && (
-                            <span style={{ color: msg.isRead ? '#3b82f6' : 'var(--text-secondary)' }}>
-                              {msg.isRead ? '✓✓' : '✓'}
-                            </span>
-                          )}
-                        </div>
-                      </div>
+                {chatMessages.length === 0 ? (
+                  <div className="chat-empty-state">
+                    <div className="chat-empty-lock">
+                      <p style={{ margin: 0, fontWeight: 600, fontSize: '0.9rem' }}>🔒 End-to-End Encrypted</p>
+                      <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                        No messages yet. Start the conversation!
+                      </p>
                     </div>
-                  );
-                })}
-                {chatMessages.length === 0 && (
-                  <div style={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: 'var(--text-secondary)', padding: '48px', textAlign: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '2rem' }}>💬</span>
-                    <span>No messages in this chat yet. Start the conversation!</span>
                   </div>
+                ) : (
+                  messageGroups.map(group => (
+                    <React.Fragment key={group.date}>
+                      <div className="chat-date-divider">{group.date}</div>
+                      {group.msgs.map((msg, index) => {
+                        const isSender = msg.sender === (user?._id || user?.id);
+                        return (
+                          <div
+                            key={msg._id || index}
+                            className="chat-message-bubble-wrapper"
+                            style={{ alignSelf: isSender ? 'flex-end' : 'flex-start' }}
+                          >
+                            <div className={`chat-message-bubble ${isSender ? 'sender' : 'receiver'}`}>
+                              {msg.mediaUrl && msg.mediaType === 'image' && (
+                                <a href={msg.mediaUrl} target="_blank" rel="noreferrer">
+                                  <img src={msg.mediaUrl} alt="Attachment" className="chat-message-img" />
+                                </a>
+                              )}
+                              {msg.text && <p className="message-text">{msg.text}</p>}
+                              <div className="chat-message-meta">
+                                <span>{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                {isSender && (
+                                  <span style={{ color: msg.isRead ? '#60a5fa' : 'inherit' }}>
+                                    {msg.isRead ? '✓✓' : '✓'}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </React.Fragment>
+                  ))
                 )}
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Chat Input Field */}
+              {/* Input Bar */}
               <form onSubmit={handleSendChatMessage} className="chat-input-bar">
                 {chatFilePreview && (
                   <div className="chat-file-preview-pill">
-                    <img src={chatFilePreview} alt="Preview" style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px' }} />
-                    <span style={{ fontSize: '0.8rem', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{chatFile?.name}</span>
-                    <button type="button" onClick={() => { setChatFile(null); setChatFilePreview(''); }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--color-danger)' }}>✕</button>
+                    <img src={chatFilePreview} alt="Preview" style={{ width: '36px', height: '36px', objectFit: 'cover', borderRadius: '6px' }} />
+                    <span style={{ maxWidth: '130px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                      {chatFile?.name}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => { setChatFile(null); setChatFilePreview(''); }}
+                      style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--color-danger)', display: 'flex', padding: '2px' }}
+                    >
+                      <X size={14} />
+                    </button>
                   </div>
                 )}
 
@@ -352,29 +390,67 @@ export default function Chat({
                     />
                   </label>
                   <input
+                    ref={inputRef}
                     type="text"
-                    className="form-input"
-                    placeholder="Type your message here..."
+                    className="chat-text-input"
+                    placeholder="Type a message..."
                     value={chatInputText}
                     onChange={e => setChatInputText(e.target.value)}
-                    style={{ flexGrow: 1 }}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendChatMessage(e as any);
+                      }
+                    }}
                   />
-                  <button type="submit" className="btn btn-primary" style={{ padding: '10px 20px' }} disabled={chatSending}>
-                    {chatSending ? <Loader className="spinner" size={16} /> : <Send size={18} />}
+                  <button type="submit" className="chat-send-btn" disabled={chatSending}>
+                    {chatSending ? <Loader size={16} className="spinner" /> : <Send size={16} />}
                   </button>
                 </div>
               </form>
             </>
           ) : (
-            <div style={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '12px', color: 'var(--text-secondary)' }}>
-              <MessageSquare size={48} style={{ opacity: 0.3 }} />
-              <h3 style={{ fontWeight: 600 }}>No Chat Selected</h3>
-              <p style={{ fontSize: '0.9rem' }}>Select an office staff member from the list to start messaging.</p>
+            <div className="chat-no-select">
+              <div className="chat-no-select-icon">
+                <MessageSquare size={40} />
+              </div>
+              <h3 style={{ fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Select a Conversation</h3>
+              <p style={{ fontSize: '0.9rem', textAlign: 'center', maxWidth: '260px', lineHeight: 1.6 }}>
+                Choose an office staff member from the left panel to start messaging.
+              </p>
             </div>
           )}
         </div>
-
       </div>
+
+      {/* ─── CLEAR CHAT CONFIRM MODAL ─── */}
+      {showClearConfirm && (
+        <div className="chat-confirm-overlay" onClick={() => setShowClearConfirm(false)}>
+          <div className="chat-confirm-card" onClick={e => e.stopPropagation()}>
+            <div style={{ marginBottom: '16px', color: 'var(--color-danger)', display: 'flex', justifyContent: 'center' }}>
+              <AlertTriangle size={44} />
+            </div>
+            <h3 style={{ marginBottom: '10px', fontSize: '1.2rem', fontWeight: 700 }}>Clear Chat?</h3>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '24px', fontSize: '0.9rem', lineHeight: 1.6 }}>
+              All messages in this chat will be permanently deleted. This cannot be undone.
+            </p>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                onClick={() => setShowClearConfirm(false)}
+                style={{ flex: 1, padding: '11px', borderRadius: '10px', border: '1px solid var(--glass-border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={executeClearChat}
+                style={{ flex: 1, padding: '11px', borderRadius: '10px', border: 'none', background: 'var(--color-danger)', color: 'white', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem' }}
+              >
+                Yes, Clear
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

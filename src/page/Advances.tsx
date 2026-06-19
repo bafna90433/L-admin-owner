@@ -130,13 +130,13 @@ export default function Advances({
           <div key={req._id} className="glass-panel animate-fade-in advance-card-item">
             <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexGrow: 1 }}>
               <img 
-                src={req.labourId.imageUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=80'} 
-                alt={req.labourId.name} 
+                src={req.labourId?.imageUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=80'} 
+                alt={req.labourId?.name || 'Deleted'} 
                 style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover' }}
               />
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                  <span style={{ fontWeight: 700, fontSize: '1.1rem' }}>{req.labourId.name}</span>
+                  <span style={{ fontWeight: 700, fontSize: '1.1rem' }}>{req.labourId?.name || 'Deleted Employee'}</span>
                   <span className={`badge ${
                     req.status === 'approved' ? 'badge-success' :
                     req.status === 'rejected' ? 'badge-danger' :
