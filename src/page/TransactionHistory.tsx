@@ -2,8 +2,6 @@ import { useState, useEffect } from 'react';
 import { 
   Search, 
   Calendar, 
-  ArrowUpRight, 
-  ArrowDownRight, 
   Filter, 
   Download, 
   RefreshCw,
@@ -281,9 +279,17 @@ export default function TransactionHistory({
       }}>
         {/* Total Inflow */}
         <div className="glass-panel" style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '18px 24px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
-          <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: 'rgba(16, 185, 129, 0.1)', display: 'flex', alignItems: 'center', color: '#10b981', justifyContent: 'center' }}>
-            <ArrowUpRight size={24} />
-          </div>
+          <img 
+            src="https://ik.imagekit.io/rishii/total_cash_sent.png" 
+            alt="Total Cash Sent" 
+            style={{ 
+              width: '56px', 
+              height: '56px', 
+              borderRadius: '12px', 
+              objectFit: 'cover', 
+              boxShadow: '0 4px 10px rgba(79, 70, 229, 0.15)' 
+            }} 
+          />
           <div>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>TOTAL CASH SENT</span>
             <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--color-success)', marginTop: '2px' }}>₹{totalReceived.toLocaleString('en-IN')}</div>
@@ -292,9 +298,17 @@ export default function TransactionHistory({
 
         {/* Total Outflow */}
         <div className="glass-panel" style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '18px 24px', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
-          <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.1)', display: 'flex', alignItems: 'center', color: '#ef4444', justifyContent: 'center' }}>
-            <ArrowDownRight size={24} />
-          </div>
+          <img 
+            src="https://ik.imagekit.io/rishii/total_expenses.png" 
+            alt="Total Expenses" 
+            style={{ 
+              width: '56px', 
+              height: '56px', 
+              borderRadius: '12px', 
+              objectFit: 'cover', 
+              boxShadow: '0 4px 10px rgba(220, 38, 38, 0.15)' 
+            }} 
+          />
           <div>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>TOTAL EXPENSES</span>
             <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#ef4444', marginTop: '2px' }}>₹{totalSpent.toLocaleString('en-IN')}</div>
@@ -303,9 +317,17 @@ export default function TransactionHistory({
 
         {/* Net Flow */}
         <div className="glass-panel" style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '18px 24px', border: `1px solid ${netBalance >= 0 ? 'rgba(79, 70, 229, 0.3)' : 'rgba(239, 68, 68, 0.3)'}` }}>
-          <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: netBalance >= 0 ? 'rgba(79, 70, 229, 0.1)' : 'rgba(239, 68, 68, 0.1)', display: 'flex', alignItems: 'center', color: netBalance >= 0 ? 'var(--accent-primary)' : '#ef4444', justifyContent: 'center' }}>
-            <DollarSign size={24} />
-          </div>
+          <img 
+            src="https://ik.imagekit.io/rishii/total_vault.png" 
+            alt="Total Petty Cash" 
+            style={{ 
+              width: '56px', 
+              height: '56px', 
+              borderRadius: '12px', 
+              objectFit: 'cover', 
+              boxShadow: '0 4px 10px rgba(16, 185, 129, 0.15)' 
+            }} 
+          />
           <div>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>AVAILABLE TOTAL CASH</span>
             <div style={{ fontSize: '1.4rem', fontWeight: 800, color: netBalance >= 0 ? 'var(--accent-primary)' : '#ef4444', marginTop: '2px' }}>
