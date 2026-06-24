@@ -28,6 +28,8 @@ interface Task {
   completedAt?: string;
   comments?: any[];
   createdAt: string;
+  seenByOwner?: boolean;
+  seenAt?: string;
 }
 
 interface TasksProps {
@@ -407,6 +409,16 @@ export default function Tasks({
                             fontWeight: 700
                           }}>
                             {getDaysElapsed(t.createdAt)} {getDaysElapsed(t.createdAt) === 1 ? 'day' : 'days'}
+                          </span>
+                        )}
+                        {!isCompleted && !t.seenByOwner && (
+                          <span className="badge" style={{ 
+                            background: 'rgba(239, 68, 68, 0.1)', 
+                            color: '#ef4444',
+                            fontWeight: 700,
+                            animation: 'newBadgePulseWB 1.5s infinite',
+                          }}>
+                            🔴 New / Unseen
                           </span>
                         )}
                       </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Loader, Send } from 'lucide-react';
 import '../styles/Tasks.css';
 
@@ -12,6 +12,8 @@ interface Task {
     name: string;
   };
   comments?: any[];
+  seenByOwner?: boolean;
+  seenAt?: string;
 }
 
 interface TaskDetailModalProps {
@@ -33,6 +35,26 @@ export default function TaskDetailModal({
 }: TaskDetailModalProps) {
   const [newCommentText, setNewCommentText] = useState('');
   const [commentSubmitting, setCommentSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (task && !task.seenByOwner) {
+      const markAsSeen = async () => {
+        try {
+          await fetch(`${apiBase}/tasks/${task._id}/seen`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          onTaskUpdated();
+        } catch (err) {
+          console.error('Failed to mark task as seen', err);
+        }
+      };
+      markAsSeen();
+    }
+  }, [task, token, apiBase, onTaskUpdated]);
 
   const handlePostComment = async (e: React.FormEvent) => {
     e.preventDefault();
