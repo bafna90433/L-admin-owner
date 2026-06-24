@@ -271,66 +271,99 @@ export default function TransactionHistory({
       </div>
 
       {/* Filtered Sums Cards */}
-      <div style={{
+      <div className="stats-grid" style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-        gap: '20px',
-        marginBottom: '10px'
+        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+        gap: '24px',
+        marginBottom: '32px'
       }}>
         {/* Total Inflow */}
-        <div className="glass-panel" style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '18px 24px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+        <div className="glass-panel stat-card" style={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          textAlign: 'center',
+          gap: '16px',
+          padding: '24px',
+          border: '1px solid var(--glass-border)'
+        }}>
           <img 
             src="https://ik.imagekit.io/rishii/total_cash_sent.png" 
             alt="Total Cash Sent" 
             style={{ 
-              width: '56px', 
-              height: '56px', 
-              borderRadius: '12px', 
+              width: '100%', 
+              maxWidth: '120px', 
+              height: 'auto', 
+              aspectRatio: '1 / 1', 
+              borderRadius: '16px', 
               objectFit: 'cover', 
-              boxShadow: '0 4px 10px rgba(79, 70, 229, 0.15)' 
+              boxShadow: '0 6px 18px rgba(79, 70, 229, 0.25)' 
             }} 
           />
           <div>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>TOTAL CASH SENT</span>
-            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--color-success)', marginTop: '2px' }}>₹{totalReceived.toLocaleString('en-IN')}</div>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>TOTAL CASH SENT</span>
+            <div className="stat-value gradient-text" style={{ fontSize: '1.8rem', fontWeight: 850, marginTop: '4px' }}>₹{totalReceived.toLocaleString('en-IN')}</div>
           </div>
         </div>
 
         {/* Total Outflow */}
-        <div className="glass-panel" style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '18px 24px', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+        <div className="glass-panel stat-card" style={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          textAlign: 'center',
+          gap: '16px',
+          padding: '24px',
+          border: '1px solid var(--glass-border)'
+        }}>
           <img 
             src="https://ik.imagekit.io/rishii/total_expenses.png" 
             alt="Total Expenses" 
             style={{ 
-              width: '56px', 
-              height: '56px', 
-              borderRadius: '12px', 
+              width: '100%', 
+              maxWidth: '120px', 
+              height: 'auto', 
+              aspectRatio: '1 / 1', 
+              borderRadius: '16px', 
               objectFit: 'cover', 
-              boxShadow: '0 4px 10px rgba(220, 38, 38, 0.15)' 
+              boxShadow: '0 6px 18px rgba(220, 38, 38, 0.25)' 
             }} 
           />
           <div>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>TOTAL EXPENSES</span>
-            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#ef4444', marginTop: '2px' }}>₹{totalSpent.toLocaleString('en-IN')}</div>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>TOTAL EXPENSES</span>
+            <div className="stat-value" style={{ color: 'var(--color-danger)', fontSize: '1.8rem', fontWeight: 850, marginTop: '4px' }}>₹{totalSpent.toLocaleString('en-IN')}</div>
           </div>
         </div>
 
         {/* Net Flow */}
-        <div className="glass-panel" style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '18px 24px', border: `1px solid ${netBalance >= 0 ? 'rgba(79, 70, 229, 0.3)' : 'rgba(239, 68, 68, 0.3)'}` }}>
+        <div className="glass-panel stat-card" style={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          textAlign: 'center',
+          gap: '16px',
+          padding: '24px',
+          border: `1px solid ${netBalance >= 0 ? 'rgba(79, 70, 229, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`
+        }}>
           <img 
             src="https://ik.imagekit.io/rishii/total_vault.png" 
             alt="Total Petty Cash" 
             style={{ 
-              width: '56px', 
-              height: '56px', 
-              borderRadius: '12px', 
+              width: '100%', 
+              maxWidth: '120px', 
+              height: 'auto', 
+              aspectRatio: '1 / 1', 
+              borderRadius: '16px', 
               objectFit: 'cover', 
-              boxShadow: '0 4px 10px rgba(16, 185, 129, 0.15)' 
+              boxShadow: netBalance >= 0 ? '0 6px 18px rgba(79, 70, 229, 0.25)' : '0 6px 18px rgba(239, 68, 68, 0.25)'
             }} 
           />
           <div>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>AVAILABLE TOTAL CASH</span>
-            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: netBalance >= 0 ? 'var(--accent-primary)' : '#ef4444', marginTop: '2px' }}>
+            <span style={{ fontSize: '0.8rem', color: netBalance >= 0 ? 'var(--color-success)' : '#ef4444', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>AVAILABLE TOTAL CASH</span>
+            <div style={{ fontSize: '1.8rem', fontWeight: 850, color: netBalance >= 0 ? 'var(--color-success)' : '#ef4444', marginTop: '4px' }}>
               {netBalance < 0 && '-'}₹{Math.abs(netBalance).toLocaleString('en-IN')}
             </div>
           </div>
