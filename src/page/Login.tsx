@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Loader } from 'lucide-react';
 import '../styles/Login.css';
 
@@ -12,6 +12,52 @@ export default function Login({ apiBase, onLoginSuccess }: LoginProps) {
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const sso = params.get('sso');
+    if (sso) {
+      try {
+        const decoded = atob(sso);
+        const [u, p] = decoded.split(':');
+        if (u && p) {
+          setUsername(u);
+          setPassword(p);
+          
+          const performAutoLogin = async () => {
+            setLoginLoading(true);
+            setLoginError('');
+            try {
+              const res = await fetch(`${apiBase}/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: u, password: p })
+              });
+              const data = await res.json();
+              if (res.ok) {
+                if (data.user.role !== 'owner') {
+                  setLoginError('Access denied: Owners only.');
+                } else {
+                  // Clean up the SSO token from the URL bar immediately
+                  window.history.replaceState({}, document.title, window.location.pathname);
+                  onLoginSuccess(data.token, data.user);
+                }
+              } else {
+                setLoginError(data.message || 'Auto-login failed.');
+              }
+            } catch (err) {
+              setLoginError('Server connection failed.');
+            } finally {
+              setLoginLoading(false);
+            }
+          };
+          performAutoLogin();
+        }
+      } catch (e) {
+        console.error('SSO decoding failed', e);
+      }
+    }
+  }, [apiBase, onLoginSuccess]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
