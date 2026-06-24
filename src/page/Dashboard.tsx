@@ -359,7 +359,26 @@ export default function Dashboard({
         
         {/* Transaction history */}
         <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <h3 style={{ fontSize: '1.25rem' }}>Recent Expenses Ledger</h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+            <h3 style={{ fontSize: '1.25rem' }}>Recent Expenses Ledger</h3>
+            {onViewHistoryClick && (
+              <button 
+                type="button" 
+                onClick={onViewHistoryClick} 
+                className="btn btn-secondary" 
+                style={{ 
+                  padding: '6px 12px', 
+                  fontSize: '0.8rem', 
+                  fontWeight: 600, 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '4px' 
+                }}
+              >
+                👁️ View History
+              </button>
+            )}
+          </div>
           <div className="table-container" style={{ maxHeight: '400px' }}>
             <table className="custom-table">
               <thead>
@@ -417,26 +436,6 @@ export default function Dashboard({
               </tbody>
             </table>
           </div>
-          {onViewHistoryClick && (
-            <button 
-              type="button" 
-              onClick={onViewHistoryClick} 
-              className="btn btn-secondary" 
-              style={{ 
-                marginTop: '12px', 
-                width: '100%', 
-                padding: '10px', 
-                fontSize: '0.875rem', 
-                fontWeight: 600, 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                gap: '6px' 
-              }}
-            >
-              👁️ View Full Transaction History
-            </button>
-          )}
         </div>
 
         {/* Category-wise spending visualizer */}
