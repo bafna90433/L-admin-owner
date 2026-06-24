@@ -192,6 +192,27 @@ export default function Tasks({
     });
   };
 
+  const handleMarkAsSeen = async (id: string) => {
+    try {
+      const res = await fetch(`${apiBase}/tasks/${id}/seen`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        fetchTasks();
+        showToast('Task marked as seen', 'success');
+      } else {
+        showToast('Failed to mark task as seen', 'danger');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Error connecting to server', 'danger');
+    }
+  };
+
   const filteredTasks = tasks
     .filter(t => taskFilterStatus === 'all' || t.status === taskFilterStatus)
     .filter(t => taskFilterType === 'all' || t.taskType === taskFilterType);
@@ -454,13 +475,23 @@ export default function Tasks({
                       </div>
 
                       <div style={{ display: 'flex', gap: '8px' }}>
+                        {!t.seenByOwner && !isCompleted && (
+                          <button 
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); handleMarkAsSeen(t._id); }}
+                            className="btn btn-success" 
+                            style={{ padding: '6px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}
+                          >
+                            👁️ Mark Seen
+                          </button>
+                        )}
                         <button 
                           type="button"
                           onClick={(e) => { e.stopPropagation(); setSelectedTaskForComments(t); }}
                           className="btn btn-secondary" 
                           style={{ padding: '6px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
                         >
-                          💬 {t.comments?.length || 0} Comments
+                          💬 View & Reply ({t.comments?.length || 0})
                         </button>
                         
                         {isCompleted && (
