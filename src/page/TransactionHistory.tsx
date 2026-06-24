@@ -6,7 +6,7 @@ import {
   Download, 
   RefreshCw,
   Loader,
-  DollarSign,
+  IndianRupee,
   Wallet
 } from 'lucide-react';
 import '../styles/Tasks.css'; // Leverage styles
@@ -545,7 +545,7 @@ export default function TransactionHistory({
                           textTransform: 'uppercase',
                           fontSize: '0.7rem'
                         }}>
-                          {tx.paymentMode === 'online' ? <Wallet size={12} /> : <DollarSign size={12} />}
+                          {tx.paymentMode === 'online' ? <Wallet size={12} /> : <IndianRupee size={12} />}
                           {tx.paymentMode === 'online' ? 'Online' : 'Handcash'}
                         </span>
                       </td>
