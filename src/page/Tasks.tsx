@@ -462,14 +462,33 @@ export default function Tasks({
                     </p>
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', paddingTop: '8px', borderTop: '1px solid rgba(0,0,0,0.05)', flexWrap: 'wrap', gap: '8px' }}>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center' }}>
                         {isCompleted ? (
-                          <div>
-                            ✅ Completed by <span style={{ fontWeight: 600 }}>{t.completedBy?.name || 'Staff'}</span> on {new Date(t.completedAt || '').toLocaleDateString('en-GB')}
+                          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
+                            <span>✅ Completed by</span>
+                            <span style={{ 
+                              background: 'rgba(16, 185, 129, 0.1)', 
+                              color: 'var(--color-success)', 
+                              padding: '2px 8px', 
+                              borderRadius: '12px', 
+                              fontWeight: 700,
+                              fontSize: '0.75rem',
+                              display: 'inline-block'
+                            }}>{t.completedBy?.name || 'Staff'}</span>
+                            <span>on {new Date(t.completedAt || '').toLocaleDateString('en-GB')}</span>
                           </div>
                         ) : (
-                          <div>
-                            👤 Assigned to: <span style={{ fontWeight: 600 }}>{t.assignedTo?.name || 'All Staff'}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
+                            <span>👤 Assigned to:</span>
+                            <span style={{ 
+                              background: 'rgba(79, 70, 229, 0.1)', 
+                              color: 'var(--accent-primary)', 
+                              padding: '2px 8px', 
+                              borderRadius: '12px', 
+                              fontWeight: 700,
+                              fontSize: '0.75rem',
+                              display: 'inline-block'
+                            }}>{t.assignedTo?.name || 'All Staff'}</span>
                           </div>
                         )}
                       </div>
