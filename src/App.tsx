@@ -10,7 +10,8 @@ import {
   Bell, 
   MessageSquare,
   Settings as SettingsIcon,
-  History
+  History,
+  Receipt
 } from 'lucide-react';
 
 // Import Modular Page Components
@@ -27,6 +28,7 @@ import TaskDetailModal from './page/TaskDetailModal';
 import Settings from './page/Settings';
 import Profile from './page/Profile';
 import AdvanceHistory from './page/AdvanceHistory';
+import TransactionHistory from './page/TransactionHistory';
 
 const API_BASE = 'https://l-backend-production-ff32.up.railway.app/api';
 
@@ -98,7 +100,7 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   
   // Router Tab
-  const adminValidTabs = ['dashboard', 'labourers', 'attendance', 'salary', 'advances', 'advance-history', 'reminders', 'tasks', 'chat', 'settings', 'profile'] as const;
+  const adminValidTabs = ['dashboard', 'labourers', 'attendance', 'salary', 'advances', 'advance-history', 'transaction-history', 'reminders', 'tasks', 'chat', 'settings', 'profile'] as const;
   type AdminTabType = typeof adminValidTabs[number];
   const adminSavedTab = localStorage.getItem('admin_active_tab') as AdminTabType | null;
   const [activeTab, setActiveTab] = useState<AdminTabType>(adminSavedTab && adminValidTabs.includes(adminSavedTab) ? adminSavedTab : 'dashboard');
@@ -450,6 +452,15 @@ export default function App() {
             fetchDashboardData={fetchDashboardData}
           />
         );
+      case 'transaction-history':
+        return (
+          <TransactionHistory 
+            token={token}
+            apiBase={API_BASE}
+            allStaff={allStaff}
+            showToast={showToast}
+          />
+        );
       case 'reminders':
         return (
           <Reminders 
@@ -607,6 +618,13 @@ export default function App() {
             style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
           >
             <History size={18} /> Advance Ledger
+          </button>
+          <button 
+            onClick={() => navigateTo('transaction-history')} 
+            className={`nav-link btn-secondary ${activeTab === 'transaction-history' ? 'active' : ''}`}
+            style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
+          >
+            <Receipt size={18} /> Transaction History
           </button>
         </nav>
 
