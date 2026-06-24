@@ -387,7 +387,9 @@ export default function Tasks({
                     style={{ 
                       border: `1px solid ${isCompleted ? 'rgba(16, 185, 129, 0.4)' : 'var(--glass-border)'}`,
                       background: isCompleted ? 'rgba(16, 185, 129, 0.05)' : 'var(--bg-tertiary)',
+                      cursor: 'pointer'
                     }}
+                    onClick={() => setSelectedTaskForComments(t)}
                   >
                     <div className="flex-between" style={{ marginBottom: '8px', gap: '8px' }}>
                       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
@@ -454,7 +456,7 @@ export default function Tasks({
                       <div style={{ display: 'flex', gap: '8px' }}>
                         <button 
                           type="button"
-                          onClick={() => setSelectedTaskForComments(t)}
+                          onClick={(e) => { e.stopPropagation(); setSelectedTaskForComments(t); }}
                           className="btn btn-secondary" 
                           style={{ padding: '6px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
                         >
@@ -464,7 +466,7 @@ export default function Tasks({
                         {isCompleted && (
                           <button 
                             type="button"
-                            onClick={() => handleResetTask(t._id)}
+                            onClick={(e) => { e.stopPropagation(); handleResetTask(t._id); }}
                             className="btn btn-secondary" 
                             style={{ padding: '6px 12px', fontSize: '0.8rem', color: 'var(--color-warning)' }}
                           >
@@ -474,7 +476,7 @@ export default function Tasks({
 
                         <button 
                           type="button"
-                          onClick={() => handleStartEditTask(t)}
+                          onClick={(e) => { e.stopPropagation(); handleStartEditTask(t); }}
                           className="btn btn-secondary" 
                           style={{ padding: '6px', fontSize: '0.8rem' }}
                           title="Edit task"
@@ -484,7 +486,7 @@ export default function Tasks({
 
                         <button 
                           type="button"
-                          onClick={() => handleDeleteTask(t._id)}
+                          onClick={(e) => { e.stopPropagation(); handleDeleteTask(t._id); }}
                           className="btn btn-danger" 
                           style={{ padding: '6px', fontSize: '0.8rem' }}
                           title="Delete task"
