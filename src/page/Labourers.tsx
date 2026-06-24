@@ -5,10 +5,7 @@ import {
   Phone, 
   Edit3, 
   Trash2, 
-  Loader,
-  Users,
-  UserCheck,
-  Briefcase
+  Loader
 } from 'lucide-react';
 import '../styles/Labourers.css';
 
@@ -425,34 +422,96 @@ export default function Labourers({
       </div>
 
       {/* Stats Cards Row */}
-      <div className="stats-container">
-        <div className="glass-panel stat-card" style={{ borderLeft: '4px solid var(--accent-color)' }}>
-          <div className="stat-card-icon" style={{ background: 'rgba(99, 102, 241, 0.1)', color: 'var(--accent-color)' }}>
-            <Users size={24} />
-          </div>
-          <div className="stat-card-info">
-            <span className="stat-card-label">Total Employees</span>
-            <span className="stat-card-value">{totalEmployeesCount}</span>
+      <div className="stats-container" style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+        gap: '24px',
+        marginBottom: '32px'
+      }}>
+        <div className="glass-panel stat-card" style={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          textAlign: 'center',
+          gap: '16px',
+          padding: '24px',
+          border: '1px solid rgba(99, 102, 241, 0.4)'
+        }}>
+          <img 
+            src="https://ik.imagekit.io/rishii/Total_Employees.webp" 
+            alt="Total Employees" 
+            style={{ 
+              width: '100%', 
+              maxWidth: '120px', 
+              height: 'auto', 
+              aspectRatio: '1 / 1', 
+              borderRadius: '16px', 
+              objectFit: 'cover', 
+              boxShadow: '0 6px 18px rgba(99, 102, 241, 0.25)' 
+            }} 
+          />
+          <div>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block' }}>Total Employees</span>
+            <div className="stat-card-value" style={{ fontSize: '1.8rem', fontWeight: 850, color: 'var(--text-primary)', marginTop: '4px' }}>{totalEmployeesCount}</div>
           </div>
         </div>
 
-        <div className="glass-panel stat-card" style={{ borderLeft: '4px solid #10b981' }}>
-          <div className="stat-card-icon" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>
-            <Briefcase size={24} />
-          </div>
-          <div className="stat-card-info">
-            <span className="stat-card-label">Total Labourers</span>
-            <span className="stat-card-value" style={{ color: '#10b981' }}>{totalLabourersCount}</span>
+        <div className="glass-panel stat-card" style={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          textAlign: 'center',
+          gap: '16px',
+          padding: '24px',
+          border: '1px solid rgba(16, 185, 129, 0.4)'
+        }}>
+          <img 
+            src="https://ik.imagekit.io/rishii/Total_Labourers.webp" 
+            alt="Total Labourers" 
+            style={{ 
+              width: '100%', 
+              maxWidth: '120px', 
+              height: 'auto', 
+              aspectRatio: '1 / 1', 
+              borderRadius: '16px', 
+              objectFit: 'cover', 
+              boxShadow: '0 6px 18px rgba(16, 185, 129, 0.25)' 
+            }} 
+          />
+          <div>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block' }}>Total Labourers</span>
+            <div className="stat-card-value" style={{ fontSize: '1.8rem', fontWeight: 850, color: '#10b981', marginTop: '4px' }}>{totalLabourersCount}</div>
           </div>
         </div>
 
-        <div className="glass-panel stat-card" style={{ borderLeft: '4px solid #a855f7' }}>
-          <div className="stat-card-icon" style={{ background: 'rgba(168, 85, 247, 0.1)', color: '#a855f7' }}>
-            <UserCheck size={24} />
-          </div>
-          <div className="stat-card-info">
-            <span className="stat-card-label">Total Staff</span>
-            <span className="stat-card-value" style={{ color: '#a855f7' }}>{totalStaffCount}</span>
+        <div className="glass-panel stat-card" style={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          textAlign: 'center',
+          gap: '16px',
+          padding: '24px',
+          border: '1px solid rgba(168, 85, 247, 0.4)'
+        }}>
+          <img 
+            src="https://ik.imagekit.io/rishii/Total_Staff.webp" 
+            alt="Total Staff" 
+            style={{ 
+              width: '100%', 
+              maxWidth: '120px', 
+              height: 'auto', 
+              aspectRatio: '1 / 1', 
+              borderRadius: '16px', 
+              objectFit: 'cover', 
+              boxShadow: '0 6px 18px rgba(168, 85, 247, 0.25)' 
+            }} 
+          />
+          <div>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block' }}>Total Staff</span>
+            <div className="stat-card-value" style={{ fontSize: '1.8rem', fontWeight: 850, color: '#a855f7', marginTop: '4px' }}>{totalStaffCount}</div>
           </div>
         </div>
       </div>
