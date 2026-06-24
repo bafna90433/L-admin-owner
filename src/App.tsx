@@ -106,6 +106,17 @@ export default function App() {
   const navigateTo = (tab: AdminTabType) => {
     localStorage.setItem('admin_active_tab', tab);
     setActiveTab(tab);
+    if (tab === 'reminders') {
+      fetchReminders();
+    } else if (tab === 'tasks') {
+      fetchTasks();
+    } else if (tab === 'advances') {
+      fetchAdvances();
+    } else if (tab === 'dashboard') {
+      fetchReminders();
+      fetchTasks();
+      fetchAdvances();
+    }
   };
 
 
