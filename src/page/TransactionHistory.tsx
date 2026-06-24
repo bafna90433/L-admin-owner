@@ -285,7 +285,7 @@ export default function TransactionHistory({
             <ArrowUpRight size={24} />
           </div>
           <div>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Filtered Inflow</span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>TOTAL CASH SENT</span>
             <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--color-success)', marginTop: '2px' }}>₹{totalReceived.toLocaleString('en-IN')}</div>
           </div>
         </div>
@@ -296,7 +296,7 @@ export default function TransactionHistory({
             <ArrowDownRight size={24} />
           </div>
           <div>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Filtered Outflow</span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>TOTAL EXPENSES</span>
             <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#ef4444', marginTop: '2px' }}>₹{totalSpent.toLocaleString('en-IN')}</div>
           </div>
         </div>
@@ -307,7 +307,7 @@ export default function TransactionHistory({
             <DollarSign size={24} />
           </div>
           <div>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Filtered Net Balance</span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>AVAILABLE TOTAL CASH</span>
             <div style={{ fontSize: '1.4rem', fontWeight: 800, color: netBalance >= 0 ? 'var(--accent-primary)' : '#ef4444', marginTop: '2px' }}>
               {netBalance < 0 && '-'}₹{Math.abs(netBalance).toLocaleString('en-IN')}
             </div>
