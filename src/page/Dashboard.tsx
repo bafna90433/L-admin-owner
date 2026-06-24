@@ -1,9 +1,6 @@
 import React, { useState } from 'react';
 import { 
   Plus, 
-  ArrowUpRight, 
-  ArrowDownLeft, 
-  IndianRupee, 
   Loader 
 } from 'lucide-react';
 import '../styles/Dashboard.css';
@@ -34,6 +31,8 @@ interface BalanceData {
   totalReceived: number;
   totalSpent: number;
   activeBalance: number;
+  onlineBalance?: number;
+  handCashBalance?: number;
   categoryTotals: Record<string, number>;
 }
 
@@ -128,6 +127,7 @@ export default function Dashboard({
   const [cashDesc, setCashDesc] = useState('');
   const [selectedStaffId, setSelectedStaffId] = useState('');
   const [cashSubmitting, setCashSubmitting] = useState(false);
+  const [cashPaymentMode, setCashPaymentMode] = useState<'handcash' | 'online'>('handcash');
 
   // Initialize selected staff ID if list changes
   React.useEffect(() => {
@@ -151,7 +151,8 @@ export default function Dashboard({
           amount: parseFloat(cashAmount),
           date: new Date(),
           description: cashDesc || 'Cash handed over to office staff',
-          staffId: selectedStaffId
+          staffId: selectedStaffId,
+          paymentMode: cashPaymentMode
         })
       });
 
@@ -159,6 +160,7 @@ export default function Dashboard({
         setShowCashModal(false);
         setCashAmount('');
         setCashDesc('');
+        setCashPaymentMode('handcash');
         onGiveCashSuccess();
         showToast('Cash transferred to staff successfully!', 'success');
       } else {
@@ -185,32 +187,168 @@ export default function Dashboard({
       </div>
 
       {/* Stats Grid */}
-      <div className="stats-grid">
-        <div className="glass-panel stat-card">
-          <div className="stat-header">
-            <span>Total Cash Sent</span>
-            <ArrowUpRight size={20} style={{ color: 'var(--accent-secondary)' }} />
+      <div className="stats-grid" style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+        gap: '24px',
+        marginBottom: '32px'
+      }}>
+        {/* Card 1: Total Cash Sent */}
+        <div className="glass-panel stat-card" style={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          textAlign: 'center',
+          gap: '16px',
+          padding: '24px',
+          border: '1px solid var(--glass-border)'
+        }}>
+          <img 
+            src="/total_cash_sent.png" 
+            alt="Total Cash Sent" 
+            style={{ 
+              width: '100%', 
+              maxWidth: '120px', 
+              height: 'auto', 
+              aspectRatio: '1 / 1', 
+              borderRadius: '16px', 
+              objectFit: 'cover', 
+              boxShadow: '0 6px 18px rgba(79, 70, 229, 0.25)' 
+            }} 
+          />
+          <div>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Cash Sent</span>
+            <div className="stat-value gradient-text" style={{ fontSize: '1.8rem', fontWeight: 850, marginTop: '4px' }}>₹{balanceData.totalReceived.toLocaleString('en-IN')}</div>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px', marginBottom: 0 }}>Handed to Office Staff</p>
           </div>
-          <div className="stat-value gradient-text">₹{balanceData.totalReceived.toLocaleString('en-IN')}</div>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Handed to Office Staff</p>
         </div>
 
-        <div className="glass-panel stat-card">
-          <div className="stat-header">
-            <span>Total Expenses</span>
-            <ArrowDownLeft size={20} style={{ color: 'var(--color-danger)' }} />
+        {/* Card 2: Total Expenses */}
+        <div className="glass-panel stat-card" style={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          textAlign: 'center',
+          gap: '16px',
+          padding: '24px',
+          border: '1px solid var(--glass-border)'
+        }}>
+          <img 
+            src="/total_expenses.png" 
+            alt="Total Expenses" 
+            style={{ 
+              width: '100%', 
+              maxWidth: '120px', 
+              height: 'auto', 
+              aspectRatio: '1 / 1', 
+              borderRadius: '16px', 
+              objectFit: 'cover', 
+              boxShadow: '0 6px 18px rgba(220, 38, 38, 0.25)' 
+            }} 
+          />
+          <div>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Expenses</span>
+            <div className="stat-value" style={{ color: 'var(--color-danger)', fontSize: '1.8rem', fontWeight: 850, marginTop: '4px' }}>₹{balanceData.totalSpent.toLocaleString('en-IN')}</div>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px', marginBottom: 0 }}>Spent by Office Staff</p>
           </div>
-          <div className="stat-value" style={{ color: 'var(--color-danger)' }}>₹{balanceData.totalSpent.toLocaleString('en-IN')}</div>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Spent by Office Staff</p>
         </div>
 
-        <div className="glass-panel stat-card" style={{ border: '1px solid rgba(16, 185, 129, 0.4)' }}>
-          <div className="stat-header">
-            <span>Active Staff Balance</span>
-            <IndianRupee size={20} style={{ color: 'var(--color-success)' }} />
+        {/* Card 3: Online Cash */}
+        <div className="glass-panel stat-card" style={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          textAlign: 'center',
+          gap: '16px',
+          padding: '24px',
+          border: '1px solid rgba(59, 130, 246, 0.4)'
+        }}>
+          <img 
+            src="/online_bank.png" 
+            alt="Online Bank" 
+            style={{ 
+              width: '100%', 
+              maxWidth: '120px', 
+              height: 'auto', 
+              aspectRatio: '1 / 1', 
+              borderRadius: '16px', 
+              objectFit: 'cover', 
+              boxShadow: '0 6px 18px rgba(59, 130, 246, 0.25)' 
+            }} 
+          />
+          <div>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ONLINE CASH</span>
+            <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px' }}>
+              ₹{(balanceData.onlineBalance ?? 0).toLocaleString('en-IN')}
+            </div>
           </div>
-          <div className="stat-value" style={{ color: 'var(--color-success)' }}>₹{balanceData.activeBalance.toLocaleString('en-IN')}</div>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Cash currently with Staff</p>
+        </div>
+
+        {/* Card 4: Hand Cash */}
+        <div className="glass-panel stat-card" style={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          textAlign: 'center',
+          gap: '16px',
+          padding: '24px',
+          border: '1px solid rgba(16, 185, 129, 0.4)'
+        }}>
+          <img 
+            src="/hand_cash_drawer.png" 
+            alt="Hand Cash Drawer" 
+            style={{ 
+              width: '100%', 
+              maxWidth: '120px', 
+              height: 'auto', 
+              aspectRatio: '1 / 1', 
+              borderRadius: '16px', 
+              objectFit: 'cover', 
+              boxShadow: '0 6px 18px rgba(16, 185, 129, 0.25)' 
+            }} 
+          />
+          <div>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>HAND CASH</span>
+            <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px' }}>
+              ₹{(balanceData.handCashBalance ?? 0).toLocaleString('en-IN')}
+            </div>
+          </div>
+        </div>
+
+        {/* Card 5: Active Staff Balance */}
+        <div className="glass-panel stat-card" style={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          textAlign: 'center',
+          gap: '16px',
+          padding: '24px',
+          border: '1px solid rgba(16, 185, 129, 0.4)'
+        }}>
+          <img 
+            src="/total_vault.png" 
+            alt="Total Petty Cash" 
+            style={{ 
+              width: '100%', 
+              maxWidth: '120px', 
+              height: 'auto', 
+              aspectRatio: '1 / 1', 
+              borderRadius: '16px', 
+              objectFit: 'cover', 
+              boxShadow: '0 6px 18px rgba(16, 185, 129, 0.25)' 
+            }} 
+          />
+          <div>
+            <span style={{ fontSize: '0.8rem', color: 'var(--color-success)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>AVAILABLE TOTAL CASH</span>
+            <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--color-success)', marginTop: '4px' }}>
+              ₹{balanceData.activeBalance.toLocaleString('en-IN')}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -348,6 +486,19 @@ export default function Dashboard({
                   onChange={e => setCashAmount(e.target.value)}
                   required
                 />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Payment Mode</label>
+                <select 
+                  className="form-input"
+                  value={cashPaymentMode}
+                  onChange={e => setCashPaymentMode(e.target.value as any)}
+                  required
+                >
+                  <option value="handcash">💵 Cash (Handcash)</option>
+                  <option value="online">🌐 Online (Bank / UPI)</option>
+                </select>
               </div>
 
               <div className="form-group">

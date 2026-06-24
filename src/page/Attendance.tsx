@@ -230,7 +230,8 @@ export default function Attendance({
   const daysInMonth = new Date(attYear, attMonth, 0).getDate();
   const dayColumns = Array.from({ length: daysInMonth }, (_, i) => i + 1);
   const filteredLabours = labours.filter(lab => 
-    lab.name.toLowerCase().includes(searchQuery.toLowerCase())
+    lab.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
+    lab.name.trim().toLowerCase() !== 'company expenses'
   );
 
   return (

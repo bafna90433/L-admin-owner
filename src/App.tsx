@@ -131,6 +131,8 @@ export default function App() {
     totalReceived: 0,
     totalSpent: 0,
     activeBalance: 0,
+    onlineBalance: 0,
+    handCashBalance: 0,
     categoryTotals: {} as Record<string, number>
   });
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});

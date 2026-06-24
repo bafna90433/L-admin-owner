@@ -193,7 +193,9 @@ export default function Salary({
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!labRes.ok) throw new Error('Failed to fetch labourers');
-      const laboursList: Labour[] = await labRes.json();
+      const laboursList: Labour[] = (await labRes.json()).filter(
+        (lab: Labour) => lab.name.trim().toLowerCase() !== 'company expenses'
+      );
 
       // 2. Fetch attendance for that month
       const attRes = await fetch(`${apiBase}/attendance?month=${salMonth}&year=${salYear}`, {
