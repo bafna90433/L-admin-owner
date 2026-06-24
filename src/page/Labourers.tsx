@@ -5,7 +5,10 @@ import {
   Phone, 
   Edit3, 
   Trash2, 
-  Loader 
+  Loader,
+  Users,
+  UserCheck,
+  Briefcase
 } from 'lucide-react';
 import '../styles/Labourers.css';
 
@@ -103,6 +106,9 @@ export default function Labourers({
 }: LabourersProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'labourer' | 'staff'>('all');
+  const [selectedStatus, setSelectedStatus] = useState('all');
+  const [selectedGender, setSelectedGender] = useState('all');
+  const [selectedDepartment, setSelectedDepartment] = useState('all');
   
   // Modal / Form States
   const [showLabourModal, setShowLabourModal] = useState(false);
@@ -153,12 +159,31 @@ export default function Labourers({
   };
 
   const filteredLabours = labours
-    .filter(l => l.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    .filter(l => l.empCode !== 'COMPANY')
+    .filter(l => {
+      const query = searchQuery.toLowerCase().trim();
+      if (!query) return true;
+      const matchesName = l.name.toLowerCase().includes(query);
+      const matchesCode = l.empCode ? l.empCode.toString().toLowerCase().includes(query) : false;
+      return matchesName || matchesCode;
+    })
     .filter(l => {
       if (selectedFilter === 'all') return true;
       if (selectedFilter === 'labourer') return (l.employeeType || 'labourer') === 'labourer';
       if (selectedFilter === 'staff') return l.employeeType === 'staff';
       return true;
+    })
+    .filter(l => {
+      if (selectedStatus === 'all') return true;
+      return (l.status || 'active').toLowerCase() === selectedStatus.toLowerCase();
+    })
+    .filter(l => {
+      if (selectedGender === 'all') return true;
+      return (l.gender || '').toLowerCase() === selectedGender.toLowerCase();
+    })
+    .filter(l => {
+      if (selectedDepartment === 'all') return true;
+      return l.department === selectedDepartment;
     });
 
   useEffect(() => {
@@ -360,6 +385,10 @@ export default function Labourers({
     setShowLabourModal(true);
   };
 
+  const totalEmployeesCount = labours.filter(l => l.empCode !== 'COMPANY').length;
+  const totalLabourersCount = labours.filter(l => l.empCode !== 'COMPANY' && (l.employeeType || 'labourer') === 'labourer').length;
+  const totalStaffCount = labours.filter(l => l.empCode !== 'COMPANY' && l.employeeType === 'staff').length;
+
   return (
     <div className="labour-page-container">
       <div className="flex-between">
@@ -395,44 +424,184 @@ export default function Labourers({
         </button>
       </div>
 
-      {/* Search & Filters */}
-      <div className="glass-panel search-panel" style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexGrow: 1 }}>
-          <Search size={20} style={{ color: 'var(--text-muted)' }} />
-          <input 
-            type="text" 
-            className="search-input" 
-            placeholder="Search employees by name..." 
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-          />
+      {/* Stats Cards Row */}
+      <div className="stats-container">
+        <div className="glass-panel stat-card" style={{ borderLeft: '4px solid var(--accent-color)' }}>
+          <div className="stat-card-icon" style={{ background: 'rgba(99, 102, 241, 0.1)', color: 'var(--accent-color)' }}>
+            <Users size={24} />
+          </div>
+          <div className="stat-card-info">
+            <span className="stat-card-label">Total Employees</span>
+            <span className="stat-card-value">{totalEmployeesCount}</span>
+          </div>
         </div>
-        
-        <div style={{ display: 'flex', gap: '8px', borderLeft: '1px solid var(--glass-border)', paddingLeft: '16px' }}>
-          <button 
-            type="button" 
-            onClick={() => setSelectedFilter('all')} 
-            className={`btn ${selectedFilter === 'all' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ padding: '8px 16px', fontSize: '0.85rem' }}
-          >
-            All
-          </button>
-          <button 
-            type="button" 
-            onClick={() => setSelectedFilter('labourer')} 
-            className={`btn ${selectedFilter === 'labourer' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ padding: '8px 16px', fontSize: '0.85rem' }}
-          >
-            Labourers
-          </button>
-          <button 
-            type="button" 
-            onClick={() => setSelectedFilter('staff')} 
-            className={`btn ${selectedFilter === 'staff' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ padding: '8px 16px', fontSize: '0.85rem' }}
-          >
-            Staff
-          </button>
+
+        <div className="glass-panel stat-card" style={{ borderLeft: '4px solid #10b981' }}>
+          <div className="stat-card-icon" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>
+            <Briefcase size={24} />
+          </div>
+          <div className="stat-card-info">
+            <span className="stat-card-label">Total Labourers</span>
+            <span className="stat-card-value" style={{ color: '#10b981' }}>{totalLabourersCount}</span>
+          </div>
+        </div>
+
+        <div className="glass-panel stat-card" style={{ borderLeft: '4px solid #a855f7' }}>
+          <div className="stat-card-icon" style={{ background: 'rgba(168, 85, 247, 0.1)', color: '#a855f7' }}>
+            <UserCheck size={24} />
+          </div>
+          <div className="stat-card-info">
+            <span className="stat-card-label">Total Staff</span>
+            <span className="stat-card-value" style={{ color: '#a855f7' }}>{totalStaffCount}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Search & Filters */}
+      <div className="glass-panel search-panel-container" style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '20px' }}>
+        {/* Top Row: Search and Core Employee Type Tabs */}
+        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexGrow: 1, minWidth: '280px', background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--glass-border)', borderRadius: '10px', padding: '8px 16px' }}>
+            <Search size={20} style={{ color: 'var(--text-muted)' }} />
+            <input 
+              type="text" 
+              className="search-input" 
+              placeholder="Search by name or biometric code..." 
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', width: '100%', outline: 'none' }}
+            />
+          </div>
+          
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button 
+              type="button" 
+              onClick={() => setSelectedFilter('all')} 
+              className={`btn ${selectedFilter === 'all' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ padding: '10px 20px', fontSize: '0.9rem', borderRadius: '10px' }}
+            >
+              All ({totalEmployeesCount})
+            </button>
+            <button 
+              type="button" 
+              onClick={() => setSelectedFilter('labourer')} 
+              className={`btn ${selectedFilter === 'labourer' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ padding: '10px 20px', fontSize: '0.9rem', borderRadius: '10px' }}
+            >
+              Labourers ({totalLabourersCount})
+            </button>
+            <button 
+              type="button" 
+              onClick={() => setSelectedFilter('staff')} 
+              className={`btn ${selectedFilter === 'staff' ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ padding: '10px 20px', fontSize: '0.9rem', borderRadius: '10px' }}
+            >
+              Staff ({totalStaffCount})
+            </button>
+          </div>
+        </div>
+
+        {/* Bottom Row: Advanced Dropdown Filters */}
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', borderTop: '1px solid var(--glass-border)', paddingTop: '16px' }}>
+          <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginRight: '4px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Filters:</span>
+          
+          {/* Department Dropdown */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <select
+              value={selectedDepartment}
+              onChange={e => setSelectedDepartment(e.target.value)}
+              style={{ 
+                padding: '8px 16px', 
+                background: 'rgba(255, 255, 255, 0.05)', 
+                border: '1px solid var(--glass-border)', 
+                color: 'var(--text-primary)', 
+                borderRadius: '8px',
+                fontSize: '0.85rem',
+                outline: 'none',
+                cursor: 'pointer',
+                minWidth: '160px'
+              }}
+            >
+              <option value="all" style={{ background: '#1e1b4b' }}>All Departments</option>
+              {Array.from(new Set(labours.map(l => l.department).filter(Boolean))).map(dept => (
+                <option key={dept} value={dept} style={{ background: '#1e1b4b' }}>{dept}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Status Dropdown */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <select
+              value={selectedStatus}
+              onChange={e => setSelectedStatus(e.target.value)}
+              style={{ 
+                padding: '8px 16px', 
+                background: 'rgba(255, 255, 255, 0.05)', 
+                border: '1px solid var(--glass-border)', 
+                color: 'var(--text-primary)', 
+                borderRadius: '8px',
+                fontSize: '0.85rem',
+                outline: 'none',
+                cursor: 'pointer',
+                minWidth: '130px'
+              }}
+            >
+              <option value="all" style={{ background: '#1e1b4b' }}>All Status</option>
+              <option value="active" style={{ background: '#1e1b4b' }}>Active</option>
+              <option value="inactive" style={{ background: '#1e1b4b' }}>Inactive</option>
+            </select>
+          </div>
+
+          {/* Gender Dropdown */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <select
+              value={selectedGender}
+              onChange={e => setSelectedGender(e.target.value)}
+              style={{ 
+                padding: '8px 16px', 
+                background: 'rgba(255, 255, 255, 0.05)', 
+                border: '1px solid var(--glass-border)', 
+                color: 'var(--text-primary)', 
+                borderRadius: '8px',
+                fontSize: '0.85rem',
+                outline: 'none',
+                cursor: 'pointer',
+                minWidth: '130px'
+              }}
+            >
+              <option value="all" style={{ background: '#1e1b4b' }}>All Genders</option>
+              <option value="Male" style={{ background: '#1e1b4b' }}>Male</option>
+              <option value="Female" style={{ background: '#1e1b4b' }}>Female</option>
+              <option value="Other" style={{ background: '#1e1b4b' }}>Other</option>
+            </select>
+          </div>
+
+          {/* Reset Button */}
+          {(selectedDepartment !== 'all' || selectedStatus !== 'all' || selectedGender !== 'all' || searchQuery !== '') && (
+            <button
+              onClick={() => {
+                setSelectedDepartment('all');
+                setSelectedStatus('all');
+                setSelectedGender('all');
+                setSearchQuery('');
+                setSelectedFilter('all');
+              }}
+              className="btn btn-secondary"
+              style={{ 
+                padding: '8px 16px', 
+                fontSize: '0.85rem', 
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.2)',
+                color: '#ef4444'
+              }}
+            >
+              Reset Filters
+            </button>
+          )}
         </div>
       </div>
 

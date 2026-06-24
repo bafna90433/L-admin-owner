@@ -56,6 +56,73 @@ export default function Dashboard({
   onGiveCashSuccess,
   showToast
 }: DashboardProps) {
+  // Helper to parse description into details and reason
+  const parseDescription = (description: string, category: string, txType: string) => {
+    let details = '';
+    let reason = '';
+
+    const reasonMarker = '. Reason: ';
+    const directReasonMarker = 'Reason: ';
+    
+    if (description.includes(reasonMarker)) {
+      const parts = description.split(reasonMarker);
+      details = parts[0];
+      reason = parts.slice(1).join(reasonMarker);
+    } else if (description.includes(directReasonMarker)) {
+      const parts = description.split(directReasonMarker);
+      details = parts[0];
+      reason = parts.slice(1).join(directReasonMarker);
+    } else {
+      if (txType === 'received') {
+        details = 'Cash Received from MD';
+      } else {
+        details = category.replace('-', ' ').toUpperCase();
+      }
+      reason = description || '--';
+    }
+
+    if (details.endsWith('.')) {
+      details = details.slice(0, -1);
+    }
+
+    return { details, reason };
+  };
+
+  // Helper to render details with styled status badges
+  const renderDetailsCell = (detailsText: string) => {
+    let text = detailsText;
+    let badgeText = '';
+    let badgeClass = '';
+
+    if (detailsText.includes('(Auto-Approved)')) {
+      text = detailsText.replace('(Auto-Approved)', '').trim();
+      badgeText = 'Auto-Approved';
+      badgeClass = 'badge-success';
+    } else if (detailsText.includes('(Approved by Owner)')) {
+      text = detailsText.replace('(Approved by Owner)', '').trim();
+      badgeText = 'MD Approved';
+      badgeClass = 'badge-info';
+    } else if (detailsText.includes('(By Owner)')) {
+      text = detailsText.replace('(By Owner)', '').trim();
+      badgeText = 'Direct Advance';
+      badgeClass = 'badge-warning';
+    }
+
+    text = text.replace(/\s+/g, ' ').trim();
+    if (text.endsWith('.')) text = text.slice(0, -1);
+
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+        <span style={{ fontWeight: 600 }}>{text}</span>
+        {badgeText && (
+          <span className={`badge ${badgeClass}`} style={{ fontSize: '0.65rem', padding: '1px 6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            {badgeText}
+          </span>
+        )}
+      </div>
+    );
+  };
+
   const [showCashModal, setShowCashModal] = useState(false);
   const [cashAmount, setCashAmount] = useState('');
   const [cashDesc, setCashDesc] = useState('');
@@ -164,30 +231,42 @@ export default function Dashboard({
                 </tr>
               </thead>
               <tbody>
-                {expenses.map((tx) => (
-                  <tr key={tx._id}>
-                    <td>{new Date(tx.date).toLocaleDateString('en-GB')}</td>
-                    <td>
-                      <div style={{ fontWeight: 500 }}>{tx.description}</div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>By {tx.staffId?.name || 'Staff'}</div>
-                    </td>
-                    <td>
-                      <span className={`badge ${
-                        tx.txType === 'received' ? 'badge-success' :
-                        tx.category === 'petrol' ? 'badge-info' :
-                        tx.category === 'porter-vehicle' ? 'badge-warning' :
-                        tx.category === 'staff-welfare' ? 'badge-success' :
-                        tx.category === 'salary-advance' ? 'badge-danger' :
-                        'badge-info'
-                      }`}>
-                        {tx.txType === 'received' ? 'RECEIVED' : tx.category.replace('-', ' ')}
-                      </span>
-                    </td>
-                    <td style={{ fontWeight: 700, color: tx.txType === 'received' ? 'var(--color-success)' : 'var(--text-primary)' }}>
-                      {tx.txType === 'received' ? '+' : '-'}₹{tx.amount}
-                    </td>
-                  </tr>
-                ))}
+                {expenses.map((tx) => {
+                  const { details, reason } = parseDescription(tx.description, tx.category, tx.txType);
+                  return (
+                    <tr key={tx._id}>
+                      <td>{new Date(tx.date).toLocaleDateString('en-GB')}</td>
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          {renderDetailsCell(details)}
+                          {reason && reason !== '--' && (
+                            <small style={{ color: 'var(--text-secondary)', fontStyle: 'italic', display: 'block' }}>
+                              Reason: {reason}
+                            </small>
+                          )}
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px', fontWeight: 500 }}>
+                            By {tx.staffId?.name || 'Staff'}
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <span className={`badge ${
+                          tx.txType === 'received' ? 'badge-success' :
+                          tx.category === 'petrol' ? 'badge-info' :
+                          tx.category === 'porter-vehicle' ? 'badge-warning' :
+                          tx.category === 'staff-welfare' ? 'badge-success' :
+                          tx.category === 'salary-advance' ? 'badge-danger' :
+                          'badge-info'
+                        }`}>
+                          {tx.txType === 'received' ? 'RECEIVED' : tx.category.replace('-', ' ')}
+                        </span>
+                      </td>
+                      <td style={{ fontWeight: 700, color: tx.txType === 'received' ? 'var(--color-success)' : 'var(--text-primary)' }}>
+                        {tx.txType === 'received' ? '+' : '-'}₹{tx.amount}
+                      </td>
+                    </tr>
+                  );
+                })}
                 {expenses.length === 0 && (
                   <tr>
                     <td colSpan={4} style={{ textAlign: 'center', padding: '24px', color: 'var(--text-secondary)' }}>

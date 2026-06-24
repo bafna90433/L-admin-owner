@@ -28,7 +28,9 @@ import Settings from './page/Settings';
 import Profile from './page/Profile';
 import AdvanceHistory from './page/AdvanceHistory';
 
-const API_BASE = 'https://l-backend-production-ff32.up.railway.app/api';
+const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  ? 'http://localhost:5000/api'
+  : 'https://l-backend-production-ff32.up.railway.app/api';
 
 interface User {
   id: string;
@@ -38,6 +40,7 @@ interface User {
   role: string;
   whatsapp?: string;
   imageUrl?: string;
+  upiId?: string;
 }
 
 interface Labour {
@@ -82,6 +85,7 @@ interface AdvanceRequest {
     name: string;
     username?: string;
     role?: string;
+    upiId?: string;
   };
   approvedBy?: {
     _id?: string;

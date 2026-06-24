@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Loader, Camera } from 'lucide-react';
 import '../styles/Profile.css';
 
@@ -35,6 +35,16 @@ export default function Profile({
   const [imagePreview, setImagePreview] = useState(user?.imageUrl || '');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [updating, setUpdating] = useState(false);
+
+  // Sync state when user prop is loaded or changed
+  useEffect(() => {
+    if (user) {
+      setName(user.name || '');
+      setWhatsapp(user.whatsapp || '');
+      setImageUrl(user.imageUrl || '');
+      setImagePreview(user.imageUrl || '');
+    }
+  }, [user]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
