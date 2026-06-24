@@ -396,6 +396,7 @@ export default function App() {
             allStaff={allStaff}
             onGiveCashSuccess={fetchDashboardData}
             showToast={showToast}
+            onViewHistoryClick={() => navigateTo('transaction-history')}
           />
         );
       case 'labourers':

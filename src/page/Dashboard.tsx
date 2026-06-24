@@ -44,6 +44,7 @@ interface DashboardProps {
   allStaff: User[];
   onGiveCashSuccess: () => void;
   showToast: (message: string, type?: 'success' | 'danger' | 'warning' | 'info') => void;
+  onViewHistoryClick?: () => void;
 }
 
 export default function Dashboard({
@@ -53,7 +54,8 @@ export default function Dashboard({
   balanceData,
   allStaff,
   onGiveCashSuccess,
-  showToast
+  showToast,
+  onViewHistoryClick
 }: DashboardProps) {
   // Helper to parse description into details and reason
   const parseDescription = (description: string, category: string, txType: string) => {
@@ -415,6 +417,26 @@ export default function Dashboard({
               </tbody>
             </table>
           </div>
+          {onViewHistoryClick && (
+            <button 
+              type="button" 
+              onClick={onViewHistoryClick} 
+              className="btn btn-secondary" 
+              style={{ 
+                marginTop: '12px', 
+                width: '100%', 
+                padding: '10px', 
+                fontSize: '0.875rem', 
+                fontWeight: 600, 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                gap: '6px' 
+              }}
+            >
+              👁️ View Full Transaction History
+            </button>
+          )}
         </div>
 
         {/* Category-wise spending visualizer */}
