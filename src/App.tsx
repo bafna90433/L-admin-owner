@@ -11,7 +11,9 @@ import {
   MessageSquare,
   Settings as SettingsIcon,
   History,
-  Receipt
+  Receipt,
+  Plus,
+  Loader
 } from 'lucide-react';
 
 // Import Modular Page Components
@@ -139,6 +141,14 @@ export default function App() {
   });
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
 
+  // Send Cash Modal States
+  const [showCashModal, setShowCashModal] = useState(false);
+  const [cashAmount, setCashAmount] = useState('');
+  const [cashDesc, setCashDesc] = useState('');
+  const [selectedStaffId, setSelectedStaffId] = useState('');
+  const [cashSubmitting, setCashSubmitting] = useState(false);
+  const [cashPaymentMode, setCashPaymentMode] = useState<'handcash' | 'online'>('handcash');
+
   // Toast Notification State
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'danger' | 'warning' | 'info' } | null>(null);
   
@@ -183,6 +193,51 @@ export default function App() {
       fetchTasks();
     }
   }, [activeTab, user]);
+
+  // Initialize selected staff ID if list changes
+  useEffect(() => {
+    if (allStaff.length > 0 && !selectedStaffId) {
+      setSelectedStaffId(allStaff[0].id || allStaff[0]._id || '');
+    }
+  }, [allStaff, selectedStaffId]);
+
+  const handleGiveCash = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!cashAmount || !selectedStaffId) return;
+    setCashSubmitting(true);
+    try {
+      const res = await fetch(`${API_BASE}/expenses/cash-received`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` 
+        },
+        body: JSON.stringify({
+          amount: parseFloat(cashAmount),
+          date: new Date(),
+          description: cashDesc || 'Cash handed over to office staff',
+          staffId: selectedStaffId,
+          paymentMode: cashPaymentMode
+        })
+      });
+
+      if (res.ok) {
+        setShowCashModal(false);
+        setCashAmount('');
+        setCashDesc('');
+        setCashPaymentMode('handcash');
+        fetchDashboardData();
+        showToast('Cash transferred to staff successfully!', 'success');
+      } else {
+        showToast('Failed to send cash', 'danger');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Error connecting to server', 'danger');
+    } finally {
+      setCashSubmitting(false);
+    }
+  };
 
   // Poll chat unread counts in background
   useEffect(() => {
@@ -389,13 +444,8 @@ export default function App() {
       case 'dashboard':
         return (
           <Dashboard 
-            token={token}
-            apiBase={API_BASE}
             expenses={expenses}
             balanceData={balanceData}
-            allStaff={allStaff}
-            onGiveCashSuccess={fetchDashboardData}
-            showToast={showToast}
             onViewHistoryClick={() => navigateTo('transaction-history')}
           />
         );
@@ -529,6 +579,16 @@ export default function App() {
         <div>
           <h2 className="gradient-text" style={{ fontSize: '1.8rem', fontWeight: 800, marginBottom: '4px' }}>LABOUR PRO</h2>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Owner Dashboard</p>
+        </div>
+
+        <div style={{ marginTop: '16px', marginBottom: '16px', padding: '0 4px' }}>
+          <button 
+            onClick={() => setShowCashModal(true)} 
+            className="btn btn-primary" 
+            style={{ width: '100%', padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 700, fontSize: '0.9rem', borderRadius: '8px', border: 'none', cursor: 'pointer' }}
+          >
+            <Plus size={16} /> Send Cash to Staff
+          </button>
         </div>
 
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '8px', flexGrow: 1 }}>
@@ -726,6 +786,83 @@ export default function App() {
                 Cancel
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: GIVE CASH */}
+      {showCashModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100
+        }}>
+          <div className="glass-panel glass-panel-glow" style={{ width: '100%', maxWidth: '480px', padding: '32px' }}>
+            <h2 className="gradient-text" style={{ marginBottom: '20px', fontSize: '1.5rem', fontWeight: 700 }}>Send Cash to Staff</h2>
+            <form onSubmit={handleGiveCash}>
+              <div className="form-group" style={{ marginBottom: '16px' }}>
+                <label className="form-label">Select Staff Member</label>
+                <select 
+                  className="form-input"
+                  value={selectedStaffId}
+                  onChange={e => setSelectedStaffId(e.target.value)}
+                  required
+                  style={{ width: '100%', padding: '8px 12px' }}
+                >
+                  <option value="" disabled>-- Select Staff Member --</option>
+                  {allStaff.map(s => (
+                    <option key={s.id || s._id} value={s.id || s._id}>{s.name} ({s.username})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '16px' }}>
+                <label className="form-label">Amount (₹)</label>
+                <input 
+                  type="number" 
+                  className="form-input" 
+                  placeholder="e.g. 50000"
+                  value={cashAmount}
+                  onChange={e => setCashAmount(e.target.value)}
+                  required
+                  style={{ width: '100%' }}
+                />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '16px' }}>
+                <label className="form-label">Payment Mode</label>
+                <select 
+                  className="form-input"
+                  value={cashPaymentMode}
+                  onChange={e => setCashPaymentMode(e.target.value as any)}
+                  required
+                  style={{ width: '100%', padding: '8px 12px' }}
+                >
+                  <option value="handcash">💵 Cash (Handcash)</option>
+                  <option value="online">🌐 Online (Bank / UPI)</option>
+                </select>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: '24px' }}>
+                <label className="form-label">Description / Remarks</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="e.g. Monthly cash expenses budget"
+                  value={cashDesc}
+                  onChange={e => setCashDesc(e.target.value)}
+                  style={{ width: '100%' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+                <button type="submit" className="btn btn-primary" style={{ flexGrow: 1 }} disabled={cashSubmitting}>
+                  {cashSubmitting ? <Loader className="spinner" size={16} style={{ animation: 'spin 1s linear infinite' }} /> : 'Send Cash'}
+                </button>
+                <button type="button" onClick={() => setShowCashModal(false)} className="btn btn-secondary">
+                  Cancel
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
