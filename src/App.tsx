@@ -32,7 +32,9 @@ import Profile from './page/Profile';
 import AdvanceHistory from './page/AdvanceHistory';
 import TransactionHistory from './page/TransactionHistory';
 
-const API_BASE = 'https://l-backend-production-ff32.up.railway.app/api';
+const API_BASE = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
+  ? 'http://localhost:5000/api'
+  : (import.meta.env.VITE_API_BASE || 'https://l-backend-production-ff32.up.railway.app/api');
 
 interface User {
   id: string;
