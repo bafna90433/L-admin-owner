@@ -7,6 +7,12 @@ interface Reminder {
   message: string;
   targetDate: string;
   status: 'pending' | 'acknowledged';
+  type?: 'general' | 'salary-delay' | 'self';
+  createdBy?: {
+    _id?: string;
+    name: string;
+    username?: string;
+  };
   acknowledgedBy?: {
     name: string;
   };
@@ -39,6 +45,16 @@ export default function Reminders({
   const [remSubmitting, setRemSubmitting] = useState(false);
   const [editingReminderId, setEditingReminderId] = useState<string | null>(null);
   const [deletingReminderId, setDeletingReminderId] = useState<string | null>(null);
+  const [filterType, setFilterType] = useState<'all' | 'broadcast' | 'personal'>('all');
+
+  const broadcastCount = reminders.filter(r => r.type !== 'self').length;
+  const personalCount = reminders.filter(r => r.type === 'self').length;
+
+  const filteredReminders = reminders.filter(rem => {
+    if (filterType === 'broadcast') return rem.type !== 'self';
+    if (filterType === 'personal') return rem.type === 'self';
+    return true;
+  });
 
   const handleCreateOrUpdateReminder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -220,33 +236,73 @@ export default function Reminders({
 
         {/* List of existing reminders */}
         <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <h3 style={{ fontSize: '1.25rem' }}>Broadcast History</h3>
+          <div className="flex-between" style={{ flexWrap: 'wrap', gap: '10px' }}>
+            <h3 style={{ fontSize: '1.25rem' }}>Reminders & Broadcast History</h3>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <button 
+                type="button" 
+                className={`btn ${filterType === 'all' ? 'btn-primary' : 'btn-secondary'}`} 
+                style={{ padding: '4px 10px', fontSize: '0.75rem' }}
+                onClick={() => setFilterType('all')}
+              >
+                All ({reminders.length})
+              </button>
+              <button 
+                type="button" 
+                className={`btn ${filterType === 'broadcast' ? 'btn-primary' : 'btn-secondary'}`} 
+                style={{ padding: '4px 10px', fontSize: '0.75rem' }}
+                onClick={() => setFilterType('broadcast')}
+              >
+                Broadcasts ({broadcastCount})
+              </button>
+              <button 
+                type="button" 
+                className={`btn ${filterType === 'personal' ? 'btn-primary' : 'btn-secondary'}`} 
+                style={{ padding: '4px 10px', fontSize: '0.75rem' }}
+                onClick={() => setFilterType('personal')}
+              >
+                Staff Personal ({personalCount})
+              </button>
+            </div>
+          </div>
+
           <div className="reminder-history-list">
-            {reminders.map((rem) => {
+            {filteredReminders.map((rem) => {
               const timeDiff = new Date(rem.targetDate).getTime() - Date.now();
               const isUrgent = rem.status === 'pending' && timeDiff <= 10 * 60 * 1000;
+              const isPersonal = rem.type === 'self';
               
               return (
-              <div key={rem._id} className={`reminder-history-card ${isUrgent ? 'urgent-pulse' : ''}`} style={isUrgent ? { border: '2px solid var(--color-danger)' } : {}}>
-                <div className="flex-between" style={{ marginBottom: '8px' }}>
+              <div key={rem._id} className={`reminder-history-card ${isUrgent ? 'urgent-pulse' : ''}`} style={isUrgent ? { border: '2px solid var(--color-danger)' } : isPersonal ? { borderLeft: '4px solid #6366f1' } : {}}>
+                <div className="flex-between" style={{ marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
                   <span className={`badge ${isUrgent ? 'badge-danger' : 'badge-info'}`} style={{ fontWeight: 700 }}>
                     {isUrgent && <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: '#fff', marginRight: '6px', animation: 'blinkDot 1s infinite' }} />}
                     TARGET: {new Date(rem.targetDate).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' })}
                   </span>
-                  {rem.targetStaffId && (
-                    <span className="badge badge-info" style={{ fontSize: '0.65rem' }}>
-                      👤 Assigned to: {rem.targetStaffId.name}
+
+                  {isPersonal ? (
+                    <span className="badge badge-info" style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#3730a3', fontWeight: 600 }}>
+                      👤 Staff Personal: {rem.createdBy?.name || 'Staff Member'}
                     </span>
+                  ) : (
+                    rem.targetStaffId && (
+                      <span className="badge badge-info" style={{ fontSize: '0.65rem' }}>
+                        👤 Assigned to: {rem.targetStaffId.name}
+                      </span>
+                    )
                   )}
+
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <span className={`badge ${
                       rem.status === 'acknowledged' ? 'badge-success' : 'badge-warning'
                     }`}>
                       {rem.status}
                     </span>
-                    <button onClick={() => handleEdit(rem)} className="btn btn-secondary" style={{ padding: '4px', background: 'transparent', border: 'none', color: 'var(--text-secondary)' }} title="Edit">
-                      <Edit2 size={16} />
-                    </button>
+                    {!isPersonal && (
+                      <button onClick={() => handleEdit(rem)} className="btn btn-secondary" style={{ padding: '4px', background: 'transparent', border: 'none', color: 'var(--text-secondary)' }} title="Edit">
+                        <Edit2 size={16} />
+                      </button>
+                    )}
                     <button onClick={() => confirmDelete(rem._id || (rem as any).id)} className="btn btn-secondary" style={{ padding: '4px', background: 'transparent', border: 'none', color: 'var(--color-danger)' }} title="Delete">
                       <Trash2 size={16} />
                     </button>
@@ -260,8 +316,10 @@ export default function Reminders({
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '12px', paddingTop: '8px', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
                   {rem.status === 'acknowledged' ? (
                     <div>
-                      ✅ Acknowledged by <span style={{ fontWeight: 600 }}>{rem.acknowledgedBy?.name}</span> on {new Date(rem.acknowledgedAt || '').toLocaleString('en-GB')}
+                      ✅ Acknowledged by <span style={{ fontWeight: 600 }}>{rem.acknowledgedBy?.name || rem.createdBy?.name}</span> on {new Date(rem.acknowledgedAt || '').toLocaleString('en-GB')}
                     </div>
+                  ) : isPersonal ? (
+                    <div>📌 Personal Reminder created by <span style={{ fontWeight: 600 }}>{rem.createdBy?.name || 'Staff'}</span></div>
                   ) : (
                     <div>⏳ Awaiting staff acknowledgement</div>
                   )}
@@ -269,9 +327,9 @@ export default function Reminders({
               </div>
             )})}
 
-            {reminders.length === 0 && (
+            {filteredReminders.length === 0 && (
               <div style={{ textAlign: 'center', padding: '48px', color: 'var(--text-secondary)' }}>
-                No notices broadcasted yet.
+                {filterType === 'personal' ? 'No staff personal reminders found.' : filterType === 'broadcast' ? 'No broadcast notices found.' : 'No reminders found.'}
               </div>
             )}
           </div>
