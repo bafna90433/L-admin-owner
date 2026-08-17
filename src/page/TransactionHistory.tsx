@@ -477,7 +477,19 @@ export default function TransactionHistory({
             <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>Loading ledger data...</span>
           </div>
         ) : (
-          <div className="table-container" style={{ overflowX: 'auto' }}>
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 700, margin: 0 }}>Ledger Entries</h3>
+                <span className="badge" style={{ fontSize: '0.8rem', padding: '4px 12px', borderRadius: '12px', background: 'rgba(79, 70, 229, 0.12)', color: 'var(--accent-primary)', fontWeight: 700, border: '1px solid rgba(79, 70, 229, 0.2)' }}>
+                  Total Entries: {filteredTxs.length}
+                </span>
+              </div>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
+                Showing {filteredTxs.length} of {transactions.length} total entries
+              </span>
+            </div>
+            <div className="table-container" style={{ overflowX: 'auto' }}>
             <table className="custom-table">
               <thead>
                 <tr>
@@ -581,6 +593,7 @@ export default function TransactionHistory({
                 )}
               </tbody>
             </table>
+          </div>
           </div>
         )}
       </div>
