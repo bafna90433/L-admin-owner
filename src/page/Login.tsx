@@ -89,7 +89,8 @@ export default function Login({ apiBase, onLoginSuccess }: LoginProps) {
   return (
     <div className="login-container animate-fade-in">
       <div className="glass-panel glass-panel-glow login-card">
-        <h2 className="gradient-text login-title">LABOUR PRO</h2>
+        <h2 className="gradient-text login-title">OFFICE PRO</h2>
+
         <p className="login-subtitle">Owner Login Portal</p>
         
         <form onSubmit={handleLogin}>

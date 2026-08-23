@@ -220,7 +220,8 @@ export default function TransactionHistory({
     const sheetData: any[][] = [];
 
     // Title & Summary Block
-    sheetData.push(["LABOUR PRO - TRANSACTION HISTORY LEDGER"]);
+    sheetData.push(["OFFICE PRO - TRANSACTION HISTORY LEDGER"]);
+
     sheetData.push([`Export Date: ${new Date().toLocaleString('en-IN')}`, `Total Exported Rows: ${filteredTxs.length}`]);
     sheetData.push([
       `Total Cash Received: ₹${totalReceived.toLocaleString('en-IN')}`,

@@ -598,9 +598,10 @@ export default function App() {
       {/* Sidebar */}
       <aside className="sidebar">
         <div>
-          <h2 className="gradient-text" style={{ fontSize: '1.8rem', fontWeight: 800, marginBottom: '4px' }}>LABOUR PRO</h2>
+          <h2 className="gradient-text" style={{ fontSize: '1.8rem', fontWeight: 800, marginBottom: '4px' }}>OFFICE PRO</h2>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Owner Dashboard</p>
         </div>
+
 
         <div style={{ marginTop: '16px', marginBottom: '16px', padding: '0 4px' }}>
           <button 
