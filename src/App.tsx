@@ -13,7 +13,8 @@ import {
   History,
   Receipt,
   Plus,
-  Loader
+  Loader,
+  ShieldCheck
 } from 'lucide-react';
 
 // Import Modular Page Components
@@ -31,6 +32,7 @@ import Settings from './page/Settings';
 import Profile from './page/Profile';
 import AdvanceHistory from './page/AdvanceHistory';
 import TransactionHistory from './page/TransactionHistory';
+import AccessControl from './page/AccessControl';
 
 const API_BASE = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
   ? 'http://localhost:5000/api'
@@ -104,7 +106,7 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   
   // Router Tab
-  const adminValidTabs = ['dashboard', 'labourers', 'attendance', 'salary', 'advances', 'advance-history', 'transaction-history', 'reminders', 'tasks', 'chat', 'settings', 'profile'] as const;
+  const adminValidTabs = ['dashboard', 'labourers', 'attendance', 'salary', 'advances', 'advance-history', 'transaction-history', 'reminders', 'tasks', 'chat', 'team-access', 'settings', 'profile'] as const;
   type AdminTabType = typeof adminValidTabs[number];
   const adminSavedTab = localStorage.getItem('admin_active_tab') as AdminTabType | null;
   const [activeTab, setActiveTab] = useState<AdminTabType>(adminSavedTab && adminValidTabs.includes(adminSavedTab) ? adminSavedTab : 'dashboard');
@@ -559,6 +561,15 @@ export default function App() {
             showToast={showToast}
           />
         );
+      case 'team-access':
+        return (
+          <AccessControl
+            token={token}
+            apiBase={API_BASE}
+            showToast={showToast}
+            onStaffChanged={fetchStaffUsers}
+          />
+        );
       case 'profile':
         return (
           <Profile 
@@ -633,6 +644,13 @@ export default function App() {
             )}
           </button>
           <button 
+            onClick={() => navigateTo('team-access')}
+            className={`nav-link btn-secondary ${activeTab === 'team-access' ? 'active' : ''}`}
+            style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
+          >
+            <ShieldCheck size={18} /> Staff & Roles
+          </button>
+          <button
             onClick={() => navigateTo('settings')} 
             className={`nav-link btn-secondary ${activeTab === 'settings' ? 'active' : ''}`}
             style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
