@@ -43,9 +43,9 @@ export default function Settings({
     { id: 'settings-grace', label: 'Grace Period', icon: Bell }
   ];
 
-  const scrollToSetting = (id: string) => {
+  const openSetting = (id: string) => {
     setActiveSetting(id);
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.querySelector('.main-content')?.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const [selectedStaff, setSelectedStaff] = useState<User | null>(null);
@@ -482,7 +482,7 @@ export default function Settings({
           {settingsNav.map(item => {
             const Icon = item.icon;
             return (
-              <button className={activeSetting === item.id ? 'active' : ''} key={item.id} onClick={() => scrollToSetting(item.id)}>
+              <button className={activeSetting === item.id ? 'active' : ''} key={item.id} onClick={() => openSetting(item.id)}>
                 <Icon size={17} /><span>{item.label}</span><ChevronRight size={15} />
               </button>
             );
@@ -498,7 +498,7 @@ export default function Settings({
         <p style={{ color: 'var(--text-secondary)' }}>Manage portal configuration, staff names, and control system variables.</p>
       </div>
 
-      <section id="settings-access" className="settings-anchor-section">
+      <section id="settings-access" className="settings-anchor-section" hidden={activeSetting !== 'settings-access'}>
         {token && (
           <AccessControl
             token={token}
@@ -509,7 +509,7 @@ export default function Settings({
         )}
       </section>
 
-      <div id="settings-staff-names" className="settings-grid settings-anchor-section">
+      <div id="settings-staff-names" className="settings-grid settings-anchor-section" hidden={activeSetting !== 'settings-staff-names'}>
         {/* Left column: Staff List */}
         <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <h3 style={{ fontSize: '1.25rem' }}>Office Staff Accounts</h3>
@@ -613,14 +613,14 @@ export default function Settings({
       </div>
 
       {/* Manage Departments Section */}
-      <div id="settings-departments" className="settings-anchor-section" style={{ marginTop: '48px' }}>
+      <div id="settings-departments" className="settings-anchor-section" hidden={activeSetting !== 'settings-departments'}>
         <h2 style={{ fontSize: '1.6rem', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
           <SettingsIcon size={24} /> Manage Departments
         </h2>
         <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>Configure department names for your employee badges and search filters.</p>
       </div>
 
-      <div className="settings-grid" style={{ marginBottom: '40px' }}>
+      <div className="settings-grid" hidden={activeSetting !== 'settings-departments'}>
         {/* Left column: Department List */}
         <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <h3 style={{ fontSize: '1.25rem' }}>Active Departments</h3>
@@ -684,14 +684,14 @@ export default function Settings({
       </div>
 
       {/* Advance Auto Approval Limit Section */}
-      <div id="settings-advance" className="settings-anchor-section" style={{ marginTop: '48px' }}>
+      <div id="settings-advance" className="settings-anchor-section" hidden={activeSetting !== 'settings-advance'}>
         <h2 style={{ fontSize: '1.6rem', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
           <IndianRupee size={24} /> Labour Advance Auto-Approval
         </h2>
         <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>Configure the maximum advance amount that staff can give without owner approval.</p>
       </div>
 
-      <div className="glass-panel" style={{ marginBottom: '40px' }}>
+      <div className="glass-panel" hidden={activeSetting !== 'settings-advance'}>
         <form onSubmit={handleSaveAutoApproveLimit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <div className="form-group">
             <label className="form-label">Auto-Approval Limit (₹)</label>
@@ -715,14 +715,14 @@ export default function Settings({
       </div>
 
       {/* Kiosk Operational Hours Section */}
-      <div id="settings-kiosk-hours" className="settings-anchor-section" style={{ marginTop: '48px' }}>
+      <div id="settings-kiosk-hours" className="settings-anchor-section" hidden={activeSetting !== 'settings-kiosk-hours'}>
         <h2 style={{ fontSize: '1.6rem', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
           <Clock size={24} /> Kiosk Operational Hours
         </h2>
         <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>Configure the working hours for the attendance kiosk app. Outside of these hours, biometric scans will be blocked.</p>
       </div>
 
-      <div className="settings-grid" style={{ marginBottom: '48px' }}>
+      <div className="settings-grid" hidden={activeSetting !== 'settings-kiosk-hours'}>
         {/* Left Card: Information & Helper */}
         <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <h3 style={{ fontSize: '1.25rem' }}>Timing Restrictions</h3>
@@ -823,14 +823,14 @@ export default function Settings({
         </div>
       </div>
 
-      <div id="settings-kiosk-advanced" className="settings-anchor-section" style={{ marginTop: '48px' }}>
+      <div id="settings-kiosk-advanced" className="settings-anchor-section" hidden={activeSetting !== 'settings-kiosk-advanced'}>
         <h2 style={{ fontSize: '1.6rem', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
           <MapPin size={24} /> Advanced Kiosk Settings
         </h2>
         <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>Configure factory location for geofencing and set the default alarm time for un-punched attendance.</p>
       </div>
 
-      <div id="settings-grace" className="settings-grid settings-anchor-section" style={{ marginBottom: '48px' }}>
+      <div className="settings-grid settings-anchor-section" hidden={activeSetting !== 'settings-kiosk-advanced'}>
         {/* Left Card: Location */}
         <div className="glass-panel" style={{ height: 'fit-content' }}>
           <h3 style={{ fontSize: '1.25rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -929,7 +929,7 @@ export default function Settings({
       </div>
 
       {/* Grace Period Card */}
-      <div className="settings-grid" style={{ marginBottom: '48px' }}>
+      <div id="settings-grace" className="settings-grid settings-anchor-section" hidden={activeSetting !== 'settings-grace'}>
         <div className="glass-panel" style={{ height: 'fit-content' }}>
           <h3 style={{ fontSize: '1.25rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Clock size={18} /> Grace Period
