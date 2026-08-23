@@ -46,7 +46,12 @@ export default function Chat({ token, user, apiBase, allStaff, showToast, onUnre
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [creatingGroup, setCreatingGroup] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [showMembersModal, setShowMembersModal] = useState(false);
+  const [selectedNewMember, setSelectedNewMember] = useState('');
+  const [addingMember, setAddingMember] = useState(false);
+  const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<{ id: string; senderName: string; text: string } | null>(null);
+
   const [reactions, setReactions] = useState<Record<string, Record<string, string[]>>>({});
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [hoveredMsgId, setHoveredMsgId] = useState<string | null>(null);
@@ -200,7 +205,48 @@ export default function Chat({ token, user, apiBase, allStaff, showToast, onUnre
     } catch (error) { showToast(error instanceof Error ? error.message : 'Could not create group', 'danger'); }
     finally { setCreatingGroup(false); }
   };
+  const handleAddMember = async () => {
+    if (!activeGroup || !selectedNewMember || addingMember) return;
+    setAddingMember(true);
+    try {
+      const response = await fetch(`${apiBase}/chat/groups/${activeGroup.id}/members`, {
+        method: 'POST',
+        headers: { ...authHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: selectedNewMember })
+      });
+      if (!response.ok) throw new Error((await response.json().catch(() => ({}))).message || 'Could not add member');
+      const updatedGroup = await response.json();
+      setGroups(prev => prev.map(g => g.id === updatedGroup.id ? updatedGroup : g));
+      setSelectedNewMember('');
+      showToast('Member added to group successfully!', 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Failed to add member', 'danger');
+    } finally {
+      setAddingMember(false);
+    }
+  };
+
+  const handleRemoveMember = async (targetUserId: string) => {
+    if (!activeGroup || removingMemberId) return;
+    setRemovingMemberId(targetUserId);
+    try {
+      const response = await fetch(`${apiBase}/chat/groups/${activeGroup.id}/members/${targetUserId}`, {
+        method: 'DELETE',
+        headers: authHeaders
+      });
+      if (!response.ok) throw new Error((await response.json().catch(() => ({}))).message || 'Could not remove member');
+      const updatedGroup = await response.json();
+      setGroups(prev => prev.map(g => g.id === updatedGroup.id ? updatedGroup : g));
+      showToast('Member removed from group successfully!', 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Failed to remove member', 'danger');
+    } finally {
+      setRemovingMemberId(null);
+    }
+  };
+
   const clearDirectChat = async () => { if (!active || active.kind !== 'direct') return; setShowClearConfirm(false); const response = await fetch(`${apiBase}/messages/${active.id}`, { method: 'DELETE', headers: authHeaders }); if (response.ok) setMessages([]); else showToast('Could not clear chat', 'danger'); };
+
 
   const filteredUsers = chatUsers.filter(item => `${item.name} ${item.username}`.toLowerCase().includes(search.toLowerCase()));
   const filteredGroups = groups.filter(group => group.name.toLowerCase().includes(search.toLowerCase()));
@@ -215,7 +261,17 @@ export default function Chat({ token, user, apiBase, allStaff, showToast, onUnre
         <div className="wa-section-label">Direct messages</div>
         {filteredUsers.map(person => { const id = userIdOf(person); return <button key={id} className={`wa-chat-row ${active?.kind === 'direct' && active.id === id ? 'active' : ''}`} onClick={() => openConversation({ kind: 'direct', id })}>{person.imageUrl ? <img className="wa-avatar" src={person.imageUrl} alt="" /> : <span className="wa-avatar">{person.name.slice(0, 2).toUpperCase()}</span>}<span className="wa-row-copy"><strong>{person.name}</strong><small>@{person.username}</small></span>{(directUnread[id] || 0) > 0 && <b className="wa-unread">{directUnread[id]}</b>}</button>; })}
       </div></aside>
-      <main className="wa-main">{active ? <><div className="wa-active-header"><span className={`wa-avatar ${active.kind === 'group' ? 'group' : ''}`}>{active.kind === 'group' ? <UsersRound size={22} /> : activeUser?.name.slice(0, 2).toUpperCase()}</span><div><strong>{active.kind === 'group' ? activeGroup?.name : activeUser?.name}</strong><small>{active.kind === 'group' ? `${activeGroup?.members.length || 0} members · type @ to mention` : 'Direct message'}</small></div>{active.kind === 'direct' && <button className="wa-icon danger" onClick={() => setShowClearConfirm(true)} title="Clear chat"><Trash2 size={18} /></button>}</div>
+      <main className="wa-main">{active ? <><div className="wa-active-header"><span className={`wa-avatar ${active.kind === 'group' ? 'group' : ''}`}>{active.kind === 'group' ? <UsersRound size={22} /> : activeUser?.name.slice(0, 2).toUpperCase()}</span><div><strong>{active.kind === 'group' ? activeGroup?.name : activeUser?.name}</strong><small>{active.kind === 'group' ? `${activeGroup?.members.length || 0} members · type @ to mention` : 'Direct message'}</small></div>{active.kind === 'group' && activeGroup && (
+        <button 
+          type="button"
+          className="btn btn-secondary" 
+          style={{ fontSize: '0.78rem', padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: '6px', marginLeft: 'auto', borderRadius: '6px' }}
+          onClick={() => setShowMembersModal(true)}
+        >
+          <UsersRound size={15} /> Manage Members ({activeGroup.members.length})
+        </button>
+      )}{active.kind === 'direct' && <button className="wa-icon danger" onClick={() => setShowClearConfirm(true)} title="Clear chat"><Trash2 size={18} /></button>}</div>
+
         <div className="wa-messages">{messages.length === 0 && <div className="wa-empty"><MessageSquare size={36} /><strong>No messages yet</strong><span>Send the first message to begin.</span></div>}{messages.map((message, index) => { 
           const msgId = message.id || message._id || String(index);
           const mine = message.sender === currentUserId; 
@@ -284,5 +340,95 @@ export default function Chat({ token, user, apiBase, allStaff, showToast, onUnre
     </div>
     {showGroupModal && <div className="wa-modal-overlay" onClick={() => setShowGroupModal(false)}><div className="wa-modal" onClick={event => event.stopPropagation()}><div className="wa-modal-title"><div><span>Create team group</span><h2>New group chat</h2></div><button onClick={() => setShowGroupModal(false)}><X size={20} /></button></div><label>Group name<input value={groupName} onChange={event => setGroupName(event.target.value)} placeholder="Example: Amazon Work" autoFocus /></label><p className="wa-select-title">Select members <b>{selectedMembers.length}</b></p><div className="wa-member-list">{chatUsers.map(person => { const id = userIdOf(person); const selected = selectedMembers.includes(id); return <button type="button" key={id} className={selected ? 'selected' : ''} onClick={() => setSelectedMembers(values => selected ? values.filter(value => value !== id) : [...values, id])}><span className="wa-avatar">{person.name.slice(0, 2).toUpperCase()}</span><span><strong>{person.name}</strong><small>@{person.username}</small></span><i>{selected && <Check size={16} />}</i></button>; })}</div><div className="wa-modal-actions"><button className="wa-cancel" onClick={() => setShowGroupModal(false)}>Cancel</button><button className="wa-create" disabled={creatingGroup || groupName.trim().length < 2 || selectedMembers.length === 0} onClick={createGroup}>{creatingGroup ? <Loader className="spinner" size={17} /> : <UsersRound size={17} />} Create group</button></div></div></div>}
     {showClearConfirm && <div className="wa-modal-overlay" onClick={() => setShowClearConfirm(false)}><div className="wa-modal compact" onClick={event => event.stopPropagation()}><AlertTriangle className="wa-danger-icon" size={40} /><h2>Clear this direct chat?</h2><p>All direct messages with this person will be permanently removed.</p><div className="wa-modal-actions"><button className="wa-cancel" onClick={() => setShowClearConfirm(false)}>Cancel</button><button className="wa-delete" onClick={clearDirectChat}>Clear chat</button></div></div></div>}
+    {showMembersModal && activeGroup && (
+      <div className="wa-modal-overlay" onClick={() => setShowMembersModal(false)}>
+        <div className="wa-modal" onClick={event => event.stopPropagation()} style={{ maxWidth: '480px' }}>
+          <div className="wa-modal-title">
+            <div>
+              <span>Group Management</span>
+              <h2>{activeGroup.name} Members</h2>
+            </div>
+            <button type="button" onClick={() => setShowMembersModal(false)}><X size={20} /></button>
+          </div>
+
+          <div style={{ marginBottom: '16px', padding: '14px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px solid rgba(226,232,240,0.1)' }}>
+            <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: '8px', fontWeight: 600 }}>➕ Add New Member</label>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <select 
+                className="form-input" 
+                style={{ flexGrow: 1, padding: '8px 12px', fontSize: '0.85rem', background: 'var(--bg-secondary)', border: '1px solid var(--glass-border)', color: 'var(--text-primary)', borderRadius: '6px' }}
+                value={selectedNewMember}
+                onChange={e => setSelectedNewMember(e.target.value)}
+              >
+                <option value="">-- Select Staff to Add --</option>
+                {chatUsers
+                  .filter(u => !activeGroup.members.some(m => m.userId === userIdOf(u)))
+                  .map(u => (
+                    <option key={userIdOf(u)} value={userIdOf(u)}>{u.name}</option>
+                  ))
+                }
+              </select>
+              <button 
+                type="button" 
+                className="btn btn-primary" 
+                style={{ fontSize: '0.85rem', padding: '8px 14px', whiteSpace: 'nowrap' }}
+                disabled={!selectedNewMember || addingMember}
+                onClick={handleAddMember}
+              >
+                {addingMember ? <Loader className="spinner" size={14} /> : '+ Add'}
+              </button>
+            </div>
+          </div>
+
+          <p className="wa-select-title">Current Members <b>{activeGroup.members.length}</b></p>
+          <div className="wa-member-list" style={{ maxHeight: '260px', overflowY: 'auto' }}>
+            {activeGroup.members.map(member => {
+              const isSelf = member.userId === currentUserId;
+              return (
+                <div 
+                  key={member.userId}
+                  style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'space-between', 
+                    padding: '8px 12px', 
+                    background: 'rgba(255,255,255,0.04)', 
+                    borderRadius: '8px',
+                    marginBottom: '6px'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span className="wa-avatar" style={{ width: '32px', height: '32px', fontSize: '0.8rem' }}>
+                      {member.user?.name?.slice(0, 2).toUpperCase() || 'U'}
+                    </span>
+                    <div>
+                      <strong style={{ fontSize: '0.9rem', display: 'block' }}>{member.user?.name || 'User'} {isSelf ? '(You)' : ''}</strong>
+                      {member.isAdmin && <small style={{ color: 'var(--accent-primary)', fontSize: '0.75rem' }}>Admin</small>}
+                    </div>
+                  </div>
+
+                  {!isSelf && (
+                    <button 
+                      type="button"
+                      className="btn btn-danger" 
+                      style={{ fontSize: '0.75rem', padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
+                      disabled={removingMemberId === member.userId}
+                      onClick={() => handleRemoveMember(member.userId)}
+                    >
+                      {removingMemberId === member.userId ? <Loader className="spinner" size={12} /> : <><Trash2 size={12} /> Remove</>}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="wa-modal-actions" style={{ marginTop: '16px' }}>
+            <button type="button" className="wa-cancel" onClick={() => setShowMembersModal(false)}>Close</button>
+          </div>
+        </div>
+      </div>
+    )}
   </div>;
+
 }
