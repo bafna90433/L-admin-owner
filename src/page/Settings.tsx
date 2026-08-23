@@ -1,5 +1,6 @@
-import { Loader, Edit3, Settings as SettingsIcon, Trash2, Clock, MapPin, Bell, IndianRupee } from 'lucide-react';
+import { Loader, Edit3, Settings as SettingsIcon, Trash2, Clock, MapPin, Bell, IndianRupee, ShieldCheck, UsersRound, Building2, ChevronRight } from 'lucide-react';
 import '../styles/Settings.css';
+import AccessControl from './AccessControl';
 
 import { useState, useEffect } from 'react';
 
@@ -31,6 +32,22 @@ export default function Settings({
   fetchStaffUsers,
   showToast
 }: SettingsProps) {
+  const [activeSetting, setActiveSetting] = useState('settings-access');
+  const settingsNav = [
+    { id: 'settings-access', label: 'Staff & Roles', icon: ShieldCheck },
+    { id: 'settings-staff-names', label: 'Staff Display Names', icon: UsersRound },
+    { id: 'settings-departments', label: 'Departments', icon: Building2 },
+    { id: 'settings-advance', label: 'Advance Approval', icon: IndianRupee },
+    { id: 'settings-kiosk-hours', label: 'Kiosk Hours', icon: Clock },
+    { id: 'settings-kiosk-advanced', label: 'Location & Alarm', icon: MapPin },
+    { id: 'settings-grace', label: 'Grace Period', icon: Bell }
+  ];
+
+  const scrollToSetting = (id: string) => {
+    setActiveSetting(id);
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   const [selectedStaff, setSelectedStaff] = useState<User | null>(null);
   const [newName, setNewName] = useState('');
   const [updating, setUpdating] = useState(false);
@@ -455,7 +472,25 @@ export default function Settings({
   };
 
   return (
-    <div className="settings-page-container">
+    <div className="settings-layout">
+      <aside className="settings-subnav">
+        <div className="settings-subnav-heading">
+          <SettingsIcon size={20} />
+          <div><strong>Settings</strong><small>Control centre</small></div>
+        </div>
+        <nav>
+          {settingsNav.map(item => {
+            const Icon = item.icon;
+            return (
+              <button className={activeSetting === item.id ? 'active' : ''} key={item.id} onClick={() => scrollToSetting(item.id)}>
+                <Icon size={17} /><span>{item.label}</span><ChevronRight size={15} />
+              </button>
+            );
+          })}
+        </nav>
+      </aside>
+
+      <div className="settings-page-container">
       <div>
         <h1 style={{ fontSize: '2.2rem', display: 'flex', alignItems: 'center', gap: '12px' }}>
           <SettingsIcon size={32} /> System Settings
@@ -463,7 +498,18 @@ export default function Settings({
         <p style={{ color: 'var(--text-secondary)' }}>Manage portal configuration, staff names, and control system variables.</p>
       </div>
 
-      <div className="settings-grid">
+      <section id="settings-access" className="settings-anchor-section">
+        {token && (
+          <AccessControl
+            token={token}
+            apiBase={apiBase}
+            showToast={showToast}
+            onStaffChanged={fetchStaffUsers}
+          />
+        )}
+      </section>
+
+      <div id="settings-staff-names" className="settings-grid settings-anchor-section">
         {/* Left column: Staff List */}
         <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <h3 style={{ fontSize: '1.25rem' }}>Office Staff Accounts</h3>
@@ -567,7 +613,7 @@ export default function Settings({
       </div>
 
       {/* Manage Departments Section */}
-      <div style={{ marginTop: '48px' }}>
+      <div id="settings-departments" className="settings-anchor-section" style={{ marginTop: '48px' }}>
         <h2 style={{ fontSize: '1.6rem', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
           <SettingsIcon size={24} /> Manage Departments
         </h2>
@@ -638,7 +684,7 @@ export default function Settings({
       </div>
 
       {/* Advance Auto Approval Limit Section */}
-      <div style={{ marginTop: '48px' }}>
+      <div id="settings-advance" className="settings-anchor-section" style={{ marginTop: '48px' }}>
         <h2 style={{ fontSize: '1.6rem', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
           <IndianRupee size={24} /> Labour Advance Auto-Approval
         </h2>
@@ -669,7 +715,7 @@ export default function Settings({
       </div>
 
       {/* Kiosk Operational Hours Section */}
-      <div style={{ marginTop: '48px' }}>
+      <div id="settings-kiosk-hours" className="settings-anchor-section" style={{ marginTop: '48px' }}>
         <h2 style={{ fontSize: '1.6rem', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
           <Clock size={24} /> Kiosk Operational Hours
         </h2>
@@ -777,14 +823,14 @@ export default function Settings({
         </div>
       </div>
 
-      <div style={{ marginTop: '48px' }}>
+      <div id="settings-kiosk-advanced" className="settings-anchor-section" style={{ marginTop: '48px' }}>
         <h2 style={{ fontSize: '1.6rem', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
           <MapPin size={24} /> Advanced Kiosk Settings
         </h2>
         <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>Configure factory location for geofencing and set the default alarm time for un-punched attendance.</p>
       </div>
 
-      <div className="settings-grid" style={{ marginBottom: '48px' }}>
+      <div id="settings-grace" className="settings-grid settings-anchor-section" style={{ marginBottom: '48px' }}>
         {/* Left Card: Location */}
         <div className="glass-panel" style={{ height: 'fit-content' }}>
           <h3 style={{ fontSize: '1.25rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -910,6 +956,7 @@ export default function Settings({
         </div>
       </div>
 
+      </div>
     </div>
   );
 }
