@@ -3,13 +3,16 @@ import {
   Search, 
   Calendar, 
   Filter, 
-  Download, 
   RefreshCw,
   Loader,
   IndianRupee,
-  Wallet
+  Wallet,
+  FileSpreadsheet
 } from 'lucide-react';
+
+import * as XLSX from 'xlsx';
 import '../styles/Tasks.css'; // Leverage styles
+
 
 interface UserType {
   id: string;
@@ -207,49 +210,106 @@ export default function TransactionHistory({
     );
   };
 
-  // Export filtered transactions to CSV
-  const exportToCSV = () => {
+  // Export filtered transactions to rich Excel (.xlsx) with AutoFilters
+  const exportToExcel = () => {
     if (filteredTxs.length === 0) {
-      showToast('No transactions to export', 'warning');
+      showToast('No transactions match the selected filters to export', 'warning');
       return;
     }
-    
-    // Header
-    const headers = ['Date', 'Type', 'Category', 'Details', 'Staff', 'Labourer', 'Payment Mode', 'Amount (Rs)'];
-    
-    // Rows
-    const rows = filteredTxs.map(tx => {
-      const dateStr = new Date(tx.date).toLocaleDateString('en-GB');
-      const typeStr = tx.txType === 'received' ? 'Inflow (Received)' : 'Outflow (Expense)';
-      const catStr = tx.category.replace('-', ' ').toUpperCase();
-      const descClean = tx.description ? `"${tx.description.replace(/"/g, '""')}"` : '""';
-      const staffName = tx.staffId?.name || 'Staff';
-      const labourName = tx.labourId?.name || '--';
-      const modeStr = tx.paymentMode === 'online' ? 'Online' : 'Hand Cash';
-      
-      return [
-        dateStr,
-        typeStr,
-        catStr,
-        descClean,
-        staffName,
-        labourName,
-        modeStr,
-        tx.amount
-      ].join(',');
+
+    const sheetData: any[][] = [];
+
+    // Title & Summary Block
+    sheetData.push(["LABOUR PRO - TRANSACTION HISTORY LEDGER"]);
+    sheetData.push([`Export Date: ${new Date().toLocaleString('en-IN')}`, `Total Exported Rows: ${filteredTxs.length}`]);
+    sheetData.push([
+      `Total Cash Received: ₹${totalReceived.toLocaleString('en-IN')}`,
+      `Total Spent: ₹${totalSpent.toLocaleString('en-IN')}`,
+      `Net Balance: ₹${netBalance.toLocaleString('en-IN')}`
+    ]);
+    sheetData.push([]); // Empty spacing row
+
+    // Table Headers (Row 5 in Excel)
+    const headers = [
+      "Date",
+      "Type",
+      "Category",
+      "Payment Mode",
+      "Amount (₹)",
+      "Details / Tagged Person",
+      "Status",
+      "Description / Reason",
+      "Logged By Staff"
+    ];
+    sheetData.push(headers);
+
+    // Data rows
+    filteredTxs.forEach(tx => {
+      const parsed = parseDescription(tx.description || '', tx.category || '', tx.txType || '');
+      let statusText = 'Direct Expense';
+      if (tx.txType === 'received') {
+        statusText = 'Received';
+      } else if (tx.description?.includes('(Auto-Approved)')) {
+        statusText = 'Auto-Approved';
+      } else if (tx.description?.includes('(Approved by Owner)')) {
+        statusText = 'MD Approved';
+      } else if (tx.description?.includes('(By Owner)')) {
+        statusText = 'Direct Advance';
+      }
+
+      const dateFormatted = tx.date ? new Date(tx.date).toLocaleDateString('en-GB') : '--';
+      const typeLabel = tx.txType === 'received' ? 'Cash Received' : 'Expense (Outflow)';
+      const categoryLabel = (tx.category || '').replace('-', ' ').toUpperCase();
+      const modeLabel = tx.paymentMode === 'online' ? 'Online (Bank/UPI)' : 'Cash (Handcash)';
+      const amountVal = tx.txType === 'received' ? tx.amount : -tx.amount;
+
+      const labourObj = typeof (tx as any).labourId === 'object' ? (tx as any).labourId : null;
+      const staffObj = typeof (tx as any).staffId === 'object' ? (tx as any).staffId : null;
+      const taggedName = labourObj?.name || (tx as any).labourName || parsed.details || '--';
+      const loggedByStaff = staffObj?.name || (tx as any).staffName || 'Office Staff';
+
+      sheetData.push([
+        dateFormatted,
+        typeLabel,
+        categoryLabel,
+        modeLabel,
+        amountVal,
+        taggedName,
+        statusText,
+        parsed.reason || tx.description || '--',
+        loggedByStaff
+      ]);
     });
-    
-    const csvContent = [headers.join(','), ...rows].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `Transaction_History_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    showToast('CSV file exported successfully', 'success');
+
+
+    const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
+
+    // Enable Excel Auto-Filter Dropdowns on Table Header (Row 5)
+    const headerRowIndex = 5;
+    const lastRowIndex = sheetData.length;
+    worksheet['!autofilter'] = { ref: `A${headerRowIndex}:I${lastRowIndex}` };
+
+    // Auto-fit column widths
+    const colWidths = headers.map((colHeader, i) => {
+      let maxLen = colHeader.length;
+      for (let r = 4; r < sheetData.length; r++) {
+        const cellValue = sheetData[r][i];
+        if (cellValue !== undefined && cellValue !== null) {
+          const len = String(cellValue).length;
+          if (len > maxLen) maxLen = len;
+        }
+      }
+      return { wch: Math.min(Math.max(maxLen + 4, 12), 50) };
+    });
+    worksheet['!cols'] = colWidths;
+
+    // Create workbook and trigger download
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Transaction History');
+
+    const dateStr = new Date().toISOString().split('T')[0];
+    XLSX.writeFile(workbook, `Transaction_Ledger_${dateStr}.xlsx`);
+    showToast('Excel workbook exported successfully!', 'success');
   };
 
   return (
@@ -264,10 +324,20 @@ export default function TransactionHistory({
           <button onClick={fetchTxs} className="btn btn-secondary" style={{ padding: '10px 16px' }} title="Refresh ledger">
             <RefreshCw size={16} className={loading ? 'spinner' : ''} />
           </button>
-          <button onClick={exportToCSV} className="btn btn-primary" style={{ padding: '10px 20px', gap: '8px' }}>
-            <Download size={18} /> Export CSV
+          <button 
+            onClick={exportToExcel} 
+            className="btn btn-primary" 
+            style={{ 
+              padding: '10px 20px', 
+              gap: '8px',
+              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              border: 'none'
+            }}
+          >
+            <FileSpreadsheet size={18} /> Export to Excel
           </button>
         </div>
+
       </div>
 
       {/* Filtered Sums Cards */}
