@@ -375,13 +375,23 @@ export default function App() {
   const fetchUnreadCounts = async () => {
     if (!token) return;
     try {
-      const res = await fetch(`${API_BASE}/messages/unread/count`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setUnreadCounts(data);
-      }
+      const headers = { 'Authorization': `Bearer ${token}` };
+      const [directRes, groupRes] = await Promise.all([
+        fetch(`${API_BASE}/messages/unread/count`, { headers }),
+        fetch(`${API_BASE}/chat/groups`, { headers })
+      ]);
+
+      const directCounts: Record<string, number> = directRes.ok ? await directRes.json() : {};
+      const groups = groupRes.ok ? await groupRes.json() : [];
+      const groupCounts = Array.isArray(groups)
+        ? groups.reduce((counts: Record<string, number>, group: any) => {
+            const unread = Number(group?.unreadCount || 0);
+            if (unread > 0) counts[`group:${group.id}`] = unread;
+            return counts;
+          }, {})
+        : {};
+
+      setUnreadCounts({ ...directCounts, ...groupCounts });
     } catch (err) {
       console.error(err);
     }

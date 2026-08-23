@@ -1,456 +1,150 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Loader, Send, Paperclip, MessageSquare, Trash2, AlertTriangle, X } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { AlertTriangle, Check, Loader, MessageSquare, Paperclip, Plus, Search, Send, Trash2, UsersRound, X } from 'lucide-react';
 import '../styles/Chat.css';
 
 const IMAGEKIT_PUBLIC_KEY = 'public_LB0AyCgim15VO491kDtVm0Fo798=';
 
-interface User {
-  id: string;
-  _id?: string;
-  username: string;
-  name: string;
-  role: string;
-  whatsapp?: string;
-  imageUrl?: string;
-}
+interface User { id: string; _id?: string; username: string; name: string; role: string; imageUrl?: string }
+interface ChatMessage { id?: string; _id?: string; sender: string; receiver?: string; text: string; mediaUrl?: string; mediaType?: string; isRead?: boolean; createdAt: string; senderUser?: User }
+interface GroupMember { userId: string; isAdmin: boolean; user: User }
+interface ChatGroup { id: string; name: string; description: string; avatarUrl?: string; members: GroupMember[]; unreadCount: number; lastMessage?: ChatMessage | null }
+interface ChatProps { token: string | null; user: User | null; apiBase: string; allStaff: User[]; showToast: (message: string, type?: 'success' | 'danger' | 'warning' | 'info') => void; onUnreadChange: (counts: Record<string, number>) => void }
+type Conversation = { kind: 'direct' | 'group'; id: string };
 
-interface ChatMessage {
-  _id: string;
-  sender: string;
-  receiver: string;
-  text: string;
-  mediaUrl?: string;
-  mediaType?: 'none' | 'image';
-  isRead: boolean;
-  createdAt: string;
-}
+const userIdOf = (value?: User | null) => value?._id || value?.id || '';
+const sameMessages = (a: ChatMessage[], b: ChatMessage[]) => a.length === b.length && a[a.length - 1]?.createdAt === b[b.length - 1]?.createdAt && a[a.length - 1]?.isRead === b[b.length - 1]?.isRead;
 
-interface ChatProps {
-  token: string | null;
-  user: User | null;
-  apiBase: string;
-  allStaff: User[];
-  showToast: (message: string, type?: 'success' | 'danger' | 'warning' | 'info') => void;
-  onUnreadChange: (counts: Record<string, number>) => void;
-}
-
-export default function Chat({
-  token,
-  user,
-  apiBase,
-  allStaff,
-  showToast,
-  onUnreadChange
-}: ChatProps) {
-  const [activeChatStaffId, setActiveChatStaffId] = useState<string | null>(null);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
-  const [chatInputText, setChatInputText] = useState('');
-  const [chatFile, setChatFile] = useState<File | null>(null);
-  const [chatFilePreview, setChatFilePreview] = useState('');
-  const [chatSending, setChatSending] = useState(false);
+export default function Chat({ token, user, apiBase, allStaff, showToast, onUnreadChange }: ChatProps) {
+  const [chatUsers, setChatUsers] = useState<User[]>(allStaff);
+  const [groups, setGroups] = useState<ChatGroup[]>([]);
+  const [active, setActive] = useState<Conversation | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [directUnread, setDirectUnread] = useState<Record<string, number>>({});
+  const [input, setInput] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState('');
+  const [sending, setSending] = useState(false);
+  const [search, setSearch] = useState('');
+  const [showGroupModal, setShowGroupModal] = useState(false);
+  const [groupName, setGroupName] = useState('');
+  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+  const [creatingGroup, setCreatingGroup] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const [sidebarSearch, setSidebarSearch] = useState('');
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const authHeaders = { Authorization: `Bearer ${token}` };
+  const currentUserId = userIdOf(user);
+  const activeGroup = active?.kind === 'group' ? groups.find(group => group.id === active.id) : undefined;
+  const activeUser = active?.kind === 'direct' ? chatUsers.find(item => userIdOf(item) === active.id) : undefined;
 
-  // Auto-scroll to latest message
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatMessages]);
-
-  const fetchUnreadCounts = async () => {
+  const loadChatUsers = async () => { if (!token) return; const response = await fetch(`${apiBase}/chat/users`, { headers: authHeaders }); if (response.ok) setChatUsers(await response.json()); };
+  const loadGroups = async () => {
     if (!token) return;
-    try {
-      const res = await fetch(`${apiBase}/messages/unread/count`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setUnreadCounts(data);
-        onUnreadChange(data);
-      }
-    } catch (err) {
-      console.error(err);
-    }
+    const response = await fetch(`${apiBase}/chat/groups`, { headers: authHeaders });
+    if (!response.ok) return;
+    const data = await response.json();
+    setGroups(data);
+    const combined = { ...directUnread };
+    data.forEach((group: ChatGroup) => { combined[`group:${group.id}`] = group.unreadCount || 0; });
+    onUnreadChange(combined);
+  };
+  const loadDirectUnread = async () => {
+    if (!token) return;
+    const response = await fetch(`${apiBase}/messages/unread/count`, { headers: authHeaders });
+    if (!response.ok) return;
+    const data = await response.json();
+    setDirectUnread(data);
+    const combined = { ...data };
+    groups.forEach(group => { combined[`group:${group.id}`] = group.unreadCount || 0; });
+    onUnreadChange(combined);
+  };
+  const loadMessages = async (conversation = active) => {
+    if (!token || !conversation) return;
+    const path = conversation.kind === 'group' ? `/chat/groups/${conversation.id}/messages` : `/messages/${conversation.id}`;
+    const response = await fetch(`${apiBase}${path}`, { headers: authHeaders });
+    if (!response.ok) return;
+    const data = await response.json();
+    setMessages(previous => sameMessages(previous, data) ? previous : data);
   };
 
-  const fetchChatMessages = async (userId: string) => {
-    if (!token) return;
-    try {
-      const res = await fetch(`${apiBase}/messages/${userId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setChatMessages(data);
-        fetchUnreadCounts();
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
+  useEffect(() => { void loadChatUsers(); void loadGroups(); void loadDirectUnread(); }, [token]);
   useEffect(() => {
     if (!token) return;
-    fetchUnreadCounts();
-    if (activeChatStaffId) fetchChatMessages(activeChatStaffId);
-    const interval = setInterval(() => {
-      fetchUnreadCounts();
-      if (activeChatStaffId) fetchChatMessages(activeChatStaffId);
-    }, 4000);
-    return () => clearInterval(interval);
-  }, [token, activeChatStaffId]);
+    const timer = window.setInterval(() => { void loadGroups(); void loadDirectUnread(); void loadMessages(); }, 2000);
+    return () => window.clearInterval(timer);
+  }, [token, active, groups.length]);
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages.length]);
 
-  const handleImageUpload = async (file: File): Promise<string> => {
-    const authRes = await fetch(`${apiBase}/imagekit/auth`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    if (!authRes.ok) throw new Error('Could not fetch ImageKit signature');
-    const authParams = await authRes.json();
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('fileName', file.name);
-    formData.append('publicKey', IMAGEKIT_PUBLIC_KEY);
-    formData.append('signature', authParams.signature);
-    formData.append('expire', authParams.expire.toString());
-    formData.append('token', authParams.token);
-    const upRes = await fetch('https://upload.imagekit.io/api/v1/files/upload', { method: 'POST', body: formData });
-    if (!upRes.ok) throw new Error('Image upload failed');
-    const upData = await upRes.json();
-    return upData.url;
+  const openConversation = (conversation: Conversation) => { setActive(conversation); setMessages([]); setInput(''); void loadMessages(conversation); window.setTimeout(() => inputRef.current?.focus(), 80); };
+  const uploadImage = async (upload: File) => {
+    const authResponse = await fetch(`${apiBase}/imagekit/auth`, { headers: authHeaders });
+    if (!authResponse.ok) throw new Error('Could not prepare upload');
+    const auth = await authResponse.json();
+    const body = new FormData();
+    body.append('file', upload); body.append('fileName', upload.name); body.append('publicKey', IMAGEKIT_PUBLIC_KEY); body.append('signature', auth.signature); body.append('expire', String(auth.expire)); body.append('token', auth.token);
+    const response = await fetch('https://upload.imagekit.io/api/v1/files/upload', { method: 'POST', body });
+    if (!response.ok) throw new Error('Upload failed');
+    return (await response.json()).url as string;
   };
 
-  const handleSendChatMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!activeChatStaffId || (!chatInputText.trim() && !chatFile)) return;
-    setChatSending(true);
+  const mentionedIds = useMemo(() => {
+    if (!activeGroup) return [];
+    const lowerInput = input.toLowerCase();
+    return activeGroup.members.filter(member => lowerInput.includes(`@${member.user.username.toLowerCase()}`)).map(member => member.userId);
+  }, [input, activeGroup]);
+  const mentionQuery = input.match(/(?:^|\s)@([\w.-]*)$/)?.[1]?.toLowerCase();
+  const mentionCandidates = mentionQuery === undefined || !activeGroup ? [] : activeGroup.members.filter(member => member.userId !== currentUserId).filter(member => member.user.username.toLowerCase().includes(mentionQuery) || member.user.name.toLowerCase().includes(mentionQuery)).slice(0, 6);
+  const addMention = (member: GroupMember) => { setInput(value => value.replace(/@([\w.-]*)$/, `@${member.user.username} `)); inputRef.current?.focus(); };
+
+  const sendMessage = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!active || (!input.trim() && !file) || sending) return;
+    setSending(true);
     try {
-      let mediaUrl = '';
-      let mediaType: 'none' | 'image' = 'none';
-      if (chatFile) {
-        try {
-          mediaUrl = await handleImageUpload(chatFile);
-          mediaType = 'image';
-        } catch {
-          showToast('Failed to upload attachment', 'danger');
-          setChatSending(false);
-          return;
-        }
-      }
-      const res = await fetch(`${apiBase}/messages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ receiverId: activeChatStaffId, text: chatInputText, mediaUrl, mediaType })
-      });
-      if (res.ok) {
-        setChatInputText('');
-        setChatFile(null);
-        setChatFilePreview('');
-        fetchChatMessages(activeChatStaffId);
-        inputRef.current?.focus();
-      } else {
-        showToast('Failed to send message', 'danger');
-      }
-    } catch {
-      showToast('Error sending message', 'danger');
-    } finally {
-      setChatSending(false);
-    }
+      const mediaUrl = file ? await uploadImage(file) : '';
+      const path = active.kind === 'group' ? `/chat/groups/${active.id}/messages` : '/messages';
+      const payload = active.kind === 'group' ? { text: input, mediaUrl, mediaType: mediaUrl ? 'image' : 'none', mentions: mentionedIds } : { receiverId: active.id, text: input, mediaUrl, mediaType: mediaUrl ? 'image' : 'none' };
+      const response = await fetch(`${apiBase}${path}`, { method: 'POST', headers: { ...authHeaders, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      if (!response.ok) throw new Error((await response.json().catch(() => ({}))).message || 'Could not send message');
+      const created = await response.json();
+      setMessages(previous => [...previous, created]);
+      setInput(''); setFile(null); setPreview(''); void loadGroups(); inputRef.current?.focus();
+    } catch (error) { showToast(error instanceof Error ? error.message : 'Could not send message', 'danger'); }
+    finally { setSending(false); }
   };
 
-  const executeClearChat = async () => {
-    setShowClearConfirm(false);
-    if (!activeChatStaffId) return;
+  const createGroup = async () => {
+    if (groupName.trim().length < 2 || selectedMembers.length === 0) return;
+    setCreatingGroup(true);
     try {
-      const res = await fetch(`${apiBase}/messages/${activeChatStaffId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        showToast('Chat cleared successfully', 'success');
-        setChatMessages([]);
-      } else {
-        showToast('Failed to clear chat', 'danger');
-      }
-    } catch {
-      showToast('Error clearing chat', 'danger');
-    }
+      const response = await fetch(`${apiBase}/chat/groups`, { method: 'POST', headers: { ...authHeaders, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: groupName, memberIds: selectedMembers }) });
+      if (!response.ok) throw new Error((await response.json().catch(() => ({}))).message || 'Could not create group');
+      const group = await response.json();
+      setGroups(previous => [group, ...previous]); setShowGroupModal(false); setGroupName(''); setSelectedMembers([]); openConversation({ kind: 'group', id: group.id }); showToast('Group created successfully', 'success');
+    } catch (error) { showToast(error instanceof Error ? error.message : 'Could not create group', 'danger'); }
+    finally { setCreatingGroup(false); }
   };
+  const clearDirectChat = async () => { if (!active || active.kind !== 'direct') return; setShowClearConfirm(false); const response = await fetch(`${apiBase}/messages/${active.id}`, { method: 'DELETE', headers: authHeaders }); if (response.ok) setMessages([]); else showToast('Could not clear chat', 'danger'); };
 
-  const activeStaffMember = allStaff.find(s => s.id === activeChatStaffId || s._id === activeChatStaffId);
-  const filteredStaff = allStaff.filter(s => s.name.toLowerCase().includes(sidebarSearch.toLowerCase()));
+  const filteredUsers = chatUsers.filter(item => `${item.name} ${item.username}`.toLowerCase().includes(search.toLowerCase()));
+  const filteredGroups = groups.filter(group => group.name.toLowerCase().includes(search.toLowerCase()));
+  const renderText = (text: string) => { const usernames = new Set((activeGroup?.members || []).map(member => member.user.username.toLowerCase())); return text.split(/(@[\w.-]+)/g).map((part, index) => usernames.has(part.slice(1).toLowerCase()) ? <strong className="chat-mention" key={`${part}-${index}`}>{part}</strong> : <React.Fragment key={`${part}-${index}`}>{part}</React.Fragment>); };
 
-  // Group messages by date
-  const groupMessagesByDate = (messages: ChatMessage[]) => {
-    const groups: { date: string; msgs: ChatMessage[] }[] = [];
-    messages.forEach(msg => {
-      const d = new Date(msg.createdAt);
-      const today = new Date();
-      const yesterday = new Date(today);
-      yesterday.setDate(today.getDate() - 1);
-      let label = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-      if (d.toDateString() === today.toDateString()) label = 'Today';
-      else if (d.toDateString() === yesterday.toDateString()) label = 'Yesterday';
-      const last = groups[groups.length - 1];
-      if (last && last.date === label) last.msgs.push(msg);
-      else groups.push({ date: label, msgs: [msg] });
-    });
-    return groups;
-  };
-
-  const messageGroups = groupMessagesByDate(chatMessages);
-
-  return (
-    <div className="chat-page-container">
-      <div className="chat-page-title">
-        <div>
-          <h1>💬 Chat Hub</h1>
-          <p>Communicate with office staff members in real-time, share files and receipts.</p>
-        </div>
-      </div>
-
-      <div className="chat-grid-container">
-
-        {/* ─── LEFT SIDEBAR ─── */}
-        <div className="chat-sidebar">
-          <div className="chat-sidebar-header">
-            <MessageSquare size={18} />
-            Conversations
-          </div>
-
-          <div className="chat-sidebar-search">
-            <input
-              type="text"
-              placeholder="🔍 Search staff..."
-              value={sidebarSearch}
-              onChange={e => setSidebarSearch(e.target.value)}
-            />
-          </div>
-
-          <div className="chat-user-list">
-            {filteredStaff.map(staff => {
-              const staffId = staff.id || staff._id || '';
-              const isActive = activeChatStaffId === staffId;
-              const unreadCount = unreadCounts[staffId] || 0;
-              return (
-                <button
-                  key={staffId}
-                  onClick={() => {
-                    setActiveChatStaffId(staffId);
-                    fetchChatMessages(staffId);
-                    setTimeout(() => inputRef.current?.focus(), 100);
-                  }}
-                  className={`chat-user-item ${isActive ? 'active' : ''}`}
-                >
-                  {staff.imageUrl ? (
-                    <img
-                      src={staff.imageUrl}
-                      alt={staff.name}
-                      style={{ width: '42px', height: '42px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
-                    />
-                  ) : (
-                    <div className="chat-user-avatar">
-                      {staff.name.slice(0, 2).toUpperCase()}
-                    </div>
-                  )}
-                  <div className="chat-user-info">
-                    <div className="chat-user-name">{staff.name}</div>
-                    <div className="chat-user-role">@{staff.username}</div>
-                  </div>
-                  {unreadCount > 0 && (
-                    <span className="chat-unread-badge">{unreadCount}</span>
-                  )}
-                </button>
-              );
-            })}
-            {filteredStaff.length === 0 && (
-              <div style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--text-secondary)', fontStyle: 'italic', fontSize: '0.85rem' }}>
-                No staff found
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* ─── RIGHT CHAT WINDOW ─── */}
-        <div className="chat-main-window">
-          {activeChatStaffId ? (
-            <>
-              {/* Header */}
-              <div className="chat-active-header">
-                {activeStaffMember?.imageUrl ? (
-                  <img
-                    src={activeStaffMember.imageUrl}
-                    alt={activeStaffMember.name}
-                    style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
-                  />
-                ) : (
-                  <div className="chat-active-avatar">
-                    {activeStaffMember?.name.slice(0, 2).toUpperCase()}
-                  </div>
-                )}
-                <div style={{ flexGrow: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)' }}>
-                    {activeStaffMember?.name}
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--color-success)', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    <span className="chat-status-dot"></span>
-                    Active Chat
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowClearConfirm(true)}
-                  className="chat-clear-btn"
-                  title="Clear Chat"
-                >
-                  <Trash2 size={17} />
-                </button>
-              </div>
-
-              {/* Messages */}
-              <div className="chat-messages-window">
-                {chatMessages.length === 0 ? (
-                  <div className="chat-empty-state">
-                    <div className="chat-empty-lock">
-                      <p style={{ margin: 0, fontWeight: 600, fontSize: '0.9rem' }}>🔒 End-to-End Encrypted</p>
-                      <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                        No messages yet. Start the conversation!
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  messageGroups.map(group => (
-                    <React.Fragment key={group.date}>
-                      <div className="chat-date-divider">{group.date}</div>
-                      {group.msgs.map((msg, index) => {
-                        const isSender = msg.sender === (user?._id || user?.id);
-                        return (
-                          <div
-                            key={msg._id || index}
-                            className="chat-message-bubble-wrapper"
-                            style={{ alignSelf: isSender ? 'flex-end' : 'flex-start' }}
-                          >
-                            <div className={`chat-message-bubble ${isSender ? 'sender' : 'receiver'}`}>
-                              {msg.mediaUrl && msg.mediaType === 'image' && (
-                                <a href={msg.mediaUrl} target="_blank" rel="noreferrer">
-                                  <img src={msg.mediaUrl} alt="Attachment" className="chat-message-img" />
-                                </a>
-                              )}
-                              {msg.text && <p className="message-text">{msg.text}</p>}
-                              <div className="chat-message-meta">
-                                <span>{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                {isSender && (
-                                  <span style={{ color: msg.isRead ? '#60a5fa' : 'inherit' }}>
-                                    {msg.isRead ? '✓✓' : '✓'}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </React.Fragment>
-                  ))
-                )}
-                <div ref={messagesEndRef} />
-              </div>
-
-              {/* Input Bar */}
-              <form onSubmit={handleSendChatMessage} className="chat-input-bar">
-                {chatFilePreview && (
-                  <div className="chat-file-preview-pill">
-                    <img src={chatFilePreview} alt="Preview" style={{ width: '36px', height: '36px', objectFit: 'cover', borderRadius: '6px' }} />
-                    <span style={{ maxWidth: '130px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                      {chatFile?.name}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => { setChatFile(null); setChatFilePreview(''); }}
-                      style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--color-danger)', display: 'flex', padding: '2px' }}
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                )}
-
-                <div className="chat-input-controls">
-                  <label className="chat-attach-btn" title="Attach Photo">
-                    <Paperclip size={18} style={{ color: 'var(--text-secondary)' }} />
-                    <input
-                      type="file"
-                      accept="image/*"
-                      style={{ display: 'none' }}
-                      onChange={e => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          setChatFile(file);
-                          setChatFilePreview(URL.createObjectURL(file));
-                        }
-                      }}
-                    />
-                  </label>
-                  <input
-                    ref={inputRef}
-                    type="text"
-                    className="chat-text-input"
-                    placeholder="Type a message..."
-                    value={chatInputText}
-                    onChange={e => setChatInputText(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSendChatMessage(e as any);
-                      }
-                    }}
-                  />
-                  <button type="submit" className="chat-send-btn" disabled={chatSending}>
-                    {chatSending ? <Loader size={16} className="spinner" /> : <Send size={16} />}
-                  </button>
-                </div>
-              </form>
-            </>
-          ) : (
-            <div className="chat-no-select">
-              <div className="chat-no-select-icon">
-                <MessageSquare size={40} />
-              </div>
-              <h3 style={{ fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Select a Conversation</h3>
-              <p style={{ fontSize: '0.9rem', textAlign: 'center', maxWidth: '260px', lineHeight: 1.6 }}>
-                Choose an office staff member from the left panel to start messaging.
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ─── CLEAR CHAT CONFIRM MODAL ─── */}
-      {showClearConfirm && (
-        <div className="chat-confirm-overlay" onClick={() => setShowClearConfirm(false)}>
-          <div className="chat-confirm-card" onClick={e => e.stopPropagation()}>
-            <div style={{ marginBottom: '16px', color: 'var(--color-danger)', display: 'flex', justifyContent: 'center' }}>
-              <AlertTriangle size={44} />
-            </div>
-            <h3 style={{ marginBottom: '10px', fontSize: '1.2rem', fontWeight: 700 }}>Clear Chat?</h3>
-            <p style={{ color: 'var(--text-secondary)', marginBottom: '24px', fontSize: '0.9rem', lineHeight: 1.6 }}>
-              All messages in this chat will be permanently deleted. This cannot be undone.
-            </p>
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <button
-                onClick={() => setShowClearConfirm(false)}
-                style={{ flex: 1, padding: '11px', borderRadius: '10px', border: '1px solid var(--glass-border)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem' }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={executeClearChat}
-                style={{ flex: 1, padding: '11px', borderRadius: '10px', border: 'none', background: 'var(--color-danger)', color: 'white', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem' }}
-              >
-                Yes, Clear
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+  return <div className="wa-page">
+    <header className="wa-page-header"><div><span className="wa-kicker"><MessageSquare size={15} /> Team communication</span><h1>Chat Hub</h1><p>Fast direct and group messaging for your office team.</p></div><button className="wa-new-group" onClick={() => setShowGroupModal(true)}><Plus size={18} /> New group</button></header>
+    <div className="wa-shell">
+      <aside className="wa-sidebar"><div className="wa-sidebar-top"><h2>Chats</h2><button onClick={() => setShowGroupModal(true)} title="Create group"><UsersRound size={20} /></button></div><label className="wa-search"><Search size={17} /><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search chats" /></label><div className="wa-chat-list">
+        {filteredGroups.length > 0 && <div className="wa-section-label">Groups</div>}
+        {filteredGroups.map(group => <button key={group.id} className={`wa-chat-row ${active?.kind === 'group' && active.id === group.id ? 'active' : ''}`} onClick={() => openConversation({ kind: 'group', id: group.id })}><span className="wa-avatar group"><UsersRound size={21} /></span><span className="wa-row-copy"><strong>{group.name}</strong><small>{group.lastMessage?.text || `${group.members.length} members`}</small></span>{group.unreadCount > 0 && <b className="wa-unread">{group.unreadCount}</b>}</button>)}
+        <div className="wa-section-label">Direct messages</div>
+        {filteredUsers.map(person => { const id = userIdOf(person); return <button key={id} className={`wa-chat-row ${active?.kind === 'direct' && active.id === id ? 'active' : ''}`} onClick={() => openConversation({ kind: 'direct', id })}>{person.imageUrl ? <img className="wa-avatar" src={person.imageUrl} alt="" /> : <span className="wa-avatar">{person.name.slice(0, 2).toUpperCase()}</span>}<span className="wa-row-copy"><strong>{person.name}</strong><small>@{person.username}</small></span>{(directUnread[id] || 0) > 0 && <b className="wa-unread">{directUnread[id]}</b>}</button>; })}
+      </div></aside>
+      <main className="wa-main">{active ? <><div className="wa-active-header"><span className={`wa-avatar ${active.kind === 'group' ? 'group' : ''}`}>{active.kind === 'group' ? <UsersRound size={22} /> : activeUser?.name.slice(0, 2).toUpperCase()}</span><div><strong>{active.kind === 'group' ? activeGroup?.name : activeUser?.name}</strong><small>{active.kind === 'group' ? `${activeGroup?.members.length || 0} members · type @ to mention` : 'Direct message'}</small></div>{active.kind === 'direct' && <button className="wa-icon danger" onClick={() => setShowClearConfirm(true)} title="Clear chat"><Trash2 size={18} /></button>}</div>
+        <div className="wa-messages">{messages.length === 0 && <div className="wa-empty"><MessageSquare size={36} /><strong>No messages yet</strong><span>Send the first message to begin.</span></div>}{messages.map((message, index) => { const mine = message.sender === currentUserId; return <div className={`wa-message-line ${mine ? 'mine' : ''}`} key={message.id || message._id || index}><div className={`wa-bubble ${mine ? 'mine' : ''}`}>{active.kind === 'group' && !mine && <b className="wa-sender-name">{message.senderUser?.name || 'Team member'}</b>}{message.mediaUrl && <a href={message.mediaUrl} target="_blank" rel="noreferrer"><img src={message.mediaUrl} className="wa-attachment" alt="Attachment" /></a>}{message.text && <p>{renderText(message.text)}</p>}<span className="wa-time">{new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}{active.kind === 'direct' && mine ? message.isRead ? '  ✓✓' : '  ✓' : ''}</span></div></div>; })}<div ref={endRef} /></div>
+        <form className="wa-composer" onSubmit={sendMessage}>{preview && <div className="wa-preview"><img src={preview} alt="" /><span>{file?.name}</span><button type="button" onClick={() => { setFile(null); setPreview(''); }}><X size={15} /></button></div>}{mentionCandidates.length > 0 && <div className="wa-mentions">{mentionCandidates.map(member => <button type="button" key={member.userId} onClick={() => addMention(member)}><span className="wa-avatar">{member.user.name.slice(0, 2).toUpperCase()}</span><span><strong>{member.user.name}</strong><small>@{member.user.username}</small></span></button>)}</div>}<label className="wa-icon"><Paperclip size={21} /><input type="file" accept="image/*" hidden onChange={event => { const selected = event.target.files?.[0]; if (selected) { setFile(selected); setPreview(URL.createObjectURL(selected)); } }} /></label><input ref={inputRef} value={input} onChange={event => setInput(event.target.value)} placeholder={active.kind === 'group' ? 'Message group · use @ to mention' : 'Type a message'} /><button className="wa-send" disabled={sending}>{sending ? <Loader className="spinner" size={19} /> : <Send size={19} />}</button></form>
+      </> : <div className="wa-empty large"><UsersRound size={54} /><h2>Team conversations</h2><span>Select a chat or create a group to get started.</span></div>}</main>
     </div>
-  );
+    {showGroupModal && <div className="wa-modal-overlay" onClick={() => setShowGroupModal(false)}><div className="wa-modal" onClick={event => event.stopPropagation()}><div className="wa-modal-title"><div><span>Create team group</span><h2>New group chat</h2></div><button onClick={() => setShowGroupModal(false)}><X size={20} /></button></div><label>Group name<input value={groupName} onChange={event => setGroupName(event.target.value)} placeholder="Example: Amazon Work" autoFocus /></label><p className="wa-select-title">Select members <b>{selectedMembers.length}</b></p><div className="wa-member-list">{chatUsers.map(person => { const id = userIdOf(person); const selected = selectedMembers.includes(id); return <button type="button" key={id} className={selected ? 'selected' : ''} onClick={() => setSelectedMembers(values => selected ? values.filter(value => value !== id) : [...values, id])}><span className="wa-avatar">{person.name.slice(0, 2).toUpperCase()}</span><span><strong>{person.name}</strong><small>@{person.username}</small></span><i>{selected && <Check size={16} />}</i></button>; })}</div><div className="wa-modal-actions"><button className="wa-cancel" onClick={() => setShowGroupModal(false)}>Cancel</button><button className="wa-create" disabled={creatingGroup || groupName.trim().length < 2 || selectedMembers.length === 0} onClick={createGroup}>{creatingGroup ? <Loader className="spinner" size={17} /> : <UsersRound size={17} />} Create group</button></div></div></div>}
+    {showClearConfirm && <div className="wa-modal-overlay" onClick={() => setShowClearConfirm(false)}><div className="wa-modal compact" onClick={event => event.stopPropagation()}><AlertTriangle className="wa-danger-icon" size={40} /><h2>Clear this direct chat?</h2><p>All direct messages with this person will be permanently removed.</p><div className="wa-modal-actions"><button className="wa-cancel" onClick={() => setShowClearConfirm(false)}>Cancel</button><button className="wa-delete" onClick={clearDirectChat}>Clear chat</button></div></div></div>}
+  </div>;
 }
