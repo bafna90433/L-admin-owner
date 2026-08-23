@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   Users, 
   Calendar, 
@@ -162,12 +162,12 @@ export default function App() {
   // Selected Task comments overlay
   const [selectedTaskForComments, setSelectedTaskForComments] = useState<any | null>(null);
 
-  const showToast = (message: string, type: 'success' | 'danger' | 'warning' | 'info' = 'success') => {
+  const showToast = useCallback((message: string, type: 'success' | 'danger' | 'warning' | 'info' = 'success') => {
     setToast({ message, type });
     setTimeout(() => {
       setToast(null);
     }, 4000);
-  };
+  }, []);
 
   // Fetch current user if token exists
   useEffect(() => {
@@ -728,7 +728,7 @@ export default function App() {
       </aside>
 
       {/* Main Content */}
-      <main className="main-content">
+      <main className={`main-content ${activeTab === 'settings' ? 'settings-main-content' : ''}`}>
         {renderContent()}
       </main>
 

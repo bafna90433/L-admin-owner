@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, KeyRound, Plus, RefreshCw, ShieldCheck, UserPlus, UsersRound } from 'lucide-react';
+import { Check, Eye, EyeOff, KeyRound, Plus, RefreshCw, ShieldCheck, UserPlus, UsersRound } from 'lucide-react';
 import '../styles/AccessControl.css';
 
 type ToastType = 'success' | 'danger' | 'warning' | 'info';
@@ -36,6 +36,20 @@ interface Props {
 
 const emptyRole = { name: '', description: '', permissions: [] as string[] };
 const emptyStaff = { name: '', username: '', password: '', whatsapp: '', roleId: '' };
+const workDashboardPermission: PermissionItem = { key: 'work.dashboard.view', label: 'View work desk overview' };
+
+const withWorkDashboardPermission = (groups: PermissionGroup[]) => {
+  let foundWorkGroup = false;
+  const updatedGroups = groups.map(group => {
+    if (group.group !== 'Work') return group;
+    foundWorkGroup = true;
+    if (group.permissions.some(permission => permission.key === workDashboardPermission.key)) return group;
+    return { ...group, permissions: [workDashboardPermission, ...group.permissions] };
+  });
+  return foundWorkGroup
+    ? updatedGroups
+    : [...updatedGroups, { group: 'Work', permissions: [workDashboardPermission] }];
+};
 
 export default function AccessControl({ token, apiBase, showToast, onStaffChanged }: Props) {
   const [view, setView] = useState<'staff' | 'roles'>('staff');
@@ -51,6 +65,8 @@ export default function AccessControl({ token, apiBase, showToast, onStaffChange
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
   const [resetPassword, setResetPassword] = useState('');
+  const [showStaffPassword, setShowStaffPassword] = useState(false);
+  const [showResetPassword, setShowResetPassword] = useState(false);
 
   const headers = useMemo(() => ({
     'Content-Type': 'application/json',
@@ -70,7 +86,7 @@ export default function AccessControl({ token, apiBase, showToast, onStaffChange
       const [permissionData, roleData, staffData] = await Promise.all([
         request('/admin/access/permissions'), request('/admin/roles'), request('/admin/staff')
       ]);
-      setGroups(permissionData.groups || []);
+      setGroups(withWorkDashboardPermission(permissionData.groups || []));
       setRoles(roleData || []);
       setStaff(staffData || []);
     } catch (error) {
@@ -186,14 +202,14 @@ export default function AccessControl({ token, apiBase, showToast, onStaffChange
     </div>
   );
 
-  if (loading) return <div className="glass-panel ac-loading"><RefreshCw className="ac-spin" /> Loading staff access…</div>;
+  if (loading) return <div className="ac-loading"><RefreshCw className="ac-spin" /> Loading staff access…</div>;
 
   return (
     <div className="ac-page animate-fade-in">
       <header className="ac-hero">
         <div>
-          <span className="ac-eyebrow"><ShieldCheck size={15} /> MD CONTROL CENTRE</span>
-          <h1>Staff & Role Management</h1>
+          <span className="ac-eyebrow"><ShieldCheck size={15} /> Access control</span>
+          <h1>Staff &amp; roles</h1>
           <p>Add staff, create job roles and decide exactly which modules each person can use.</p>
         </div>
         <div className="ac-hero-stat"><strong>{staff.filter(item => item.isActive).length}</strong><span>Active staff</span></div>
@@ -211,7 +227,7 @@ export default function AccessControl({ token, apiBase, showToast, onStaffChange
       </div>
 
       {view === 'staff' && (
-        <div className="ac-card glass-panel">
+        <div className="ac-card">
           <div className="ac-card-title"><div><h2>Team directory</h2><p>Inactive staff cannot log in, but their old records remain safe.</p></div></div>
           <div className="ac-table-wrap">
             <table className="ac-table">
@@ -222,7 +238,7 @@ export default function AccessControl({ token, apiBase, showToast, onStaffChange
                   <td><span className="ac-role-chip">{item.roleName}</span></td>
                   <td>{item.whatsapp || '—'}</td>
                   <td><span className={`ac-status ${item.isActive ? 'active' : 'inactive'}`}>{item.isActive ? 'Active' : 'Inactive'}</span></td>
-                  <td><button className="ac-link" onClick={() => { setEditingStaff({ ...item }); setResetPassword(''); }}>Manage</button></td>
+                  <td><button className="ac-link" onClick={() => { setEditingStaff({ ...item }); setResetPassword(''); setShowResetPassword(false); }}>Manage</button></td>
                 </tr>
               ))}</tbody>
             </table>
@@ -233,7 +249,7 @@ export default function AccessControl({ token, apiBase, showToast, onStaffChange
       {view === 'roles' && (
         <div className="ac-role-grid">
           {roles.map(role => (
-            <article className={`glass-panel ac-role-card ${!role.isActive ? 'muted' : ''}`} key={role.id}>
+            <article className={`ac-role-card ${!role.isActive ? 'muted' : ''}`} key={role.id}>
               <div className="ac-role-top"><span className="ac-role-icon"><ShieldCheck size={20} /></span><span className={`ac-status ${role.isActive ? 'active' : 'inactive'}`}>{role.isActive ? 'Active' : 'Inactive'}</span></div>
               <h3>{role.name}</h3><p>{role.description || 'Custom team role'}</p>
               <div className="ac-role-meta"><span>{role.userCount} staff</span><span>{role.permissions.includes('*') ? 'Full access' : `${role.permissions.length} permissions`}</span></div>
@@ -250,7 +266,7 @@ export default function AccessControl({ token, apiBase, showToast, onStaffChange
         <div className="ac-form-grid">
           <label>Full name<input value={staffForm.name} onChange={event => setStaffForm({ ...staffForm, name: event.target.value })} placeholder="Staff name" /></label>
           <label>Username<input value={staffForm.username} onChange={event => setStaffForm({ ...staffForm, username: event.target.value })} placeholder="Login username" /></label>
-          <label>Password<input type="password" value={staffForm.password} onChange={event => setStaffForm({ ...staffForm, password: event.target.value })} placeholder="Minimum 6 characters" /></label>
+          <label>Password<div className="ac-password-field"><input type={showStaffPassword ? 'text' : 'password'} value={staffForm.password} onChange={event => setStaffForm({ ...staffForm, password: event.target.value })} placeholder="Minimum 6 characters" /><button type="button" onClick={() => setShowStaffPassword(value => !value)} aria-label={showStaffPassword ? 'Hide password' : 'Show password'} title={showStaffPassword ? 'Hide password' : 'Show password'}>{showStaffPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></div></label>
           <label>WhatsApp<input value={staffForm.whatsapp} onChange={event => setStaffForm({ ...staffForm, whatsapp: event.target.value })} placeholder="Mobile number" /></label>
           <label className="wide">Assign role<select value={staffForm.roleId} onChange={event => setStaffForm({ ...staffForm, roleId: event.target.value })}><option value="">Select role</option>{selectableRoles.map(role => <option key={role.id} value={role.id}>{role.name}</option>)}</select></label>
         </div>
@@ -263,7 +279,7 @@ export default function AccessControl({ token, apiBase, showToast, onStaffChange
           <label>Full name<input value={editingStaff.name} onChange={event => setEditingStaff({ ...editingStaff, name: event.target.value })} /></label>
           <label>Username<input value={editingStaff.username} onChange={event => setEditingStaff({ ...editingStaff, username: event.target.value })} /></label>
           <label>WhatsApp<input value={editingStaff.whatsapp || ''} onChange={event => setEditingStaff({ ...editingStaff, whatsapp: event.target.value })} /></label>
-          <label>New password (optional)<input type="password" value={resetPassword} onChange={event => setResetPassword(event.target.value)} placeholder="Leave blank to keep current" /></label>
+          <label>New password (optional)<div className="ac-password-field"><input type={showResetPassword ? 'text' : 'password'} value={resetPassword} onChange={event => setResetPassword(event.target.value)} placeholder="Leave blank to keep current" /><button type="button" onClick={() => setShowResetPassword(value => !value)} aria-label={showResetPassword ? 'Hide password' : 'Show password'} title={showResetPassword ? 'Hide password' : 'Show password'}>{showResetPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></div></label>
           <label className="wide">Assigned role<select value={editingStaff.roleId || ''} onChange={event => setEditingStaff({ ...editingStaff, roleId: event.target.value })}>{selectableRoles.map(role => <option key={role.id} value={role.id}>{role.name}</option>)}</select></label>
           <label className="ac-switch wide"><input type="checkbox" checked={editingStaff.isActive} onChange={event => setEditingStaff({ ...editingStaff, isActive: event.target.checked })} /><span></span><div><strong>Login access active</strong><small>Turn off to block login without deleting this staff record.</small></div></label>
         </div>

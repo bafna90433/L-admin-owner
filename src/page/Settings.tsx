@@ -1,4 +1,23 @@
-import { Loader, Edit3, Settings as SettingsIcon, Trash2, Clock, MapPin, Bell, IndianRupee, ShieldCheck, UsersRound, Building2, ChevronRight } from 'lucide-react';
+import {
+  Loader,
+  Edit3,
+  Settings as SettingsIcon,
+  Trash2,
+  Clock,
+  MapPin,
+  Bell,
+  IndianRupee,
+  ShieldCheck,
+  UsersRound,
+  Building2,
+  ChevronRight,
+  Search,
+  SlidersHorizontal,
+  UserPlus,
+  Phone,
+  X,
+  Save
+} from 'lucide-react';
 import '../styles/Settings.css';
 import AccessControl from './AccessControl';
 
@@ -10,6 +29,15 @@ interface User {
   username: string;
   name: string;
   role: string;
+  roleName?: string;
+  roleId?: string | null;
+  whatsapp?: string;
+  isActive?: boolean;
+}
+
+interface RoleSummary {
+  id: string;
+  isActive: boolean;
 }
 
 interface Department {
@@ -50,7 +78,12 @@ export default function Settings({
 
   const [selectedStaff, setSelectedStaff] = useState<User | null>(null);
   const [newName, setNewName] = useState('');
+  const [newActive, setNewActive] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [directoryStaff, setDirectoryStaff] = useState<User[]>([]);
+  const [directoryRoles, setDirectoryRoles] = useState<RoleSummary[]>([]);
+  const [directoryLoading, setDirectoryLoading] = useState(false);
+  const [staffSearch, setStaffSearch] = useState('');
 
   // Departments State
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -89,8 +122,36 @@ export default function Settings({
       fetchKioskLocation();
       fetchKioskAlarm();
       fetchAutoApproveLimit();
+      fetchDirectoryData();
     }
   }, [token]);
+
+  async function fetchDirectoryData() {
+    if (!token) return;
+    setDirectoryLoading(true);
+    try {
+      const headers = { 'Authorization': `Bearer ${token}` };
+      const [staffResponse, roleResponse] = await Promise.all([
+        fetch(`${apiBase}/admin/staff`, { headers }),
+        fetch(`${apiBase}/admin/roles`, { headers })
+      ]);
+      if (!staffResponse.ok || !roleResponse.ok) throw new Error('Could not load staff directory');
+      const [staffData, roleData] = await Promise.all([staffResponse.json(), roleResponse.json()]);
+      const staffList = staffData || [];
+      setDirectoryStaff(staffList);
+      setDirectoryRoles(roleData || []);
+      if (!selectedStaff && staffList.length > 0) {
+        setSelectedStaff(staffList[0]);
+        setNewName(staffList[0].name);
+        setNewActive(staffList[0].isActive !== false);
+      }
+    } catch (error) {
+      console.error(error);
+      setDirectoryStaff(allStaff);
+    } finally {
+      setDirectoryLoading(false);
+    }
+  }
 
   const fetchAutoApproveLimit = async () => {
     try {
@@ -436,6 +497,7 @@ export default function Settings({
   const handleSelectStaff = (staff: User) => {
     setSelectedStaff(staff);
     setNewName(staff.name);
+    setNewActive(staff.isActive !== false);
   };
 
   const handleUpdateName = async (e: React.FormEvent) => {
@@ -445,13 +507,13 @@ export default function Settings({
     setUpdating(true);
     const staffId = selectedStaff.id || selectedStaff._id;
     try {
-      const res = await fetch(`${apiBase}/staff/${staffId}`, {
+      const res = await fetch(`${apiBase}/admin/staff/${staffId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ name: newName })
+        body: JSON.stringify({ name: newName, isActive: newActive })
       });
 
       if (res.ok) {
@@ -459,6 +521,7 @@ export default function Settings({
         setSelectedStaff(null);
         setNewName('');
         fetchStaffUsers();
+        fetchDirectoryData();
       } else {
         const data = await res.json();
         showToast(data.message || 'Failed to update staff name', 'danger');
@@ -470,6 +533,19 @@ export default function Settings({
       setUpdating(false);
     }
   };
+
+  const visibleDirectoryStaff = (directoryStaff.length ? directoryStaff : allStaff).filter(staff => {
+    const query = staffSearch.trim().toLowerCase();
+    if (!query) return true;
+    return [staff.name, staff.username, staff.roleName, staff.role]
+      .filter(Boolean)
+      .some(value => String(value).toLowerCase().includes(query));
+  });
+
+  const activeStaffCount = (directoryStaff.length ? directoryStaff : allStaff)
+    .filter(staff => staff.isActive !== false).length;
+  const activeRoleCount = directoryRoles.filter(role => role.isActive).length;
+  const displayRole = (staff: User) => staff.roleName || staff.role || 'Staff';
 
   return (
     <div className="settings-layout">
@@ -491,7 +567,7 @@ export default function Settings({
       </aside>
 
       <div className="settings-page-container">
-      <div>
+      <div hidden={activeSetting === 'settings-staff-names' || activeSetting === 'settings-access'}>
         <h1 style={{ fontSize: '2.2rem', display: 'flex', alignItems: 'center', gap: '12px' }}>
           <SettingsIcon size={32} /> System Settings
         </h1>
@@ -509,108 +585,119 @@ export default function Settings({
         )}
       </section>
 
-      <div id="settings-staff-names" className="settings-grid settings-anchor-section" hidden={activeSetting !== 'settings-staff-names'}>
-        {/* Left column: Staff List */}
-        <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <h3 style={{ fontSize: '1.25rem' }}>Office Staff Accounts</h3>
-          <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-            Select an office staff member to edit their system name.
-          </p>
+      <section id="settings-staff-names" className="staff-directory-page settings-anchor-section" hidden={activeSetting !== 'settings-staff-names'}>
+        <header className="staff-directory-header">
+          <div>
+            <span className="staff-directory-eyebrow"><UsersRound size={15} /> Workforce identity centre</span>
+            <h1>Staff Directory Settings</h1>
+            <p>Manage staff identities, roles and account visibility.</p>
+          </div>
+          <button className="staff-add-button" onClick={() => openSetting('settings-access')}>
+            <UserPlus size={18} /> Add staff
+          </button>
+        </header>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {allStaff.map(staff => {
-              const isSelected = selectedStaff && (selectedStaff.id === staff.id || selectedStaff._id === staff._id);
-              return (
-                <div 
-                  key={staff.id || staff._id} 
-                  className="staff-settings-card"
-                  style={{
-                    borderColor: isSelected ? 'var(--accent-primary)' : 'var(--glass-border)',
-                    background: isSelected ? 'rgba(79, 70, 229, 0.04)' : 'var(--bg-tertiary)'
-                  }}
-                >
-                  <div className="staff-info-block">
-                    <div className="staff-avatar">
-                      {staff.name.slice(0, 2).toUpperCase()}
-                    </div>
-                    <div>
-                      <div className="staff-name-text">{staff.name}</div>
-                      <div className="staff-username-text">@{staff.username} • <span style={{ textTransform: 'capitalize' }}>{staff.role}</span></div>
-                    </div>
-                  </div>
-                  <button 
-                    onClick={() => handleSelectStaff(staff)}
-                    className="btn btn-secondary"
-                    style={{ padding: '8px 12px', fontSize: '0.85rem' }}
-                  >
-                    <Edit3 size={14} /> Rename
+        <div className="staff-directory-workspace">
+          <div className="staff-directory-main">
+            <div className="staff-directory-toolbar">
+              <div className="staff-stat-card">
+                <span className="staff-stat-icon"><UsersRound size={21} /></span>
+                <div><strong>{activeStaffCount}</strong><span>Active Staff</span></div>
+              </div>
+              <div className="staff-stat-card">
+                <span className="staff-stat-icon"><ShieldCheck size={21} /></span>
+                <div><strong>{directoryLoading ? '—' : activeRoleCount}</strong><span>Roles</span></div>
+              </div>
+              <label className="staff-directory-search">
+                <Search size={18} />
+                <input value={staffSearch} onChange={event => setStaffSearch(event.target.value)} placeholder="Search staff..." />
+              </label>
+              <button className="staff-filter-button" type="button" aria-label="Filter staff"><SlidersHorizontal size={18} /></button>
+            </div>
+
+            <div className="staff-directory-table-wrap">
+              <div className="staff-directory-table-header">
+                <span>Staff member</span><span>Role</span><span>WhatsApp</span><span>Status</span><span>Action</span>
+              </div>
+              <div className="staff-directory-list">
+                {directoryLoading && visibleDirectoryStaff.length === 0 ? (
+                  <div className="staff-directory-empty"><Loader className="spinner" size={20} /> Loading staff directory...</div>
+                ) : visibleDirectoryStaff.map(staff => {
+                  const isSelected = Boolean(selectedStaff && (selectedStaff.id === staff.id || selectedStaff._id === staff._id));
+                  return (
+                    <button
+                      type="button"
+                      key={staff.id || staff._id}
+                      className={`staff-directory-row ${isSelected ? 'selected' : ''}`}
+                      onClick={() => handleSelectStaff(staff)}
+                    >
+                      <span className="staff-member-cell">
+                        <span className="staff-directory-avatar">{staff.name.slice(0, 2).toUpperCase()}</span>
+                        <span><strong>{staff.name}</strong><small>@{staff.username}</small></span>
+                      </span>
+                      <span><span className="staff-role-badge">{displayRole(staff)}</span></span>
+                      <span className="staff-whatsapp-cell">
+                        <Phone size={15} /> {staff.whatsapp || 'Not added'}
+                      </span>
+                      <span><span className={`staff-status-badge ${staff.isActive === false ? 'inactive' : ''}`}><i></i>{staff.isActive === false ? 'Inactive' : 'Active'}</span></span>
+                      <span className="staff-edit-link">Edit profile <Edit3 size={14} /></span>
+                    </button>
+                  );
+                })}
+                {!directoryLoading && visibleDirectoryStaff.length === 0 && (
+                  <div className="staff-directory-empty">No matching staff account found.</div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <aside className={`staff-profile-panel ${selectedStaff ? 'has-selection' : ''}`}>
+            {selectedStaff ? (
+              <form onSubmit={handleUpdateName}>
+                <div className="staff-profile-titlebar">
+                  <h2>Edit staff profile</h2>
+                  <button type="button" aria-label="Close editor" onClick={() => { setSelectedStaff(null); setNewName(''); }}><X size={19} /></button>
+                </div>
+                <div className="staff-profile-identity">
+                  <span className="staff-directory-avatar large">{selectedStaff.name.slice(0, 2).toUpperCase()}</span>
+                  <div><strong>{selectedStaff.name}</strong><span>@{selectedStaff.username}</span></div>
+                </div>
+                <div className="staff-profile-divider"></div>
+                <label className="staff-profile-field">
+                  <span>Display name</span>
+                  <input value={newName} onChange={event => setNewName(event.target.value)} required />
+                </label>
+                <label className="staff-profile-field">
+                  <span>Role</span>
+                  <input value={displayRole(selectedStaff)} readOnly />
+                  <small>Role is managed in Staff &amp; Roles.</small>
+                </label>
+                <div className="staff-visibility-block">
+                  <strong>Account visibility</strong>
+                  <p>Control whether this staff member is visible and can access the system.</p>
+                  <label className="staff-visibility-switch">
+                    <input type="checkbox" checked={newActive} onChange={event => setNewActive(event.target.checked)} />
+                    <span></span>
+                    <div><strong>{newActive ? 'Active' : 'Inactive'}</strong><small>{newActive ? 'Staff member can access the system' : 'Staff member login is blocked'}</small></div>
+                  </label>
+                </div>
+                <div className="staff-profile-actions">
+                  <button type="button" className="staff-cancel-button" onClick={() => { setSelectedStaff(null); setNewName(''); }}>Cancel</button>
+                  <button type="submit" className="staff-save-button" disabled={updating}>
+                    {updating ? <Loader className="spinner" size={16} /> : <Save size={16} />} Save changes
                   </button>
                 </div>
-              );
-            })}
-            {allStaff.length === 0 && (
-              <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '24px', fontStyle: 'italic' }}>
-                No office staff registered in system.
+              </form>
+            ) : (
+              <div className="staff-profile-placeholder">
+                <span><Edit3 size={24} /></span>
+                <h2>Edit staff profile</h2>
+                <p>Select a staff member from the directory to manage their display name and account visibility.</p>
               </div>
             )}
-          </div>
+          </aside>
         </div>
-
-        {/* Right column: Edit Form */}
-        <div className="glass-panel" style={{ height: 'fit-content' }}>
-          <h3 style={{ fontSize: '1.25rem', marginBottom: '16px' }}>Edit Staff Name</h3>
-          {selectedStaff ? (
-            <form onSubmit={handleUpdateName} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <div className="form-group">
-                <label className="form-label">Username</label>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  value={`@${selectedStaff.username}`} 
-                  disabled 
-                  style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', cursor: 'not-allowed' }}
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Role</label>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  value={selectedStaff.role} 
-                  disabled 
-                  style={{ background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', cursor: 'not-allowed', textTransform: 'capitalize' }}
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Display Name</label>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  placeholder="Enter new display name"
-                  value={newName}
-                  onChange={e => setNewName(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <button type="submit" className="btn btn-primary" style={{ flexGrow: 1 }} disabled={updating}>
-                  {updating ? <Loader className="spinner" size={16} /> : 'Save Changes'}
-                </button>
-                <button type="button" onClick={() => { setSelectedStaff(null); setNewName(''); }} className="btn btn-secondary">
-                  Cancel
-                </button>
-              </div>
-            </form>
-          ) : (
-            <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-muted)' }}>
-              Select a staff member from the list to update their name.
-            </div>
-          )}
-        </div>
-      </div>
+      </section>
 
       {/* Manage Departments Section */}
       <div id="settings-departments" className="settings-anchor-section" hidden={activeSetting !== 'settings-departments'}>
