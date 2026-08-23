@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import '../styles/Dashboard.css';
 
 interface CashTx {
@@ -8,10 +9,12 @@ interface CashTx {
   date: string;
   description: string;
   staffId?: {
-    _id: string;
-    name: string;
-    username: string;
-  };
+    _id?: string;
+    id?: string;
+    name?: string;
+    username?: string;
+  } | string;
+  staffName?: string;
 }
 
 interface BalanceData {
@@ -101,6 +104,34 @@ export default function Dashboard({
     );
   };
 
+  // Calculate Company Expenses by Selected Staff / Employee Member
+  const staffCompanyExpenses = useMemo(() => {
+    const staffMap: Record<string, { name: string; totalCompany: number; companyCount: number }> = {};
+    
+    (expenses || []).forEach(tx => {
+      if (tx.txType !== 'received' && tx.category === 'company-expenses') {
+        const labourObj = typeof (tx as any).labourId === 'object' ? (tx as any).labourId : null;
+        
+        const selectedPerson = labourObj;
+        if (selectedPerson && selectedPerson.name) {
+          const personName = selectedPerson.name;
+          const personId = selectedPerson._id || selectedPerson.id || personName;
+          
+          if (!staffMap[personId]) {
+            staffMap[personId] = { name: personName, totalCompany: 0, companyCount: 0 };
+          }
+          
+          const amt = Number(tx.amount) || 0;
+          staffMap[personId].totalCompany += amt;
+          staffMap[personId].companyCount += 1;
+        }
+      }
+    });
+
+
+    return Object.values(staffMap).filter(s => s.totalCompany > 0).sort((a, b) => b.totalCompany - a.totalCompany);
+  }, [expenses]);
+
 
 
   return (
@@ -111,7 +142,7 @@ export default function Dashboard({
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
         gap: '24px',
-        marginBottom: '32px'
+        marginBottom: '24px'
       }}>
         {/* Card 1: Total Cash Sent */}
         <div className="glass-panel stat-card" style={{ 
@@ -165,17 +196,17 @@ export default function Dashboard({
               aspectRatio: '1 / 1', 
               borderRadius: '16px', 
               objectFit: 'cover', 
-              boxShadow: '0 6px 18px rgba(220, 38, 38, 0.25)' 
+              boxShadow: '0 6px 18px rgba(239, 68, 68, 0.25)' 
             }} 
           />
           <div>
             <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Expenses</span>
-            <div className="stat-value" style={{ color: 'var(--color-danger)', fontSize: '1.8rem', fontWeight: 850, marginTop: '4px' }}>₹{balanceData.totalSpent.toLocaleString('en-IN')}</div>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px', marginBottom: 0 }}>Spent by Office Staff</p>
+            <div className="stat-value" style={{ fontSize: '1.8rem', fontWeight: 850, marginTop: '4px', color: 'var(--color-danger)' }}>₹{balanceData.totalSpent.toLocaleString('en-IN')}</div>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px', marginBottom: 0 }}>Logged by Staff</p>
           </div>
         </div>
 
-        {/* Card 3: Online Cash */}
+        {/* Card 3: Online Balance */}
         <div className="glass-panel stat-card" style={{ 
           display: 'flex', 
           flexDirection: 'column', 
@@ -184,7 +215,7 @@ export default function Dashboard({
           textAlign: 'center',
           gap: '16px',
           padding: '24px',
-          border: '1px solid rgba(59, 130, 246, 0.4)'
+          border: '1px solid var(--glass-border)'
         }}>
           <img 
             src="https://ik.imagekit.io/rishii/online_bank.png" 
@@ -200,14 +231,13 @@ export default function Dashboard({
             }} 
           />
           <div>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ONLINE CASH</span>
-            <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px' }}>
-              ₹{(balanceData.onlineBalance ?? 0).toLocaleString('en-IN')}
-            </div>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Online Cash</span>
+            <div className="stat-value" style={{ fontSize: '1.8rem', fontWeight: 850, marginTop: '4px', color: 'var(--text-primary)' }}>₹{(balanceData.onlineBalance ?? 0).toLocaleString('en-IN')}</div>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px', marginBottom: 0 }}>Bank / UPI Balance</p>
           </div>
         </div>
 
-        {/* Card 4: Hand Cash */}
+        {/* Card 4: Hand Cash Balance */}
         <div className="glass-panel stat-card" style={{ 
           display: 'flex', 
           flexDirection: 'column', 
@@ -216,7 +246,7 @@ export default function Dashboard({
           textAlign: 'center',
           gap: '16px',
           padding: '24px',
-          border: '1px solid rgba(16, 185, 129, 0.4)'
+          border: '1px solid var(--glass-border)'
         }}>
           <img 
             src="https://ik.imagekit.io/rishii/hand_cash_drawer.png" 
@@ -232,51 +262,105 @@ export default function Dashboard({
             }} 
           />
           <div>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>HAND CASH</span>
-            <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '4px' }}>
-              ₹{(balanceData.handCashBalance ?? 0).toLocaleString('en-IN')}
-            </div>
-          </div>
-        </div>
-
-        {/* Card 5: Active Staff Balance */}
-        <div className="glass-panel stat-card" style={{ 
-          display: 'flex', 
-          flexDirection: 'column', 
-          alignItems: 'center', 
-          justifyContent: 'center',
-          textAlign: 'center',
-          gap: '16px',
-          padding: '24px',
-          border: '1px solid rgba(16, 185, 129, 0.4)'
-        }}>
-          <img 
-            src="https://ik.imagekit.io/rishii/total_vault.png" 
-            alt="Total Petty Cash" 
-            style={{ 
-              width: '100%', 
-              maxWidth: '120px', 
-              height: 'auto', 
-              aspectRatio: '1 / 1', 
-              borderRadius: '16px', 
-              objectFit: 'cover', 
-              boxShadow: '0 6px 18px rgba(16, 185, 129, 0.25)' 
-            }} 
-          />
-          <div>
-            <span style={{ fontSize: '0.8rem', color: 'var(--color-success)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>AVAILABLE TOTAL CASH</span>
-            <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--color-success)', marginTop: '4px' }}>
-              ₹{balanceData.activeBalance.toLocaleString('en-IN')}
-            </div>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Hand Cash</span>
+            <div className="stat-value" style={{ fontSize: '1.8rem', fontWeight: 850, marginTop: '4px', color: 'var(--color-success)' }}>₹{(balanceData.handCashBalance ?? 0).toLocaleString('en-IN')}</div>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px', marginBottom: 0 }}>Cash in Hand</p>
           </div>
         </div>
       </div>
 
+      {/* Staff Company Expenses Desk Card View */}
+      <div className="glass-panel" style={{ padding: '24px', marginBottom: '24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+          <div>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
+              🏢 Staff Company Expenses Desk
+            </h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: '4px 0 0' }}>
+              Total company expenses logged per staff member
+            </p>
+          </div>
+          <span className="badge badge-info" style={{ fontSize: '0.8rem', padding: '6px 12px', borderRadius: '20px' }}>
+            {staffCompanyExpenses.length} Staff Members Active
+          </span>
+        </div>
 
+        {staffCompanyExpenses.length > 0 ? (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+            gap: '16px'
+          }}>
+            {staffCompanyExpenses.map((s, idx) => (
+              <div key={s.name + idx} style={{
+                background: 'white',
+                border: '1px solid rgba(0,0,0,0.08)',
+                borderRadius: '16px',
+                padding: '18px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px',
+                boxShadow: '0 4px 12px rgba(15, 23, 42, 0.05)',
+                position: 'relative',
+                overflow: 'hidden'
+              }}>
+                <div style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: '4px',
+                  background: 'linear-gradient(90deg, #6366f1, #4f46e5)'
+                }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #4f46e5, #3b82f6)',
+                    color: '#fff',
+                    display: 'grid',
+                    placeItems: 'center',
+                    fontWeight: 800,
+                    fontSize: '0.9rem',
+                    flexShrink: 0
+                  }}>
+                    {s.name.slice(0, 2).toUpperCase()}
+                  </span>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <strong style={{ display: 'block', fontSize: '1rem', color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {s.name}
+                    </strong>
+                    <small style={{ color: '#64748b', fontSize: '0.75rem' }}>
+                      {s.companyCount} {s.companyCount === 1 ? 'entry' : 'entries'} · Company Expense
+                    </small>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '4px' }}>
+                  <div>
+                    <span style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block' }}>Total Company Spent</span>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 850, color: '#ef4444' }}>
+                      ₹{s.totalCompany.toLocaleString('en-IN')}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
 
-      {/* Expenses breakdown & Logs */}
-      <div className="dashboard-grid-layout">
-        
+          </div>
+        ) : (
+          <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '28px', background: '#f8fafc', borderRadius: '12px' }}>
+            No staff company expenses recorded yet.
+          </div>
+        )}
+      </div>
+
+      {/* Main Content Grid */}
+      <div className="dashboard-grid" style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+        gap: '24px'
+      }}>
         {/* Transaction history */}
         <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
@@ -324,7 +408,7 @@ export default function Dashboard({
                             </small>
                           )}
                           <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px', fontWeight: 500 }}>
-                            By {tx.staffId?.name || 'Staff'}
+                            By {typeof tx.staffId === 'object' ? tx.staffId?.name : (tx as any).staffName || 'Staff'}
                           </div>
                         </div>
                       </td>

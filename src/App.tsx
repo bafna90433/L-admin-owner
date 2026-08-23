@@ -13,7 +13,8 @@ import {
   History,
   Receipt,
   Plus,
-  Loader
+  Loader,
+  Trash2
 } from 'lucide-react';
 
 // Import Modular Page Components
@@ -31,6 +32,7 @@ import Settings from './page/Settings';
 import Profile from './page/Profile';
 import AdvanceHistory from './page/AdvanceHistory';
 import TransactionHistory from './page/TransactionHistory';
+import DeletedLogs from './page/DeletedLogs';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'https://l-backend-production-ff32.up.railway.app/api';
 
@@ -102,7 +104,7 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   
   // Router Tab
-  const adminValidTabs = ['dashboard', 'labourers', 'attendance', 'salary', 'advances', 'advance-history', 'transaction-history', 'reminders', 'tasks', 'chat', 'settings', 'profile'] as const;
+  const adminValidTabs = ['dashboard', 'labourers', 'attendance', 'salary', 'advances', 'advance-history', 'transaction-history', 'deleted-logs', 'reminders', 'tasks', 'chat', 'settings', 'profile'] as const;
   type AdminTabType = typeof adminValidTabs[number];
   const adminSavedTab = localStorage.getItem('admin_active_tab') as AdminTabType | null;
   const [activeTab, setActiveTab] = useState<AdminTabType>(adminSavedTab && adminValidTabs.includes(adminSavedTab) ? adminSavedTab : 'dashboard');
@@ -123,11 +125,11 @@ export default function App() {
     }
   };
 
-
   // Shared Data States
   const [labours, setLabours] = useState<Labour[]>([]);
   const [expenses, setExpenses] = useState<CashTx[]>([]);
   const [advances, setAdvances] = useState<AdvanceRequest[]>([]);
+
   const [reminders, setReminders] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
   const [allStaff, setAllStaff] = useState<User[]>([]);
@@ -471,6 +473,7 @@ export default function App() {
             showToast={showToast}
           />
         );
+
       case 'attendance':
         return (
           <Attendance 
@@ -519,6 +522,14 @@ export default function App() {
             token={token}
             apiBase={API_BASE}
             allStaff={allStaff}
+            showToast={showToast}
+          />
+        );
+      case 'deleted-logs':
+        return (
+          <DeletedLogs 
+            token={token}
+            apiBase={API_BASE}
             showToast={showToast}
           />
         );
@@ -640,7 +651,7 @@ export default function App() {
               </span>
             )}
           </button>
-          <button
+          <button 
             onClick={() => navigateTo('settings')} 
             className={`nav-link btn-secondary ${activeTab === 'settings' ? 'active' : ''}`}
             style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
@@ -696,6 +707,13 @@ export default function App() {
             style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
           >
             <Receipt size={18} /> Transaction History
+          </button>
+          <button 
+            onClick={() => navigateTo('deleted-logs')} 
+            className={`nav-link btn-secondary ${activeTab === 'deleted-logs' ? 'active' : ''}`}
+            style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
+          >
+            <Trash2 size={18} /> Deleted History
           </button>
         </nav>
 
