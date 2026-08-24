@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   Users, 
   Calendar, 
@@ -353,6 +353,219 @@ export default function App() {
     }
   };
 
+  // Loud multi-tone chime synthesizer for staff activity & task alerts
+  const playLoudNotificationSound = () => {
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const ctx = new AudioContextClass();
+
+      const playTone = (freq: number, startTime: number, duration: number) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + startTime);
+
+        gain.gain.setValueAtTime(0.01, ctx.currentTime + startTime);
+        gain.gain.linearRampToValueAtTime(0.9, ctx.currentTime + startTime + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + startTime + duration);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(ctx.currentTime + startTime);
+        osc.stop(ctx.currentTime + startTime + duration);
+      };
+
+      // Crisp ascending alert chime
+      playTone(523.25, 0.0, 0.35);  // C5
+      playTone(659.25, 0.15, 0.35); // E5
+      playTone(783.99, 0.30, 0.35); // G5
+      playTone(1046.5, 0.45, 0.7);  // C6
+    } catch (err) {
+      console.error('Audio error:', err);
+    }
+  };
+
+  // Browser Autoplay Audio Unlocker
+  useEffect(() => {
+    const unlockAudio = () => {
+      try {
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioContextClass) {
+          const dummyCtx = new AudioContextClass();
+          if (dummyCtx.state === 'suspended') {
+            dummyCtx.resume();
+          }
+        }
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.resume();
+        }
+      } catch (e) {
+        console.error('Audio unlock error:', e);
+      }
+    };
+    window.addEventListener('click', unlockAudio, { once: true });
+    window.addEventListener('keydown', unlockAudio, { once: true });
+    window.addEventListener('touchstart', unlockAudio, { once: true });
+    window.addEventListener('mousemove', unlockAudio, { once: true });
+    window.addEventListener('focus', unlockAudio, { once: true });
+    return () => {
+      window.removeEventListener('click', unlockAudio);
+      window.removeEventListener('keydown', unlockAudio);
+      window.removeEventListener('touchstart', unlockAudio);
+      window.removeEventListener('mousemove', unlockAudio);
+      window.removeEventListener('focus', unlockAudio);
+    };
+  }, []);
+
+  const triggerDesktopPushNotification = (title: string, body: string) => {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      try {
+        const notif = new Notification(title, {
+          body: body,
+          tag: title + body,
+          requireInteraction: true
+        });
+        notif.onclick = () => {
+          window.focus();
+          navigateTo('tasks');
+          notif.close();
+        };
+      } catch (e) {
+        console.error('Desktop notification error:', e);
+      }
+    }
+  };
+
+  const speakWebSpeechFallback = (textToSpeak: string) => {
+    if (!('speechSynthesis' in window)) return;
+    try {
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.resume();
+      const utterance = new SpeechSynthesisUtterance(textToSpeak);
+      utterance.lang = 'en-US';
+      utterance.rate = 0.95;
+      utterance.pitch = 0.95;
+      utterance.volume = 1.0;
+
+      const getAndSetVoice = () => {
+        const voices = window.speechSynthesis.getVoices();
+        if (!voices || voices.length === 0) return;
+        const isFemale = (name: string) => /zira|jenny|aria|ava|samantha|victoria|karen|female|woman|neerja|susan|catherine|hazel|heera|ayumi|haruka|yating|zhiyu/i.test(name);
+        
+        // Strictly Select Real Man / Male Voice
+        const maleVoice = voices.find(v => 
+          !isFemale(v.name) && (v.name.includes('Natural') || v.name.includes('Neural') || v.name.includes('Online')) && (v.name.includes('Andrew') || v.name.includes('Brian') || v.name.includes('Guy') || v.name.includes('Christopher') || v.name.includes('Prabhat') || v.name.includes('David'))
+        ) || voices.find(v => 
+          !isFemale(v.name) && v.lang.startsWith('en') && (
+            v.name.includes('Andrew') ||
+            v.name.includes('Brian') || 
+            v.name.includes('Guy') || 
+            v.name.includes('David') || 
+            v.name.includes('Mark') || 
+            v.name.includes('Prabhat') || 
+            v.name.includes('George') ||
+            v.name.includes('Male') ||
+            v.name.includes('Desktop')
+          )
+        ) || voices.find(v => !isFemale(v.name) && v.lang.startsWith('en')) || voices[0];
+
+        if (maleVoice) {
+          utterance.voice = maleVoice;
+        }
+      };
+
+      getAndSetVoice();
+      if (window.speechSynthesis.onvoiceschanged !== undefined) {
+        window.speechSynthesis.onvoiceschanged = getAndSetVoice;
+      }
+
+      (window as any)._activeSpeechUtterance = utterance;
+      window.speechSynthesis.speak(utterance);
+    } catch (e) {
+      console.error('Web Speech error:', e);
+    }
+  };
+
+  const playHumanAudio = (audioBase64: string, mimeType: string = 'audio/mp3', fallbackText?: string) => {
+    try {
+      if (mimeType.includes('pcm') || mimeType.includes('raw')) {
+        const binaryString = atob(audioBase64);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
+        const int16Array = new Int16Array(bytes.buffer);
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        const audioCtx = new AudioContextClass({ sampleRate: 24000 });
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        const buffer = audioCtx.createBuffer(1, int16Array.length, 24000);
+        const channelData = buffer.getChannelData(0);
+        for (let i = 0; i < int16Array.length; i++) channelData[i] = int16Array[i] / 32768.0;
+        const source = audioCtx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(audioCtx.destination);
+        source.start();
+      } else {
+        const audio = new Audio(`data:${mimeType};base64,${audioBase64}`);
+        audio.volume = 1.0;
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(e => {
+            console.warn('HTML5 Audio playback blocked, using Web Speech fallback:', e);
+            if (fallbackText) speakWebSpeechFallback(fallbackText);
+          });
+        }
+      }
+    } catch (e) {
+      console.error('Audio decode error:', e);
+      if (fallbackText) speakWebSpeechFallback(fallbackText);
+    }
+  };
+
+  const speakOwnerAnnouncement = async (textToSpeak: string) => {
+    try {
+      const cleanText = (textToSpeak || '').replace(/[^\w\s\u0900-\u097F]/gi, '');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 1800);
+
+      const res = await fetch(`${API_BASE}/ai/tts`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ text: cleanText, lang: 'en', voice: 'en-US-AndrewNeural' }),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.audioContent) {
+          playHumanAudio(data.audioContent, data.mimeType || 'audio/mp3', textToSpeak);
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('Owner TTS fetch fallback to Web Speech:', err);
+    }
+
+    speakWebSpeechFallback(textToSpeak);
+  };
+
+  const isInitialOwnerTaskFetchRef = useRef(true);
+  const knownTaskMapRef = useRef<Map<string, { status: string; remarks: string; nextFollowup: string }>>(new Map());
+  const mdCreatedTaskIdsRef = useRef<Set<string>>(new Set());
+
+  const registerMDTaskLocally = (taskId: string) => {
+    if (!taskId) return;
+    mdCreatedTaskIdsRef.current.add(String(taskId));
+  };
+
   const fetchTasks = async () => {
     try {
       const res = await fetch(`${API_BASE}/tasks`, {
@@ -360,6 +573,74 @@ export default function App() {
       });
       if (res.ok) {
         const data = await res.json();
+
+        if (isInitialOwnerTaskFetchRef.current) {
+          data.forEach((t: any) => {
+            knownTaskMapRef.current.set(t._id, {
+              status: t.status,
+              remarks: t.remarks || '',
+              nextFollowup: t.nextFollowup || ''
+            });
+          });
+          isInitialOwnerTaskFetchRef.current = false;
+        } else {
+          data.forEach((t: any) => {
+            const prev = knownTaskMapRef.current.get(t._id);
+            const staffName = t.createdBy?.name || t.assignedTo?.name || 'Staff';
+
+            const currentOwnerId = user?._id || user?.id || '';
+            const isCreatedByMD = mdCreatedTaskIdsRef.current.has(String(t._id)) ||
+                                  (t.createdBy?._id && String(t.createdBy._id) === String(currentOwnerId)) ||
+                                  (t.createdBy?.id && String(t.createdBy.id) === String(currentOwnerId)) ||
+                                  (typeof t.createdBy === 'string' && String(t.createdBy) === String(currentOwnerId)) ||
+                                  t.createdByRole === 'owner' ||
+                                  t.createdBy?.role === 'owner' ||
+                                  t.taskType === 'reminder-sir';
+
+            // Event 1: New task logged by Staff
+            if (!prev) {
+              knownTaskMapRef.current.set(t._id, {
+                status: t.status,
+                remarks: t.remarks || '',
+                nextFollowup: t.nextFollowup || ''
+              });
+
+              // If MD created it -> SILENT. If Staff created it -> Announce to MD!
+              if (!isCreatedByMD) {
+                playLoudNotificationSound();
+                showToast(`📌 New Work Logged by ${staffName}: "${t.title}"`, 'warning');
+                triggerDesktopPushNotification(`📌 New Work by ${staffName}!`, t.title);
+                speakOwnerAnnouncement(`Office Pro Alert! Attention Sir! ${staffName} has logged a new work task: ${t.title}.`);
+              }
+            } else {
+              // Event 2: Task completed by Staff
+              if (prev.status !== 'completed' && t.status === 'completed') {
+                knownTaskMapRef.current.set(t._id, {
+                  status: t.status,
+                  remarks: t.remarks || '',
+                  nextFollowup: t.nextFollowup || ''
+                });
+                const completedByName = t.completedBy?.name || staffName;
+                playLoudNotificationSound();
+                showToast(`✅ Work Completed by ${completedByName}: "${t.title}"`, 'success');
+                triggerDesktopPushNotification(`✅ Work Completed by ${completedByName}!`, t.title);
+                speakOwnerAnnouncement(`Office Pro Alert! Attention Sir! ${completedByName} has marked work completed: ${t.title}.`);
+              }
+              // Event 3: Staff updated remarks or follow-up
+              else if (prev.remarks !== (t.remarks || '') || prev.nextFollowup !== (t.nextFollowup || '')) {
+                knownTaskMapRef.current.set(t._id, {
+                  status: t.status,
+                  remarks: t.remarks || '',
+                  nextFollowup: t.nextFollowup || ''
+                });
+                playLoudNotificationSound();
+                showToast(`📝 Work details updated by ${staffName}: "${t.title}"`, 'info');
+                speakOwnerAnnouncement(`Office Pro Alert! Attention Sir! ${staffName} has updated work details for: ${t.title}.`);
+              }
+            }
+          });
+        }
+
         setTasks(data);
         // If comments modal is open, update comments inside it
         if (selectedTaskForComments) {
@@ -373,6 +654,14 @@ export default function App() {
       console.error(err);
     }
   };
+
+  // Poll tasks every 2.5 seconds in background for real-time sound & voice notifications
+  useEffect(() => {
+    if (!token || !user || user.role !== 'owner') return;
+    fetchTasks();
+    const interval = setInterval(fetchTasks, 2500);
+    return () => clearInterval(interval);
+  }, [token, user]);
 
   const fetchUnreadCounts = async () => {
     if (!token) return;
@@ -555,6 +844,7 @@ export default function App() {
             setSelectedTaskForComments={setSelectedTaskForComments}
             setConfirmModal={setConfirmModal}
             showToast={showToast}
+            onTaskCreatedLocally={registerMDTaskLocally}
           />
         );
       case 'chat':

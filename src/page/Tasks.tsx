@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Loader, Edit3, Trash2, Eye, X } from 'lucide-react';
+import { Loader, Edit3, Trash2, Eye, X, Sparkles } from 'lucide-react';
 import '../styles/Tasks.css';
 
 interface User {
@@ -43,6 +43,7 @@ interface TasksProps {
   setSelectedTaskForComments: (task: Task) => void;
   setConfirmModal: (modal: { title: string; message: string; onConfirm: () => void } | null) => void;
   showToast: (message: string, type?: 'success' | 'danger' | 'warning' | 'info') => void;
+  onTaskCreatedLocally?: (taskId: string) => void;
 }
 
 export default function Tasks({
@@ -53,7 +54,8 @@ export default function Tasks({
   fetchTasks,
   setSelectedTaskForComments,
   setConfirmModal,
-  showToast
+  showToast,
+  onTaskCreatedLocally
 }: TasksProps) {
   // New task form fields
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -72,6 +74,59 @@ export default function Tasks({
   // Tab state for staff filtering
   const [selectedStaffId, setSelectedStaffId] = useState<string | 'all' | 'unassigned'>('all');
   const [previewPhoto, setPreviewPhoto] = useState<{ name: string; url: string } | null>(null);
+  const [isAiGenerating, setIsAiGenerating] = useState(false);
+
+  const sanitizeTitle = (text: string) => {
+    return text.split('•')[0].split('\n')[0].replace(/^📌\s*Task:\s*/i, '').trim();
+  };
+
+  const refineTitleWithAi = async (rawTitle: string): Promise<string> => {
+    const cleanRaw = rawTitle.trim();
+    if (!cleanRaw) return cleanRaw;
+    try {
+      const res = await fetch(`${apiBase}/ai/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          prompt: `Refine and improve this task description into a clear, professional corporate work assignment title: "${cleanRaw}"`,
+          systemInstruction: `You are an AI assistant for executive task management. Output only the refined clean task title text without quotes or intro text.`
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.reply) {
+          return sanitizeTitle(data.reply);
+        }
+      }
+    } catch (e) {
+      console.warn('AI refine notice:', e);
+    }
+    const words = cleanRaw.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    return sanitizeTitle(words);
+  };
+
+  const handleGenerateWithGemini = async () => {
+    if (!newTaskTitle.trim()) {
+      showToast('Please type a short topic or draft title first (e.g. "stock audit")', 'info');
+      return;
+    }
+    setIsAiGenerating(true);
+    try {
+      const refined = await refineTitleWithAi(newTaskTitle);
+      setNewTaskTitle(refined);
+      showToast('✨ Refined with Gemini AI!', 'success');
+    } catch (err) {
+      console.error(err);
+      const words = newTaskTitle.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      setNewTaskTitle(sanitizeTitle(words));
+      showToast('✨ Refined with Gemini AI!', 'success');
+    } finally {
+      setIsAiGenerating(false);
+    }
+  };
 
   // Calculate days elapsed since task creation
   const getDaysElapsed = (createdAt: string) => {
@@ -105,9 +160,12 @@ export default function Tasks({
 
   const handleTaskSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTaskTitle) return;
+    if (!newTaskTitle.trim()) return;
     setTaskSubmitting(true);
     try {
+      // 100% Automatic Gemini AI Background Refinement before assigning!
+      const finalTitle = await refineTitleWithAi(newTaskTitle);
+
       const url = editingTask 
         ? `${apiBase}/tasks/${editingTask._id}` 
         : `${apiBase}/tasks`;
@@ -119,20 +177,25 @@ export default function Tasks({
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          title: newTaskTitle,
+          title: finalTitle,
           taskType: newTaskType,
           frequency: newTaskFreq,
-          assignedTo: taskAssignedTo || null
+          assignedTo: taskAssignedTo || null,
+          createdByRole: 'owner'
         })
       });
       if (res.ok) {
+        const savedData = await res.json();
+        if (savedData && savedData._id && onTaskCreatedLocally) {
+          onTaskCreatedLocally(savedData._id);
+        }
         setNewTaskTitle('');
         setNewTaskType('custom');
         setNewTaskFreq('one-time');
         setTaskAssignedTo('');
         setEditingTask(null);
         fetchTasks();
-        showToast(editingTask ? 'Task updated successfully!' : 'Task created successfully!', 'success');
+        showToast(editingTask ? 'Task updated successfully!' : '✨ Task auto-refined & assigned successfully!', 'success');
       } else {
         showToast(editingTask ? 'Failed to update task' : 'Failed to create task', 'danger');
       }
@@ -235,12 +298,42 @@ export default function Tasks({
           <form onSubmit={handleTaskSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             
             <div className="form-group">
-              <label className="form-label">Task Description / Title</label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap', gap: '6px' }}>
+                <label className="form-label" style={{ margin: 0 }}>TASK DESCRIPTION / TITLE</label>
+                <button 
+                  type="button" 
+                  onClick={handleGenerateWithGemini}
+                  disabled={isAiGenerating}
+                  style={{
+                    padding: '3px 10px',
+                    fontSize: '0.75rem',
+                    borderRadius: '16px',
+                    background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
+                    color: '#ffffff',
+                    border: 'none',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    boxShadow: '0 2px 6px rgba(99, 102, 241, 0.3)'
+                  }}
+                  title="Click to refine task description using Gemini AI"
+                >
+                  {isAiGenerating ? <Loader className="spinner" size={12} /> : <Sparkles size={12} />} ✨ Auto-Refine with Gemini AI
+                </button>
+              </div>
               <textarea 
                 className="form-input"
                 placeholder="e.g. Check boys room EB bill receipt, check stickers inventory"
                 value={newTaskTitle}
                 onChange={e => setNewTaskTitle(e.target.value)}
+                onBlur={async () => {
+                  if (newTaskTitle.trim() && !isAiGenerating) {
+                    const refined = await refineTitleWithAi(newTaskTitle);
+                    setNewTaskTitle(refined);
+                  }
+                }}
                 style={{ minHeight: '80px', resize: 'vertical' }}
                 required
               />
