@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Loader, Edit3, Trash2 } from 'lucide-react';
+import { Loader, Edit3, Trash2, Eye, X } from 'lucide-react';
 import '../styles/Tasks.css';
 
 interface User {
@@ -21,9 +21,11 @@ interface Task {
     _id: string;
     name: string;
     username: string;
+    imageUrl?: string;
   };
   completedBy?: {
     name: string;
+    imageUrl?: string;
   };
   completedAt?: string;
   comments?: any[];
@@ -69,6 +71,7 @@ export default function Tasks({
 
   // Tab state for staff filtering
   const [selectedStaffId, setSelectedStaffId] = useState<string | 'all' | 'unassigned'>('all');
+  const [previewPhoto, setPreviewPhoto] = useState<{ name: string; url: string } | null>(null);
 
   // Calculate days elapsed since task creation
   const getDaysElapsed = (createdAt: string) => {
@@ -332,45 +335,168 @@ export default function Tasks({
             </div>
           </div>
 
-          {/* Horizontal Staff Tabs */}
-          <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '12px', borderBottom: '1px solid var(--glass-border)', marginTop: '8px' }}>
+          {/* Horizontal Staff Tabs (Extra Large Circular Avatars with Name Below & Image Preview) */}
+          <div style={{ display: 'flex', gap: '22px', overflowX: 'auto', padding: '10px 4px 16px 4px', borderBottom: '1px solid var(--glass-border)', marginTop: '8px', alignItems: 'flex-start' }}>
+            {/* All Tasks Button */}
             <button
+              type="button"
               onClick={() => setSelectedStaffId('all')}
               style={{
-                display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px',
-                background: selectedStaffId === 'all' ? 'var(--accent-primary)' : 'var(--bg-tertiary)',
-                color: selectedStaffId === 'all' ? '#fff' : 'var(--text-primary)',
-                border: selectedStaffId === 'all' ? 'none' : '1px solid var(--glass-border)',
-                borderRadius: '24px', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.2s', fontWeight: 600
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '8px',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '4px',
+                minWidth: '76px',
+                transition: 'transform 0.15s ease'
               }}
             >
-              📑 All Tasks
+              <div
+                style={{
+                  width: 70,
+                  height: 70,
+                  borderRadius: '50%',
+                  background: selectedStaffId === 'all'
+                    ? 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)'
+                    : '#f1f5f9',
+                  color: selectedStaffId === 'all' ? '#ffffff' : '#64748b',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1.75rem',
+                  border: selectedStaffId === 'all' ? '3.5px solid #6366f1' : '2px solid #cbd5e1',
+                  boxShadow: selectedStaffId === 'all' ? '0 6px 18px rgba(99, 102, 241, 0.45)' : 'none',
+                  transition: 'all 0.18s ease'
+                }}
+              >
+                📋
+              </div>
+              <span
+                style={{
+                  fontSize: '0.85rem',
+                  fontWeight: selectedStaffId === 'all' ? 700 : 550,
+                  color: selectedStaffId === 'all' ? '#4f46e5' : '#475569',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                All Tasks
+              </span>
             </button>
 
+            {/* Staff Members List */}
             {allStaff.map(staff => {
               const staffId = staff.id || staff._id || '';
               const isSelected = selectedStaffId === staffId;
+              const avatarUrl = staff.imageUrl ? (staff.imageUrl.startsWith('http') ? staff.imageUrl : `${apiBase}${staff.imageUrl}`) : null;
               
               return (
                 <button
                   key={staffId}
+                  type="button"
                   onClick={() => setSelectedStaffId(staffId)}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 16px 4px 4px',
-                    background: isSelected ? 'var(--accent-primary)' : 'var(--bg-tertiary)',
-                    color: isSelected ? '#fff' : 'var(--text-primary)',
-                    border: isSelected ? 'none' : '1px solid var(--glass-border)',
-                    borderRadius: '24px', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.2s', fontWeight: 600
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '8px',
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: '4px',
+                    minWidth: '76px',
+                    transition: 'transform 0.15s ease'
                   }}
                 >
-                  {staff.imageUrl ? (
-                    <img src={`${apiBase}${staff.imageUrl}`} alt={staff.name} style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }} />
-                  ) : (
-                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: isSelected ? 'rgba(255,255,255,0.2)' : 'linear-gradient(135deg, #6366f1, #a855f7)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 'bold', fontSize: '0.8rem' }}>
-                      {staff.name.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                  {staff.name}
+                  <div
+                    onClick={(e) => {
+                      if (avatarUrl) {
+                        e.stopPropagation();
+                        setPreviewPhoto({ name: staff.name, url: avatarUrl });
+                      }
+                    }}
+                    title={avatarUrl ? "Click to view full photo" : ""}
+                    style={{
+                      position: 'relative',
+                      width: 70,
+                      height: 70,
+                      borderRadius: '50%',
+                      padding: isSelected ? '3px' : '0px',
+                      border: isSelected ? '3.5px solid #6366f1' : '2px solid #e2e8f0',
+                      boxShadow: isSelected ? '0 6px 18px rgba(99, 102, 241, 0.4)' : '0 2px 8px rgba(0,0,0,0.06)',
+                      background: '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'all 0.18s ease',
+                      cursor: avatarUrl ? 'pointer' : 'default'
+                    }}
+                  >
+                    {avatarUrl ? (
+                      <>
+                        <img 
+                          src={avatarUrl} 
+                          alt={staff.name} 
+                          style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} 
+                        />
+                        {/* Zoom Preview Badge */}
+                        <span 
+                          title="Click to view full photo"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPreviewPhoto({ name: staff.name, url: avatarUrl });
+                          }}
+                          style={{
+                            position: 'absolute',
+                            bottom: '-2px',
+                            right: '-2px',
+                            background: '#6366f1',
+                            color: '#ffffff',
+                            borderRadius: '50%',
+                            width: '22px',
+                            height: '22px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            border: '2px solid #ffffff',
+                            boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <Eye size={12} />
+                        </span>
+                      </>
+                    ) : (
+                      <div 
+                        style={{ 
+                          width: '100%', 
+                          height: '100%', 
+                          borderRadius: '50%', 
+                          background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)', 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center', 
+                          color: '#ffffff', 
+                          fontWeight: 700, 
+                          fontSize: '1.4rem' 
+                        }}
+                      >
+                        {staff.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                  <span
+                    style={{
+                      fontSize: '0.85rem',
+                      fontWeight: isSelected ? 700 : 550,
+                      color: isSelected ? '#4f46e5' : '#475569',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {staff.name}
+                  </span>
                 </button>
               );
             })}
@@ -465,31 +591,45 @@ export default function Tasks({
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', paddingTop: '8px', borderTop: '1px solid rgba(0,0,0,0.05)', flexWrap: 'wrap', gap: '8px' }}>
                       <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center' }}>
                         {isCompleted ? (
-                          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
                             <span>✅ Completed by</span>
                             <span style={{ 
                               background: 'rgba(16, 185, 129, 0.1)', 
                               color: 'var(--color-success)', 
-                              padding: '2px 8px', 
-                              borderRadius: '12px', 
+                              padding: '2px 10px 2px 6px', 
+                              borderRadius: '14px', 
                               fontWeight: 700,
                               fontSize: '0.75rem',
-                              display: 'inline-block'
-                            }}>{t.completedBy?.name || 'Staff'}</span>
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px'
+                            }}>
+                              {t.completedBy?.imageUrl ? (
+                                <img src={t.completedBy.imageUrl.startsWith('http') ? t.completedBy.imageUrl : `${apiBase}${t.completedBy.imageUrl}`} alt="" style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover' }} />
+                              ) : null}
+                              {t.completedBy?.name || 'Staff'}
+                            </span>
                             <span>on {new Date(t.completedAt || '').toLocaleDateString('en-GB')}</span>
                           </div>
                         ) : (
-                          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
                             <span>👤 Assigned to:</span>
                             <span style={{ 
                               background: 'rgba(79, 70, 229, 0.1)', 
                               color: 'var(--accent-primary)', 
-                              padding: '2px 8px', 
-                              borderRadius: '12px', 
+                              padding: '2px 10px 2px 6px', 
+                              borderRadius: '14px', 
                               fontWeight: 700,
                               fontSize: '0.75rem',
-                              display: 'inline-block'
-                            }}>{t.assignedTo?.name || 'All Staff'}</span>
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px'
+                            }}>
+                              {t.assignedTo?.imageUrl ? (
+                                <img src={t.assignedTo.imageUrl.startsWith('http') ? t.assignedTo.imageUrl : `${apiBase}${t.assignedTo.imageUrl}`} alt="" style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover' }} />
+                              ) : null}
+                              {t.assignedTo?.name || 'All Staff'}
+                            </span>
                           </div>
                         )}
                       </div>
@@ -554,6 +694,89 @@ export default function Tasks({
         </div>
 
       </div>
+
+      {/* Profile Image HD Lightbox / Preview Modal */}
+      {previewPhoto && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(11, 20, 26, 0.85)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '20px'
+          }}
+          onClick={() => setPreviewPhoto(null)}
+        >
+          <div 
+            style={{
+              position: 'relative',
+              background: '#ffffff',
+              borderRadius: '24px',
+              padding: '28px',
+              maxWidth: '460px',
+              width: '92vw',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              boxShadow: '0 25px 60px rgba(0,0,0,0.4)',
+              animation: 'waMenuScale 0.2s ease-out'
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button 
+              type="button"
+              onClick={() => setPreviewPhoto(null)}
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                background: '#f1f5f9',
+                border: 'none',
+                borderRadius: '50%',
+                width: '36px',
+                height: '36px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                color: '#64748b',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <X size={20} />
+            </button>
+
+            <h3 style={{ margin: '0 0 16px', fontSize: '1.25rem', fontWeight: 700, color: '#1e293b' }}>
+              {previewPhoto.name}'s Profile Photo
+            </h3>
+
+            <div style={{
+              width: '280px',
+              height: '280px',
+              borderRadius: '50%',
+              overflow: 'hidden',
+              boxShadow: '0 12px 30px rgba(99, 102, 241, 0.25)',
+              border: '4px solid #6366f1',
+              margin: '8px 0 8px',
+              background: '#f8fafc'
+            }}>
+              <img 
+                src={previewPhoto.url} 
+                alt={previewPhoto.name} 
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

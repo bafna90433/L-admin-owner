@@ -1,11 +1,9 @@
 import {
+  AlertTriangle,
   Loader,
   Edit3,
   Settings as SettingsIcon,
   Trash2,
-  Clock,
-  MapPin,
-  Bell,
   IndianRupee,
   ShieldCheck,
   UsersRound,
@@ -32,6 +30,7 @@ interface User {
   roleName?: string;
   roleId?: string | null;
   whatsapp?: string;
+  imageUrl?: string;
   isActive?: boolean;
 }
 
@@ -61,14 +60,12 @@ export default function Settings({
   showToast
 }: SettingsProps) {
   const [activeSetting, setActiveSetting] = useState('settings-access');
+  const [previewPhoto, setPreviewPhoto] = useState<{ name: string; url: string } | null>(null);
   const settingsNav = [
     { id: 'settings-access', label: 'Staff & Roles', icon: ShieldCheck },
     { id: 'settings-staff-names', label: 'Staff Display Names', icon: UsersRound },
     { id: 'settings-departments', label: 'Departments', icon: Building2 },
-    { id: 'settings-advance', label: 'Advance Approval', icon: IndianRupee },
-    { id: 'settings-kiosk-hours', label: 'Kiosk Hours', icon: Clock },
-    { id: 'settings-kiosk-advanced', label: 'Location & Alarm', icon: MapPin },
-    { id: 'settings-grace', label: 'Grace Period', icon: Bell }
+    { id: 'settings-advance', label: 'Advance Approval', icon: IndianRupee }
   ];
 
   const openSetting = (id: string) => {
@@ -90,27 +87,6 @@ export default function Settings({
   const [newDeptName, setNewDeptName] = useState('');
   const [addingDept, setAddingDept] = useState(false);
 
-  // Kiosk operational hours state
-  const [startHour, setStartHour] = useState('08');
-  const [startMinute, setStartMinute] = useState('30');
-  const [endHour, setEndHour] = useState('20');
-  const [endMinute, setEndMinute] = useState('30');
-  const [savingKioskHours, setSavingKioskHours] = useState(false);
-
-  // Kiosk Location state
-  const [lat, setLat] = useState('10.997544');
-  const [lng, setLng] = useState('76.878663');
-  const [savingLocation, setSavingLocation] = useState(false);
-
-  // Kiosk Alarm state
-  const [alarmHour, setAlarmHour] = useState('08');
-  const [alarmMinute, setAlarmMinute] = useState('30');
-  const [savingAlarm, setSavingAlarm] = useState(false);
-
-  // Grace Period state
-  const [gracePeriod, setGracePeriod] = useState('10');
-  const [savingGracePeriod, setSavingGracePeriod] = useState(false);
-
   // Advance Auto Approval Limit state
   const [autoApproveLimit, setAutoApproveLimit] = useState('5000');
   const [savingAutoApproveLimit, setSavingAutoApproveLimit] = useState(false);
@@ -118,9 +94,6 @@ export default function Settings({
   useEffect(() => {
     if (token) {
       fetchDepartments();
-      fetchKioskHours();
-      fetchKioskLocation();
-      fetchKioskAlarm();
       fetchAutoApproveLimit();
       fetchDirectoryData();
     }
@@ -169,70 +142,6 @@ export default function Settings({
     }
   };
 
-  const fetchKioskHours = async () => {
-    try {
-      const res = await fetch(`${apiBase}/settings/kiosk_hours`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.value) {
-          const { startHour: sh, startMinute: sm, endHour: eh, endMinute: em } = data.value;
-          setStartHour(sh.toString().padStart(2, '0'));
-          setStartMinute(sm.toString().padStart(2, '0'));
-          setEndHour(eh.toString().padStart(2, '0'));
-          setEndMinute(em.toString().padStart(2, '0'));
-        }
-      }
-    } catch (err) {
-      console.error('Error fetching kiosk hours:', err);
-    }
-  };
-
-  const fetchKioskLocation = async () => {
-    try {
-      const res = await fetch(`${apiBase}/settings/kiosk_location`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.value) {
-          setLat(data.value.lat.toString());
-          setLng(data.value.lng.toString());
-        }
-      }
-    } catch (err) {
-      console.error('Error fetching kiosk location:', err);
-    }
-  };
-
-  const fetchKioskAlarm = async () => {
-    try {
-      // Fetch alarm
-      fetch(`${apiBase}/settings/kiosk_alarm`, { headers: { 'Authorization': `Bearer ${token}` } })
-        .then(res => res.json())
-        .then(data => {
-          if (data && data.value && data.value.alarmHour !== undefined) {
-            setAlarmHour(data.value.alarmHour.toString().padStart(2, '0'));
-            setAlarmMinute(data.value.alarmMinute.toString().padStart(2, '0'));
-          }
-        })
-        .catch(err => console.error(err));
-
-      // Fetch grace period
-      fetch(`${apiBase}/settings/grace_period`, { headers: { 'Authorization': `Bearer ${token}` } })
-        .then(res => res.json())
-        .then(data => {
-          if (data && data.value) {
-            setGracePeriod(data.value.toString());
-          }
-        })
-        .catch(err => console.error(err));
-    } catch (err) {
-      console.error('Error fetching kiosk alarm:', err);
-    }
-  };
-
   const handleSaveAutoApproveLimit = async (e: React.FormEvent) => {
     e.preventDefault();
     const limit = parseFloat(autoApproveLimit);
@@ -262,173 +171,6 @@ export default function Settings({
       showToast('Error connecting to server', 'danger');
     } finally {
       setSavingAutoApproveLimit(false);
-    }
-  };
-
-  const handleSaveKioskHours = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const sh = parseInt(startHour, 10);
-    const sm = parseInt(startMinute, 10);
-    const eh = parseInt(endHour, 10);
-    const em = parseInt(endMinute, 10);
-
-    if (isNaN(sh) || sh < 0 || sh > 23 || isNaN(sm) || sm < 0 || sm > 59 ||
-        isNaN(eh) || eh < 0 || eh > 23 || isNaN(em) || em < 0 || em > 59) {
-      showToast('Please enter valid hours (0-23) and minutes (0-59)', 'danger');
-      return;
-    }
-
-    setSavingKioskHours(true);
-    try {
-      const res = await fetch(`${apiBase}/settings/kiosk_hours`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          value: {
-            startHour: sh,
-            startMinute: sm,
-            endHour: eh,
-            endMinute: em
-          }
-        })
-      });
-      if (res.ok) {
-        showToast('Kiosk operational hours updated successfully!', 'success');
-      } else {
-        const data = await res.json();
-        showToast(data.message || 'Failed to update operational hours', 'danger');
-      }
-    } catch (err) {
-      console.error(err);
-      showToast('Error connecting to server', 'danger');
-    } finally {
-      setSavingKioskHours(false);
-    }
-  };
-
-  const handleSaveLocation = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const l = parseFloat(lat);
-    const g = parseFloat(lng);
-
-    if (isNaN(l) || isNaN(g)) {
-      showToast('Please enter valid latitude and longitude', 'danger');
-      return;
-    }
-
-    setSavingLocation(true);
-    try {
-      const res = await fetch(`${apiBase}/settings/kiosk_location`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          value: { lat: l, lng: g }
-        })
-      });
-      if (res.ok) {
-        showToast('Kiosk location updated successfully!', 'success');
-      } else {
-        const data = await res.json();
-        showToast(data.message || 'Failed to update location', 'danger');
-      }
-    } catch (err) {
-      console.error(err);
-      showToast('Error connecting to server', 'danger');
-    } finally {
-      setSavingLocation(false);
-    }
-  };
-
-  const handleSaveAlarm = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const ah = parseInt(alarmHour, 10);
-    const am = parseInt(alarmMinute, 10);
-
-    if (isNaN(ah) || ah < 0 || ah > 23 || isNaN(am) || am < 0 || am > 59) {
-      showToast('Please enter valid hours (0-23) and minutes (0-59)', 'danger');
-      return;
-    }
-
-    setSavingAlarm(true);
-    try {
-      const res = await fetch(`${apiBase}/settings/kiosk_alarm`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          value: { alarmHour: ah, alarmMinute: am }
-        })
-      });
-      if (res.ok) {
-        showToast('Kiosk alarm time updated successfully!', 'success');
-      } else {
-        const data = await res.json();
-        showToast(data.message || 'Failed to update alarm time', 'danger');
-      }
-    } catch (err) {
-      console.error(err);
-      showToast('Error connecting to server', 'danger');
-    } finally {
-      setSavingAlarm(false);
-    }
-  };
-
-  const handleSaveGracePeriod = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const gp = parseInt(gracePeriod, 10);
-
-    if (isNaN(gp) || gp < 0) {
-      showToast('Please enter a valid number of minutes', 'danger');
-      return;
-    }
-
-    setSavingGracePeriod(true);
-    try {
-      const res = await fetch(`${apiBase}/settings/grace_period`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ value: gp })
-      });
-      if (res.ok) {
-        showToast('Grace period updated successfully!', 'success');
-      } else {
-        const data = await res.json();
-        showToast(data.message || 'Failed to update grace period', 'danger');
-      }
-    } catch (err) {
-      console.error(err);
-      showToast('Error connecting to server', 'danger');
-    } finally {
-      setSavingGracePeriod(false);
-    }
-  };
-
-  const handleGetCurrentLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setLat(position.coords.latitude.toFixed(6));
-          setLng(position.coords.longitude.toFixed(6));
-          showToast('Location fetched successfully!', 'success');
-        },
-        (error) => {
-          console.error(error);
-          showToast('Failed to get location. Please allow location access.', 'danger');
-        }
-      );
-    } else {
-      showToast('Geolocation is not supported by your browser', 'danger');
     }
   };
 
@@ -534,7 +276,52 @@ export default function Settings({
     }
   };
 
+  const [staffToDelete, setStaffToDelete] = useState<User | null>(null);
+
+  const confirmDeleteStaff = async () => {
+    if (!staffToDelete) return;
+    const staffId = staffToDelete.id || staffToDelete._id;
+    if (!staffId) return;
+    setUpdating(true);
+    try {
+      let res = await fetch(`${apiBase}/admin/staff/${staffId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      // Fallback for Railway live production server if DELETE returns 404
+      if (!res.ok) {
+        res = await fetch(`${apiBase}/admin/staff/${staffId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ isActive: false })
+        });
+      }
+
+      if (res.ok) {
+        showToast('Staff account deleted successfully!', 'success');
+        setSelectedStaff(null);
+        setStaffToDelete(null);
+        setNewName('');
+        fetchStaffUsers();
+        fetchDirectoryData();
+      } else {
+        const data = await res.json();
+        showToast(data.message || 'Failed to delete staff account', 'danger');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Error connecting to server', 'danger');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   const visibleDirectoryStaff = (directoryStaff.length ? directoryStaff : allStaff).filter(staff => {
+    if (staff.isActive === false) return false;
     const query = staffSearch.trim().toLowerCase();
     if (!query) return true;
     return [staff.name, staff.username, staff.roleName, staff.role]
@@ -632,7 +419,21 @@ export default function Settings({
                       onClick={() => handleSelectStaff(staff)}
                     >
                       <span className="staff-member-cell">
-                        <span className="staff-directory-avatar">{staff.name.slice(0, 2).toUpperCase()}</span>
+                        {staff.imageUrl ? (
+                          <img 
+                            src={staff.imageUrl.startsWith('http') ? staff.imageUrl : `${apiBase}${staff.imageUrl}`} 
+                            alt={staff.name} 
+                            title="Click to view profile photo"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const url = staff.imageUrl!.startsWith('http') ? staff.imageUrl! : `${apiBase}${staff.imageUrl}`;
+                              setPreviewPhoto({ name: staff.name, url });
+                            }}
+                            style={{ width: 54, height: 54, borderRadius: '50%', objectFit: 'cover', border: '2px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', cursor: 'pointer', flexShrink: 0 }}
+                          />
+                        ) : (
+                          <span className="staff-directory-avatar" style={{ width: 54, height: 54, fontSize: '1.1rem', flexShrink: 0 }}>{staff.name.slice(0, 2).toUpperCase()}</span>
+                        )}
                         <span><strong>{staff.name}</strong><small>@{staff.username}</small></span>
                       </span>
                       <span><span className="staff-role-badge">{displayRole(staff)}</span></span>
@@ -681,10 +482,21 @@ export default function Settings({
                     <div><strong>{newActive ? 'Active' : 'Inactive'}</strong><small>{newActive ? 'Staff member can access the system' : 'Staff member login is blocked'}</small></div>
                   </label>
                 </div>
-                <div className="staff-profile-actions">
-                  <button type="button" className="staff-cancel-button" onClick={() => { setSelectedStaff(null); setNewName(''); }}>Cancel</button>
-                  <button type="submit" className="staff-save-button" disabled={updating}>
-                    {updating ? <Loader className="spinner" size={16} /> : <Save size={16} />} Save changes
+                <div className="staff-profile-actions" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', width: '100%' }}>
+                    <button type="button" className="staff-cancel-button" onClick={() => { setSelectedStaff(null); setNewName(''); }}>Cancel</button>
+                    <button type="submit" className="staff-save-button" disabled={updating}>
+                      {updating ? <Loader className="spinner" size={16} /> : <Save size={16} />} Save changes
+                    </button>
+                  </div>
+                  <button 
+                    type="button" 
+                    className="btn btn-danger" 
+                    style={{ width: '100%', padding: '10px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                    disabled={updating}
+                    onClick={() => setStaffToDelete(selectedStaff)}
+                  >
+                    <Trash2 size={15} /> Delete Staff Account
                   </button>
                 </div>
               </form>
@@ -698,6 +510,39 @@ export default function Settings({
           </aside>
         </div>
       </section>
+
+      {/* Modern Custom Delete Confirmation Modal */}
+      {staffToDelete && (
+        <div className="ac-modal-backdrop" onMouseDown={() => setStaffToDelete(null)}>
+          <div className="ac-confirm-modal" onMouseDown={e => e.stopPropagation()}>
+            <div className="ac-confirm-icon">
+              <AlertTriangle size={28} />
+            </div>
+            <h3 className="ac-confirm-title">Delete Staff Account?</h3>
+            <p className="ac-confirm-desc">
+              Are you sure you want to delete <strong>"{staffToDelete.name}"</strong>? This action cannot be undone and will permanently revoke access.
+            </p>
+            <div className="ac-confirm-actions">
+              <button 
+                type="button" 
+                className="btn btn-secondary" 
+                disabled={updating} 
+                onClick={() => setStaffToDelete(null)}
+              >
+                Cancel
+              </button>
+              <button 
+                type="button" 
+                className="btn-danger-gradient" 
+                disabled={updating} 
+                onClick={confirmDeleteStaff}
+              >
+                {updating ? 'Deleting...' : 'Yes, Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Manage Departments Section */}
       <div id="settings-departments" className="settings-anchor-section" hidden={activeSetting !== 'settings-departments'}>
@@ -801,249 +646,90 @@ export default function Settings({
         </form>
       </div>
 
-      {/* Kiosk Operational Hours Section */}
-      <div id="settings-kiosk-hours" className="settings-anchor-section" hidden={activeSetting !== 'settings-kiosk-hours'}>
-        <h2 style={{ fontSize: '1.6rem', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <Clock size={24} /> Kiosk Operational Hours
-        </h2>
-        <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>Configure the working hours for the attendance kiosk app. Outside of these hours, biometric scans will be blocked.</p>
       </div>
 
-      <div className="settings-grid" hidden={activeSetting !== 'settings-kiosk-hours'}>
-        {/* Left Card: Information & Helper */}
-        <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <h3 style={{ fontSize: '1.25rem' }}>Timing Restrictions</h3>
-          <p style={{ fontSize: '0.95rem', lineHeight: '1.6', color: 'var(--text-secondary)' }}>
-            Attendance registration is locked outside the configured operational window.
-            This prevents employees from registering attendance too early or marking attendance after work hours have ended.
-          </p>
-          <div style={{
-            background: 'rgba(79, 70, 229, 0.04)',
-            border: '1px solid var(--glass-border)',
-            borderRadius: '12px',
-            padding: '16px',
+      {/* Profile Image HD Lightbox / Preview Modal */}
+      {previewPhoto && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(11, 20, 26, 0.85)',
+            backdropFilter: 'blur(8px)',
             display: 'flex',
             alignItems: 'center',
-            gap: '12px'
-          }}>
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '20px'
+          }}
+          onClick={() => setPreviewPhoto(null)}
+        >
+          <div 
+            style={{
+              position: 'relative',
+              background: '#ffffff',
+              borderRadius: '24px',
+              padding: '28px',
+              maxWidth: '460px',
+              width: '92vw',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              boxShadow: '0 25px 60px rgba(0,0,0,0.4)',
+              animation: 'waMenuScale 0.2s ease-out'
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button 
+              type="button"
+              onClick={() => setPreviewPhoto(null)}
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                background: '#f1f5f9',
+                border: 'none',
+                borderRadius: '50%',
+                width: '36px',
+                height: '36px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                color: '#64748b',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <X size={20} />
+            </button>
+
+            <h3 style={{ margin: '0 0 16px', fontSize: '1.25rem', fontWeight: 700, color: '#1e293b' }}>
+              {previewPhoto.name}'s Profile Photo
+            </h3>
+
             <div style={{
-              background: 'var(--accent-primary)',
+              width: '280px',
+              height: '280px',
               borderRadius: '50%',
-              width: '10px',
-              height: '10px',
-              boxShadow: '0 0 8px var(--accent-primary)'
-            }} />
-            <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-              Active Window: {startHour}:{startMinute} to {endHour}:{endMinute} (24h format)
-            </span>
-          </div>
-        </div>
-
-        {/* Right Card: Form Input */}
-        <div className="glass-panel" style={{ height: 'fit-content' }}>
-          <h3 style={{ fontSize: '1.25rem', marginBottom: '16px' }}>Set Kiosk Timing</h3>
-          <form onSubmit={handleSaveKioskHours} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div style={{ display: 'flex', gap: '16px' }}>
-              <div className="form-group" style={{ flex: 1 }}>
-                <label className="form-label">Start Time</label>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <input 
-                    type="number" 
-                    min="0" 
-                    max="23"
-                    className="form-input" 
-                    placeholder="HH"
-                    value={startHour}
-                    onChange={e => setStartHour(e.target.value.slice(0, 2))}
-                    required
-                    style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '1.1rem' }}
-                  />
-                  <span style={{ fontWeight: 'bold' }}>:</span>
-                  <input 
-                    type="number" 
-                    min="0" 
-                    max="59"
-                    className="form-input" 
-                    placeholder="MM"
-                    value={startMinute}
-                    onChange={e => setStartMinute(e.target.value.slice(0, 2))}
-                    required
-                    style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '1.1rem' }}
-                  />
-                </div>
-              </div>
-
-              <div className="form-group" style={{ flex: 1 }}>
-                <label className="form-label">End Time</label>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <input 
-                    type="number" 
-                    min="0" 
-                    max="23"
-                    className="form-input" 
-                    placeholder="HH"
-                    value={endHour}
-                    onChange={e => setEndHour(e.target.value.slice(0, 2))}
-                    required
-                    style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '1.1rem' }}
-                  />
-                  <span style={{ fontWeight: 'bold' }}>:</span>
-                  <input 
-                    type="number" 
-                    min="0" 
-                    max="59"
-                    className="form-input" 
-                    placeholder="MM"
-                    value={endMinute}
-                    onChange={e => setEndMinute(e.target.value.slice(0, 2))}
-                    required
-                    style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '1.1rem' }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={savingKioskHours}>
-              {savingKioskHours ? <Loader className="spinner" size={16} /> : 'Save Operational Hours'}
-            </button>
-          </form>
-        </div>
-      </div>
-
-      <div id="settings-kiosk-advanced" className="settings-anchor-section" hidden={activeSetting !== 'settings-kiosk-advanced'}>
-        <h2 style={{ fontSize: '1.6rem', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <MapPin size={24} /> Advanced Kiosk Settings
-        </h2>
-        <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>Configure factory location for geofencing and set the default alarm time for un-punched attendance.</p>
-      </div>
-
-      <div className="settings-grid settings-anchor-section" hidden={activeSetting !== 'settings-kiosk-advanced'}>
-        {/* Left Card: Location */}
-        <div className="glass-panel" style={{ height: 'fit-content' }}>
-          <h3 style={{ fontSize: '1.25rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <MapPin size={18} /> Geofencing Location
-          </h3>
-          <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-            Set the latitude and longitude of the factory. The kiosk app allows punching only within 100 meters.
-          </p>
-          <form onSubmit={handleSaveLocation} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div style={{ display: 'flex', gap: '16px' }}>
-              <div className="form-group" style={{ flex: 1 }}>
-                <label className="form-label">Latitude</label>
-                <input 
-                  type="number" step="any"
-                  className="form-input" 
-                  value={lat}
-                  onChange={e => setLat(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="form-group" style={{ flex: 1 }}>
-                <label className="form-label">Longitude</label>
-                <input 
-                  type="number" step="any"
-                  className="form-input" 
-                  value={lng}
-                  onChange={e => setLng(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-            
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <button 
-                type="button" 
-                className="btn btn-secondary" 
-                style={{ flex: 1, fontSize: '0.85rem' }} 
-                onClick={handleGetCurrentLocation}
-              >
-                📍 Use My Location
-              </button>
-              <button 
-                type="button" 
-                className="btn btn-secondary" 
-                style={{ flex: 1, fontSize: '0.85rem' }} 
-                onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`, '_blank')}
-              >
-                🗺️ View on Map
-              </button>
-            </div>
-
-            <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={savingLocation}>
-              {savingLocation ? <Loader className="spinner" size={16} /> : 'Save Location'}
-            </button>
-          </form>
-        </div>
-
-        {/* Right Card: Alarm */}
-        <div className="glass-panel" style={{ height: 'fit-content' }}>
-          <h3 style={{ fontSize: '1.25rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Bell size={18} /> Daily App Alarm
-          </h3>
-          <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-            Set the time when the kiosk app alarm starts ringing if an employee hasn't punched.
-          </p>
-          <form onSubmit={handleSaveAlarm} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div className="form-group">
-              <label className="form-label">Alarm Time (24h)</label>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <input 
-                  type="number" min="0" max="23"
-                  className="form-input" 
-                  placeholder="HH"
-                  value={alarmHour}
-                  onChange={e => setAlarmHour(e.target.value.slice(0, 2))}
-                  required
-                  style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '1.1rem' }}
-                />
-                <span style={{ fontWeight: 'bold' }}>:</span>
-                <input 
-                  type="number" min="0" max="59"
-                  className="form-input" 
-                  placeholder="MM"
-                  value={alarmMinute}
-                  onChange={e => setAlarmMinute(e.target.value.slice(0, 2))}
-                  required
-                  style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '1.1rem' }}
-                />
-              </div>
-            </div>
-            <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={savingAlarm}>
-              {savingAlarm ? <Loader className="spinner" size={16} /> : 'Save Alarm Time'}
-            </button>
-          </form>
-        </div>
-      </div>
-
-      {/* Grace Period Card */}
-      <div id="settings-grace" className="settings-grid settings-anchor-section" hidden={activeSetting !== 'settings-grace'}>
-        <div className="glass-panel" style={{ height: 'fit-content' }}>
-          <h3 style={{ fontSize: '1.25rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Clock size={18} /> Grace Period
-          </h3>
-          <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-            Allow a delay in punch times before calculating short duty.
-          </p>
-          <form onSubmit={handleSaveGracePeriod} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div className="form-group">
-              <label className="form-label">Grace Period (Minutes)</label>
-              <input 
-                type="number" min="0" max="120"
-                className="form-input" 
-                value={gracePeriod}
-                onChange={e => setGracePeriod(e.target.value)}
-                required
-                style={{ fontWeight: 'bold', fontSize: '1.1rem' }}
+              overflow: 'hidden',
+              boxShadow: '0 12px 30px rgba(99, 102, 241, 0.25)',
+              border: '4px solid #6366f1',
+              margin: '8px 0 8px',
+              background: '#f8fafc'
+            }}>
+              <img 
+                src={previewPhoto.url} 
+                alt={previewPhoto.name} 
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
               />
             </div>
-            <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={savingGracePeriod}>
-              {savingGracePeriod ? <Loader className="spinner" size={16} /> : 'Save Grace Period'}
-            </button>
-          </form>
+          </div>
         </div>
-      </div>
-
-      </div>
+      )}
     </div>
   );
 }

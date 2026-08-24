@@ -52,3 +52,28 @@
   margin-bottom: 20px;
   padding-right: 4px;
 }
+
+@media (max-width: 768px) {
+  .tasks-page-container {
+    gap: 20px !important;
+  }
+
+  .tasks-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+  }
+
+  .tasks-staff-tabs {
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 8px !important;
+    gap: 16px !important;
+    width: 100% !important;
+  }
+
+  .tasks-scroll-list {
+    max-height: none !important;
+  }
+}

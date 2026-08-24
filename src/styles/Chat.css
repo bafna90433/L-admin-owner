@@ -553,12 +553,12 @@
 .wa-active-header{height:68px;flex-shrink:0;display:flex;align-items:center;gap:12px;padding:0 18px;background:#f8fafc;border-bottom:1px solid #dfe6ee}
 .wa-active-header>div{min-width:0;flex:1;display:flex;flex-direction:column}.wa-active-header strong{font-size:1rem;color:#172033}.wa-active-header small{margin-top:3px;color:#64748b;font-size:.75rem}
 .wa-icon{width:42px;height:42px;display:grid;place-items:center;border:0;border-radius:50%;background:transparent;color:#64748b;cursor:pointer}.wa-icon:hover{background:#e2e8f0}.wa-icon.danger{color:#ef4444}
-.wa-messages{position:relative;flex:1 1 0%;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:22px clamp(20px,4vw,72px);background-color:#efeae2;background-image:radial-gradient(rgba(100,116,139,.09) 1px,transparent 1px);background-size:18px 18px}
+.wa-messages{position:relative;flex:1 1 0%;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:38px clamp(20px,4vw,72px) 22px;background-color:#efeae2;background-image:radial-gradient(rgba(100,116,139,.09) 1px,transparent 1px);background-size:18px 18px}
 .wa-messages::-webkit-scrollbar{width:6px}
 .wa-messages::-webkit-scrollbar-track{background:transparent}
 .wa-messages::-webkit-scrollbar-thumb{background:rgba(100,116,139,.35);border-radius:4px}
 .wa-messages::-webkit-scrollbar-thumb:hover{background:rgba(100,116,139,.6)}
-.wa-message-line{display:flex;justify-content:flex-start}.wa-message-line.mine{justify-content:flex-end}
+.wa-message-line{position:relative;display:flex;justify-content:flex-start;margin-top:4px;margin-bottom:4px}.wa-message-line.mine{justify-content:flex-end}
 .wa-bubble{position:relative;max-width:min(680px,78%);padding:8px 11px 6px;border-radius:8px;background:#fff;color:#172033;box-shadow:0 1px 2px rgba(15,23,42,.12)}
 .wa-bubble.mine{background:#d9fdd3}.wa-bubble p{margin:0 44px 1px 0;white-space:pre-wrap;line-height:1.45;font-size:.9rem}.wa-time{float:right;margin-top:3px;color:#718096;font-size:.64rem;white-space:pre}
 .wa-sender-name{display:block;margin-bottom:3px;color:#e11d48;font-size:.76rem}.chat-mention{color:#047857;background:#d1fae5;border-radius:4px;padding:1px 3px}
@@ -578,10 +578,9 @@
 @media(max-width:900px){.wa-page{min-height:auto}.wa-shell{height:calc(100vh - 160px);min-height:600px;grid-template-columns:115px minmax(0,1fr)}.wa-sidebar-top h2,.wa-search input,.wa-row-copy,.wa-section-label{display:none}.wa-sidebar-top{justify-content:center}.wa-search{justify-content:center;padding:0}.wa-chat-row{justify-content:center;padding:9px}.wa-unread{position:absolute;margin:0 0 35px 35px}.wa-page-header p{display:none}.wa-new-group{padding:10px}.wa-bubble{max-width:90%}}
 
 .wa-bubble{position:relative}
-.wa-reply-btn{position:absolute;top:4px;right:-32px;opacity:0;transition:opacity .15s ease,background-color .15s ease;border:none;background:rgba(255,255,255,.95);border-radius:50%;width:26px;height:26px;display:grid;place-items:center;cursor:pointer;color:#64748b;box-shadow:0 1px 3px rgba(15,23,42,.15);z-index:2}
-.wa-message-line.mine .wa-reply-btn{right:auto;left:-32px}
-.wa-message-line:hover .wa-reply-btn{opacity:1}
-.wa-reply-btn:hover{background:#fff;color:#4f46e5}
+.wa-reply-btn{position:relative;top:auto;right:auto;left:auto;opacity:1;border:1px solid #e2e8f0;background:#fff;border-radius:20px;padding:5px 12px;height:30px;display:inline-flex;align-items:center;gap:5px;cursor:pointer;color:#334155;font-weight:600;font-size:0.78rem;white-space:nowrap;box-shadow:0 4px 14px rgba(15,23,42,.12);transition:all .15s ease}
+.wa-reply-btn:hover{background:#4f46e5;color:#fff;border-color:#4f46e5;transform:translateY(-1px)}
+
 .wa-quoted-box{border-left:4px solid #4f46e5;background:rgba(15,23,42,.05);border-radius:6px;padding:5px 8px;margin-bottom:6px;font-size:.8rem;display:flex;flex-direction:column;gap:2px}
 .wa-bubble.mine .wa-quoted-box{background:rgba(0,0,0,.06);border-left-color:#10b981}
 .wa-quoted-author{font-weight:700;color:#4f46e5;font-size:.74rem}
@@ -594,10 +593,11 @@
 .wa-reply-close{border:0;background:transparent;color:#64748b;cursor:pointer;display:grid;place-items:center;padding:4px;border-radius:6px}
 .wa-reply-close:hover{background:#f1f5f9;color:#ef4444}
 
-.wa-msg-actions{position:absolute;top:-36px;right:0;display:flex;align-items:center;gap:6px;opacity:0;pointer-events:none;transition:opacity .15s ease,transform .15s ease;transform:translateY(4px);z-index:10}
-.wa-message-line.mine .wa-msg-actions{right:auto;left:0}
+.wa-msg-actions{position:absolute;top:-42px;left:0;right:auto;display:flex;align-items:center;gap:6px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease;transform:translateY(4px);z-index:35}
+.wa-msg-actions::after{content:'';position:absolute;top:100%;left:0;right:0;height:16px}
+.wa-message-line.mine .wa-msg-actions{left:auto;right:0}
 .wa-message-line:hover .wa-msg-actions,.wa-msg-actions.visible{opacity:1;pointer-events:auto;transform:translateY(0)}
-.wa-reaction-bar{display:flex;align-items:center;gap:2px;padding:3px 6px;background:#fff;border-radius:20px;box-shadow:0 4px 16px rgba(15,23,42,.15);border:1px solid #e2e8f0}
+.wa-reaction-bar{display:flex;align-items:center;gap:2px;padding:3px 8px;background:#fff;border-radius:24px;box-shadow:0 4px 16px rgba(15,23,42,.15);border:1px solid #e2e8f0}
 .wa-reaction-btn{border:0;background:transparent;font-size:1.1rem;padding:2px 4px;cursor:pointer;border-radius:50%;transition:transform .15s ease}
 .wa-reaction-btn:hover{transform:scale(1.3)}
 .wa-bubble-reactions{display:flex;flex-wrap:wrap;gap:3px;margin-top:4px;margin-bottom:-2px}
@@ -608,4 +608,243 @@
 .wa-emoji-picker{position:absolute;left:14px;bottom:66px;display:grid;grid-template-columns:repeat(6,1fr);gap:6px;padding:12px;background:#fff;border:1px solid #dbe3ec;border-radius:14px;box-shadow:0 12px 32px rgba(15,23,42,.16);z-index:7;max-width:320px}
 .wa-emoji-picker-btn{border:0;background:transparent;font-size:1.35rem;padding:6px;border-radius:8px;cursor:pointer;display:grid;place-items:center;transition:background-color .15s ease,transform .15s ease}
 .wa-emoji-picker-btn:hover{background:#eef2ff;transform:scale(1.2)}
+
+/* WhatsApp Chevron Button on Bubble */
+.wa-bubble-chevron {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: #ffffff;
+  color: #54656f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, background-color 0.15s ease, transform 0.15s ease;
+  box-shadow: 0 1px 4px rgba(11, 20, 26, 0.14);
+  z-index: 20;
+}
+.wa-message-line:not(.mine) .wa-bubble-chevron {
+  right: 6px;
+}
+.wa-bubble.mine .wa-bubble-chevron {
+  background: #d9fdd3;
+  color: #111b21;
+}
+.wa-message-line:hover .wa-bubble-chevron,
+.wa-bubble-chevron.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+.wa-bubble-chevron:hover {
+  background: #f0f2f5;
+  color: #111b21;
+  transform: scale(1.08);
+}
+
+/* WhatsApp Context Dropdown Menu - Positioned COMPLETELY OUTSIDE the message bubble */
+.wa-dropdown-menu {
+  position: absolute;
+  top: 0;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 10px 32px rgba(11, 20, 26, 0.22);
+  border: 1px solid rgba(11, 20, 26, 0.08);
+  padding: 8px 0;
+  z-index: 100;
+  min-width: 220px;
+  animation: waMenuScale 0.15s cubic-bezier(0.2, 0, 0.2, 1);
+}
+.wa-message-line:not(.mine) .wa-dropdown-menu {
+  left: calc(100% + 8px);
+  right: auto;
+}
+.wa-message-line.mine .wa-dropdown-menu {
+  right: calc(100% + 8px);
+  left: auto;
+}
+
+@media (max-width: 768px) {
+  .wa-message-line:not(.mine) .wa-dropdown-menu {
+    left: auto;
+    right: 0;
+    top: 100%;
+    margin-top: 4px;
+  }
+  .wa-message-line.mine .wa-dropdown-menu {
+    right: 0;
+    left: auto;
+    top: 100%;
+    margin-top: 4px;
+  }
+}
+
+@keyframes waMenuScale {
+  from { opacity: 0; transform: scale(0.92) translateY(-4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.wa-dropdown-reactions {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 4px 10px 8px;
+}
+.wa-dropdown-reactions .wa-reaction-btn {
+  border: 0;
+  background: transparent;
+  font-size: 1.25rem;
+  padding: 3px 5px;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: transform 0.15s ease;
+}
+.wa-dropdown-reactions .wa-reaction-btn:hover {
+  transform: scale(1.35);
+}
+
+.wa-dropdown-divider {
+  height: 1px;
+  background: #edf2f7;
+  margin: 4px 0 6px;
+}
+
+.wa-dropdown-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border: none;
+  background: transparent;
+  color: #111b21;
+  font-size: 0.88rem;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+.wa-dropdown-item:hover {
+  background: #f5f6f6;
+  color: #4f46e5;
+}
+.wa-dropdown-item.danger {
+  color: #ea0038;
+}
+.wa-dropdown-item.danger svg {
+  color: #ea0038;
+}
+.wa-dropdown-item.danger:hover {
+  background: #fef2f2;
+  color: #dc2626;
+}
+.wa-dropdown-item.danger:hover svg {
+  color: #dc2626;
+}
+
+/* WhatsApp Web Delete Confirmation Modal */
+.wa-whatsapp-delete-modal {
+  width: min(420px, 92vw);
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 24px 28px;
+  box-shadow: 0 20px 60px rgba(11, 20, 26, 0.25);
+  animation: waMenuScale 0.16s ease-out;
+}
+
+.wa-whatsapp-delete-modal h3 {
+  margin: 0 0 16px;
+  font-size: 1.22rem;
+  font-weight: 600;
+  color: #111b21;
+}
+
+.wa-whatsapp-delete-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.wa-whatsapp-btn {
+  background: #ffffff;
+  border: 1px solid #d1d7db;
+  color: #00a884;
+  border-radius: 20px;
+  padding: 9px 22px;
+  font-size: 0.92rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  min-width: 130px;
+  text-align: center;
+}
+
+.wa-whatsapp-btn:hover {
+  background: #f0f2f5;
+  border-color: #00a884;
+}
+
+.wa-whatsapp-btn.danger {
+  color: #ea0038;
+  border-color: #fca5a5;
+}
+.wa-whatsapp-btn.danger:hover {
+  background: #fef2f2;
+  border-color: #ea0038;
+}
+
+/* Chat Hub Mobile Responsive */
+@media (max-width: 768px) {
+  .wa-page {
+    padding: 0 !important;
+  }
+
+  .wa-page-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+    margin-bottom: 16px !important;
+  }
+
+  .wa-shell {
+    height: calc(100vh - 120px) !important;
+    min-height: 480px !important;
+    border-radius: 12px !important;
+    flex-direction: column !important;
+  }
+
+  .wa-sidebar {
+    width: 100% !important;
+    height: 100% !important;
+    border-right: none !important;
+  }
+
+  .wa-main {
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  .wa-bubble-mine,
+  .wa-bubble-other {
+    max-width: 88% !important;
+  }
+
+  .wa-composer {
+    padding: 10px 12px !important;
+    gap: 8px !important;
+  }
+
+  .wa-composer input[type="text"] {
+    font-size: 0.92rem !important;
+  }
+}
+
 

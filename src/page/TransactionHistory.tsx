@@ -517,7 +517,7 @@ export default function TransactionHistory({
             <select className="form-input" value={selectedStaff} onChange={e => setSelectedStaff(e.target.value)}>
               <option value="all">All Staff Users</option>
               {allStaff.map(staff => (
-                <option key={staff.id || staff._id} value={staff.id || staff._id}>{staff.name} ({staff.username})</option>
+                <option key={staff.id || staff._id} value={staff.id || staff._id}>{staff.name}</option>
               ))}
             </select>
           </div>

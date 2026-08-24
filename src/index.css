@@ -464,3 +464,118 @@ h1, h2, h3, h4, h5, h6 {
     opacity: 1;
   }
 }
+
+/* ==========================================================================
+   ULTRA-PROFESSIONAL MOBILE & TABLET RESPONSIVE SYSTEM
+   ========================================================================== */
+@media (max-width: 992px) {
+  .dashboard-layout {
+    grid-template-columns: 1fr !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .sidebar {
+    padding: 16px 14px !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--glass-border) !important;
+    gap: 16px !important;
+  }
+
+  .sidebar nav {
+    display: flex !important;
+    overflow-x: auto !important;
+    gap: 8px !important;
+    padding-bottom: 6px !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .sidebar nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav-link {
+    white-space: nowrap !important;
+    padding: 8px 14px !important;
+    font-size: 0.88rem !important;
+    border-left: none !important;
+    border-bottom: 3px solid transparent !important;
+    border-radius: 8px !important;
+  }
+
+  .nav-link.active {
+    border-left: none !important;
+    border-bottom: 3px solid var(--accent-primary) !important;
+    background: rgba(99, 102, 241, 0.1) !important;
+  }
+
+  .main-content {
+    padding: 18px 14px !important;
+    max-height: none !important;
+    overflow-y: visible !important;
+  }
+}
+
+@media (max-width: 768px) {
+  html, body {
+    font-size: 14.5px;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+    margin-bottom: 20px !important;
+  }
+
+  .stat-card {
+    padding: 16px !important;
+  }
+
+  .stat-value {
+    font-size: 1.65rem !important;
+  }
+
+  .glass-panel {
+    padding: 16px !important;
+    border-radius: 14px !important;
+  }
+
+  .table-container {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 12px !important;
+    margin-top: 12px !important;
+  }
+
+  .custom-table {
+    min-width: 600px;
+  }
+
+  .toast-container {
+    bottom: 16px !important;
+    right: 16px !important;
+    left: 16px !important;
+    width: calc(100% - 32px) !important;
+    max-width: 100% !important;
+  }
+
+  .btn {
+    padding: 10px 18px !important;
+    font-size: 0.9rem !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .main-content {
+    padding: 12px 10px !important;
+  }
+
+  .glass-panel {
+    padding: 14px 12px !important;
+  }
+
+  h1 { font-size: 1.5rem !important; }
+  h2 { font-size: 1.25rem !important; }
+  h3 { font-size: 1.1rem !important; }
+}

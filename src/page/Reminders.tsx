@@ -223,7 +223,7 @@ export default function Reminders({
               >
                 <option value="">All Office Staff (Broadcast to Everyone)</option>
                 {allStaff.map(s => (
-                  <option key={s.id || s._id} value={s.id || s._id}>{s.name} ({s.username})</option>
+                  <option key={s.id || s._id} value={s.id || s._id}>{s.name}</option>
                 ))}
               </select>
             </div>

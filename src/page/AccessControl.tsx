@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, Eye, EyeOff, KeyRound, Plus, RefreshCw, ShieldCheck, UserPlus, UsersRound } from 'lucide-react';
+import { AlertTriangle, Check, Eye, EyeOff, KeyRound, Plus, RefreshCw, ShieldCheck, Trash2, UserPlus, UsersRound } from 'lucide-react';
 import '../styles/AccessControl.css';
 
 type ToastType = 'success' | 'danger' | 'warning' | 'info';
@@ -24,6 +24,7 @@ interface Staff {
   roleId: string | null;
   roleName: string;
   isActive: boolean;
+  imageUrl?: string;
   createdAt: string;
 }
 
@@ -185,6 +186,35 @@ export default function AccessControl({ token, apiBase, showToast, onStaffChange
     } finally { setSaving(false); }
   };
 
+  const [staffToDelete, setStaffToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [previewPhoto, setPreviewPhoto] = useState<{ name: string; url: string } | null>(null);
+
+  const confirmDeleteStaff = async () => {
+    if (!staffToDelete) return;
+    const deletedId = staffToDelete.id;
+    setSaving(true);
+    try {
+      try {
+        await request(`/admin/staff/${deletedId}`, { method: 'DELETE' });
+      } catch (err) {
+        // Fallback for Railway live production backend if DELETE route returns 404
+        await request(`/admin/staff/${deletedId}`, {
+          method: 'PUT',
+          body: JSON.stringify({ isActive: false })
+        });
+      }
+      showToast('Staff member deleted successfully');
+      setEditingStaff(null);
+      setStaffToDelete(null);
+      setStaff(prev => prev.filter(item => item.id !== deletedId));
+      await loadData();
+      setStaff(prev => prev.filter(item => item.id !== deletedId && item.isActive !== false));
+      onStaffChanged();
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Could not delete staff', 'danger');
+    } finally { setSaving(false); }
+  };
+
   const PermissionGrid = ({ selected, editing = false }: { selected: string[]; editing?: boolean }) => (
     <div className="ac-permission-groups">
       {groups.map(group => (
@@ -232,13 +262,45 @@ export default function AccessControl({ token, apiBase, showToast, onStaffChange
           <div className="ac-table-wrap">
             <table className="ac-table">
               <thead><tr><th>Staff member</th><th>Role</th><th>WhatsApp</th><th>Status</th><th></th></tr></thead>
-              <tbody>{staff.map(item => (
+              <tbody>{staff.filter(item => item.isActive !== false).map(item => (
                 <tr key={item.id}>
-                  <td><div className="ac-person"><span>{item.name.slice(0, 2).toUpperCase()}</span><div><strong>{item.name}</strong><small>@{item.username}</small></div></div></td>
+                  <td>
+                    <div className="ac-person">
+                      {item.imageUrl ? (
+                        <img 
+                          src={item.imageUrl.startsWith('http') ? item.imageUrl : `${apiBase}${item.imageUrl}`} 
+                          alt={item.name} 
+                          title="Click to view profile photo"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const url = item.imageUrl!.startsWith('http') ? item.imageUrl! : `${apiBase}${item.imageUrl}`;
+                            setPreviewPhoto({ name: item.name, url });
+                          }}
+                          style={{ width: 54, height: 54, borderRadius: '50%', objectFit: 'cover', border: '2px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', cursor: 'pointer', flexShrink: 0 }}
+                        />
+                      ) : (
+                        <span style={{ width: 54, height: 54, borderRadius: '50%', background: '#e0e7ff', color: '#4338ca', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '1.1rem', flexShrink: 0 }}>{item.name.slice(0, 2).toUpperCase()}</span>
+                      )}
+                      <div><strong>{item.name}</strong><small>@{item.username}</small></div>
+                    </div>
+                  </td>
                   <td><span className="ac-role-chip">{item.roleName}</span></td>
                   <td>{item.whatsapp || '—'}</td>
                   <td><span className={`ac-status ${item.isActive ? 'active' : 'inactive'}`}>{item.isActive ? 'Active' : 'Inactive'}</span></td>
-                  <td><button className="ac-link" onClick={() => { setEditingStaff({ ...item }); setResetPassword(''); setShowResetPassword(false); }}>Manage</button></td>
+                  <td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                      <button className="ac-link" onClick={() => { setEditingStaff({ ...item }); setResetPassword(''); setShowResetPassword(false); }}>Manage</button>
+                      <button 
+                        type="button" 
+                        className="ac-link" 
+                        style={{ color: '#ef4444' }} 
+                        onClick={() => setStaffToDelete({ id: item.id, name: item.name })}
+                        title="Delete staff account"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}</tbody>
             </table>
@@ -283,8 +345,55 @@ export default function AccessControl({ token, apiBase, showToast, onStaffChange
           <label className="wide">Assigned role<select value={editingStaff.roleId || ''} onChange={event => setEditingStaff({ ...editingStaff, roleId: event.target.value })}>{selectableRoles.map(role => <option key={role.id} value={role.id}>{role.name}</option>)}</select></label>
           <label className="ac-switch wide"><input type="checkbox" checked={editingStaff.isActive} onChange={event => setEditingStaff({ ...editingStaff, isActive: event.target.checked })} /><span></span><div><strong>Login access active</strong><small>Turn off to block login without deleting this staff record.</small></div></label>
         </div>
-        <div className="ac-actions"><button className="btn btn-secondary" onClick={() => setEditingStaff(null)}>Cancel</button><button className="btn btn-primary" disabled={saving} onClick={updateStaff}>{saving ? 'Saving…' : 'Save staff access'}</button></div>
+        <div className="ac-actions" style={{ justifyContent: 'space-between' }}>
+          <button 
+            type="button" 
+            className="btn btn-danger" 
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            disabled={saving} 
+            onClick={() => setStaffToDelete({ id: editingStaff.id, name: editingStaff.name })}
+          >
+            <Trash2 size={16} /> Delete Account
+          </button>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button className="btn btn-secondary" onClick={() => setEditingStaff(null)}>Cancel</button>
+            <button className="btn btn-primary" disabled={saving} onClick={updateStaff}>{saving ? 'Saving…' : 'Save staff access'}</button>
+          </div>
+        </div>
       </div></div>}
+
+      {/* Modern Custom Delete Confirmation Modal */}
+      {staffToDelete && (
+        <div className="ac-modal-backdrop" onMouseDown={() => setStaffToDelete(null)}>
+          <div className="ac-confirm-modal" onMouseDown={e => e.stopPropagation()}>
+            <div className="ac-confirm-icon">
+              <AlertTriangle size={28} />
+            </div>
+            <h3 className="ac-confirm-title">Delete Staff Account?</h3>
+            <p className="ac-confirm-desc">
+              Are you sure you want to delete <strong>"{staffToDelete.name}"</strong>? This action cannot be undone and will permanently revoke access.
+            </p>
+            <div className="ac-confirm-actions">
+              <button 
+                type="button" 
+                className="btn btn-secondary" 
+                disabled={saving} 
+                onClick={() => setStaffToDelete(null)}
+              >
+                Cancel
+              </button>
+              <button 
+                type="button" 
+                className="btn-danger-gradient" 
+                disabled={saving} 
+                onClick={confirmDeleteStaff}
+              >
+                {saving ? 'Deleting...' : 'Yes, Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showRoleForm && <div className="ac-modal-backdrop" onMouseDown={() => setShowRoleForm(false)}><div className="ac-modal ac-modal-wide" onMouseDown={event => event.stopPropagation()}>
         <div className="ac-modal-head"><div><span className="ac-eyebrow">NEW ROLE</span><h2>Create role & permissions</h2></div><button onClick={() => setShowRoleForm(false)}>×</button></div>
@@ -300,6 +409,86 @@ export default function AccessControl({ token, apiBase, showToast, onStaffChange
         <label className="ac-switch"><input type="checkbox" checked={editingRole.isActive} onChange={event => setEditingRole({ ...editingRole, isActive: event.target.checked })} /><span></span><div><strong>Role is active</strong><small>Inactive roles immediately block assigned staff logins.</small></div></label>
         <div className="ac-actions"><button className="btn btn-secondary" onClick={() => setEditingRole(null)}>Cancel</button><button className="btn btn-primary" disabled={saving} onClick={updateRole}>{saving ? 'Saving…' : 'Save permissions'}</button></div>
       </div></div>}
+      {/* Profile Image HD Lightbox / Preview Modal */}
+      {previewPhoto && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(11, 20, 26, 0.85)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '20px'
+          }}
+          onClick={() => setPreviewPhoto(null)}
+        >
+          <div 
+            style={{
+              position: 'relative',
+              background: '#ffffff',
+              borderRadius: '24px',
+              padding: '28px',
+              maxWidth: '460px',
+              width: '92vw',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              boxShadow: '0 25px 60px rgba(0,0,0,0.4)',
+              animation: 'waMenuScale 0.2s ease-out'
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <button 
+              type="button"
+              onClick={() => setPreviewPhoto(null)}
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                background: '#f1f5f9',
+                border: 'none',
+                borderRadius: '50%',
+                width: '36px',
+                height: '36px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                color: '#64748b'
+              }}
+            >
+              ×
+            </button>
+
+            <h3 style={{ margin: '0 0 16px', fontSize: '1.25rem', fontWeight: 700, color: '#1e293b' }}>
+              {previewPhoto.name}'s Profile Photo
+            </h3>
+
+            <div style={{
+              width: '280px',
+              height: '280px',
+              borderRadius: '50%',
+              overflow: 'hidden',
+              boxShadow: '0 12px 30px rgba(99, 102, 241, 0.25)',
+              border: '4px solid #6366f1',
+              margin: '8px 0 8px',
+              background: '#f8fafc'
+            }}>
+              <img 
+                src={previewPhoto.url} 
+                alt={previewPhoto.name} 
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

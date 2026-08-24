@@ -584,7 +584,7 @@ export default function App() {
             token={token}
             user={user}
             apiBase={API_BASE}
-            onProfileUpdate={setUser}
+            onProfileUpdate={(updatedUser) => setUser(prev => prev ? { ...prev, ...updatedUser } : updatedUser)}
             showToast={showToast}
           />
         );

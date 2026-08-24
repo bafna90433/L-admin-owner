@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, Check, CornerUpLeft, Loader, MessageSquare, Paperclip, Plus, Search, Send, Smile, Trash2, UsersRound, X } from 'lucide-react';
+import { AlertTriangle, Check, ChevronDown, Copy, CornerUpLeft, Loader, MessageSquare, Paperclip, Plus, Search, Send, Smile, Trash2, UsersRound, X } from 'lucide-react';
+
 import '../styles/Chat.css';
 
 const IMAGEKIT_PUBLIC_KEY = 'public_LB0AyCgim15VO491kDtVm0Fo798=';
@@ -55,6 +56,40 @@ export default function Chat({ token, user, apiBase, allStaff, showToast, onUnre
   const [reactions, setReactions] = useState<Record<string, Record<string, string[]>>>({});
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [hoveredMsgId, setHoveredMsgId] = useState<string | null>(null);
+  const [activeMenuMsgId, setActiveMenuMsgId] = useState<string | null>(null);
+  const [deleteMsgTarget, setDeleteMsgTarget] = useState<ChatMessage | null>(null);
+
+  const handleDeleteMessage = async (msg: ChatMessage, scope: 'everyone' | 'me') => {
+    if (!active) return;
+    const msgId = msg.id || msg._id;
+    if (!msgId) return;
+
+    try {
+      if (scope === 'everyone') {
+        const endpoint = active.kind === 'group' 
+          ? `/chat/groups/messages/${msgId}` 
+          : `/messages/single/${msgId}`;
+        
+        await fetch(`${apiBase}${endpoint}`, {
+          method: 'DELETE',
+          headers: authHeaders
+        });
+      }
+      setMessages(prev => prev.filter(m => (m.id || m._id) !== msgId));
+      showToast(scope === 'everyone' ? 'Message deleted for everyone' : 'Message deleted for you', 'info');
+    } catch (error) {
+      setMessages(prev => prev.filter(m => (m.id || m._id) !== msgId));
+      showToast('Message deleted for you', 'info');
+    } finally {
+      setDeleteMsgTarget(null);
+    }
+  };
+
+  useEffect(() => {
+    const handleGlobalClick = () => setActiveMenuMsgId(null);
+    window.addEventListener('click', handleGlobalClick);
+    return () => window.removeEventListener('click', handleGlobalClick);
+  }, []);
 
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -63,7 +98,14 @@ export default function Chat({ token, user, apiBase, allStaff, showToast, onUnre
   const activeGroup = active?.kind === 'group' ? groups.find(group => group.id === active.id) : undefined;
   const activeUser = active?.kind === 'direct' ? chatUsers.find(item => userIdOf(item) === active.id) : undefined;
 
-  const loadChatUsers = async () => { if (!token) return; const response = await fetch(`${apiBase}/chat/users`, { headers: authHeaders }); if (response.ok) setChatUsers(await response.json()); };
+  const loadChatUsers = async () => { 
+    if (!token) return; 
+    const response = await fetch(`${apiBase}/chat/users`, { headers: authHeaders }); 
+    if (response.ok) {
+      const data: User[] = await response.json();
+      setChatUsers(data.filter(u => u.username !== 'rishi' && (u as any).isActive !== false));
+    }
+  };
   const loadGroups = async () => {
     if (!token) return;
     const response = await fetch(`${apiBase}/chat/groups`, { headers: authHeaders });
@@ -248,7 +290,10 @@ export default function Chat({ token, user, apiBase, allStaff, showToast, onUnre
   const clearDirectChat = async () => { if (!active || active.kind !== 'direct') return; setShowClearConfirm(false); const response = await fetch(`${apiBase}/messages/${active.id}`, { method: 'DELETE', headers: authHeaders }); if (response.ok) setMessages([]); else showToast('Could not clear chat', 'danger'); };
 
 
-  const filteredUsers = chatUsers.filter(item => `${item.name} ${item.username}`.toLowerCase().includes(search.toLowerCase()));
+  const filteredUsers = chatUsers
+    .filter(item => item.username !== 'dev123')
+    .filter(item => `${item.name} ${item.username}`.toLowerCase().includes(search.toLowerCase()));
+
   const filteredGroups = groups.filter(group => group.name.toLowerCase().includes(search.toLowerCase()));
   const renderText = (text: string) => { const usernames = new Set((activeGroup?.members || []).map(member => member.user.username.toLowerCase())); return text.split(/(@[\w.-]+)/g).map((part, index) => usernames.has(part.slice(1).toLowerCase()) ? <strong className="chat-mention" key={`${part}-${index}`}>{part}</strong> : <React.Fragment key={`${part}-${index}`}>{part}</React.Fragment>); };
 
@@ -281,18 +326,75 @@ export default function Chat({ token, user, apiBase, allStaff, showToast, onUnre
 
           return <div className={`wa-message-line ${mine ? 'mine' : ''}`} key={msgId} onMouseEnter={() => setHoveredMsgId(msgId)} onMouseLeave={() => setHoveredMsgId(null)}>
             <div className={`wa-bubble ${mine ? 'mine' : ''}`}>
-              <div className={`wa-msg-actions ${hoveredMsgId === msgId ? 'visible' : ''}`}>
-                <div className="wa-reaction-bar">
-                  {QUICK_REACTIONS.map(emoji => (
-                    <button type="button" key={emoji} className="wa-reaction-btn" title={`React ${emoji}`} onClick={() => toggleReaction(msgId, emoji)}>
-                      {emoji}
-                    </button>
-                  ))}
+              <button 
+                type="button" 
+                className={`wa-bubble-chevron ${hoveredMsgId === msgId || activeMenuMsgId === msgId ? 'visible' : ''}`} 
+                title="Message options" 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveMenuMsgId(prev => prev === msgId ? null : msgId);
+                }}
+              >
+                <ChevronDown size={14} />
+              </button>
+
+              {activeMenuMsgId === msgId && (
+                <div className="wa-dropdown-menu" onClick={(e) => e.stopPropagation()}>
+                  <div className="wa-dropdown-reactions">
+                    {QUICK_REACTIONS.map(emoji => (
+                      <button 
+                        type="button" 
+                        key={emoji} 
+                        className="wa-reaction-btn" 
+                        title={`React ${emoji}`} 
+                        onClick={() => {
+                          toggleReaction(msgId, emoji);
+                          setActiveMenuMsgId(null);
+                        }}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="wa-dropdown-divider" />
+                  <button 
+                    type="button" 
+                    className="wa-dropdown-item" 
+                    onClick={() => {
+                      handleStartReply(message);
+                      setActiveMenuMsgId(null);
+                    }}
+                  >
+                    <CornerUpLeft size={16} />
+                    <span>Reply</span>
+                  </button>
+                  <button 
+                    type="button" 
+                    className="wa-dropdown-item" 
+                    onClick={() => {
+                      const { bodyText } = parseQuote(message.text);
+                      navigator.clipboard.writeText(bodyText || message.text);
+                      showToast('Message copied to clipboard', 'info');
+                      setActiveMenuMsgId(null);
+                    }}
+                  >
+                    <Copy size={16} />
+                    <span>Copy text</span>
+                  </button>
+                  <button 
+                    type="button" 
+                    className="wa-dropdown-item danger" 
+                    onClick={() => {
+                      setDeleteMsgTarget(message);
+                      setActiveMenuMsgId(null);
+                    }}
+                  >
+                    <Trash2 size={16} />
+                    <span>Delete</span>
+                  </button>
                 </div>
-                <button type="button" className="wa-reply-btn" title="Reply" onClick={() => handleStartReply(message)}>
-                  <CornerUpLeft size={13} />
-                </button>
-              </div>
+              )}
+
               {active.kind === 'group' && !mine && <b className="wa-sender-name">{message.senderUser?.name || 'Team member'}</b>}
               {quoteAuthor && <div className="wa-quoted-box">
                 <span className="wa-quoted-author">{quoteAuthor}</span>
@@ -429,6 +531,46 @@ export default function Chat({ token, user, apiBase, allStaff, showToast, onUnre
         </div>
       </div>
     )}
+
+    {/* WhatsApp Style Delete Message Modal */}
+    {deleteMsgTarget && (() => {
+      const isMsgMine = deleteMsgTarget.sender === currentUserId || 
+                        deleteMsgTarget.senderUser?.id === currentUserId || 
+                        userIdOf(deleteMsgTarget.senderUser) === currentUserId;
+      return (
+        <div className="wa-modal-overlay" onClick={() => setDeleteMsgTarget(null)}>
+          <div className="wa-whatsapp-delete-modal" onClick={event => event.stopPropagation()}>
+            <h3>Delete message?</h3>
+            <div className="wa-whatsapp-delete-actions">
+              {isMsgMine && (
+                <button 
+                  type="button" 
+                  className="wa-whatsapp-btn danger" 
+                  onClick={() => handleDeleteMessage(deleteMsgTarget, 'everyone')}
+                >
+                  Delete for everyone
+                </button>
+              )}
+              <button 
+                type="button" 
+                className="wa-whatsapp-btn" 
+                onClick={() => handleDeleteMessage(deleteMsgTarget, 'me')}
+              >
+                Delete for me
+              </button>
+              <button 
+                type="button" 
+                className="wa-whatsapp-btn" 
+                style={{ color: '#54656f', borderColor: '#d1d7db' }}
+                onClick={() => setDeleteMsgTarget(null)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    })()}
   </div>;
 
 }
