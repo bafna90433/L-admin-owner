@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Loader, Edit3, Trash2, Eye, X, Sparkles, Volume2, Globe } from 'lucide-react';
+import { Loader, Edit3, Trash2, Eye, X, Sparkles, Volume2 } from 'lucide-react';
 import '../styles/Tasks.css';
 
 interface User {
