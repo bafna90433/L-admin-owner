@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Loader, Edit3, Trash2, Eye, X, Sparkles } from 'lucide-react';
+import { Loader, Edit3, Trash2, Eye, X, Sparkles, Volume2, Globe } from 'lucide-react';
 import '../styles/Tasks.css';
 
 interface User {
@@ -44,6 +44,8 @@ interface TasksProps {
   setConfirmModal: (modal: { title: string; message: string; onConfirm: () => void } | null) => void;
   showToast: (message: string, type?: 'success' | 'danger' | 'warning' | 'info') => void;
   onTaskCreatedLocally?: (taskId: string) => void;
+  announcementLang?: 'en' | 'hi' | 'ta';
+  onAnnouncementLangChange?: (lang: 'en' | 'hi' | 'ta') => void;
 }
 
 export default function Tasks({
@@ -55,7 +57,9 @@ export default function Tasks({
   setSelectedTaskForComments,
   setConfirmModal,
   showToast,
-  onTaskCreatedLocally
+  onTaskCreatedLocally,
+  announcementLang = 'en',
+  onAnnouncementLangChange
 }: TasksProps) {
   // New task form fields
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -64,6 +68,13 @@ export default function Tasks({
   const [taskAssignedTo, setTaskAssignedTo] = useState('');
   const [taskSubmitting, setTaskSubmitting] = useState(false);
   
+  // Form Voice Language State
+  const [taskVoiceLang, setTaskVoiceLang] = useState<'en' | 'hi' | 'ta'>(announcementLang || 'en');
+
+  React.useEffect(() => {
+    if (announcementLang) setTaskVoiceLang(announcementLang);
+  }, [announcementLang]);
+
   // Edit task state
   const [editingTask, setEditingTask] = useState<Task | null>(null);
 
@@ -102,27 +113,24 @@ export default function Tasks({
         }
       }
     } catch (e) {
-      console.warn('AI refine notice:', e);
+      console.error(e);
     }
-    const words = cleanRaw.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-    return sanitizeTitle(words);
+    return cleanRaw;
   };
 
   const handleGenerateWithGemini = async () => {
     if (!newTaskTitle.trim()) {
-      showToast('Please type a short topic or draft title first (e.g. "stock audit")', 'info');
+      showToast('Please type a draft task title or duty first', 'warning');
       return;
     }
     setIsAiGenerating(true);
     try {
       const refined = await refineTitleWithAi(newTaskTitle);
       setNewTaskTitle(refined);
-      showToast('✨ Refined with Gemini AI!', 'success');
+      showToast('✨ Task refined with Gemini AI!', 'success');
     } catch (err) {
       console.error(err);
-      const words = newTaskTitle.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-      setNewTaskTitle(sanitizeTitle(words));
-      showToast('✨ Refined with Gemini AI!', 'success');
+      showToast('Failed to refine title', 'danger');
     } finally {
       setIsAiGenerating(false);
     }
@@ -156,6 +164,7 @@ export default function Tasks({
     setNewTaskType('custom');
     setNewTaskFreq('one-time');
     setTaskAssignedTo('');
+    setTaskVoiceLang(announcementLang || 'en');
   };
 
   const handleTaskSubmit = async (e: React.FormEvent) => {
@@ -181,7 +190,9 @@ export default function Tasks({
           taskType: newTaskType,
           frequency: newTaskFreq,
           assignedTo: taskAssignedTo || null,
-          createdByRole: 'owner'
+          createdByRole: 'owner',
+          language: taskVoiceLang,
+          description: `[lang:${taskVoiceLang}]`
         })
       });
       if (res.ok) {
@@ -193,6 +204,7 @@ export default function Tasks({
         setNewTaskType('custom');
         setNewTaskFreq('one-time');
         setTaskAssignedTo('');
+        setTaskVoiceLang(announcementLang || 'en');
         setEditingTask(null);
         fetchTasks();
         showToast(editingTask ? 'Task updated successfully!' : '✨ Task auto-refined & assigned successfully!', 'success');
@@ -285,9 +297,9 @@ export default function Tasks({
 
   return (
     <div className="tasks-page-container">
-      <div>
-        <h1>Task Management & Follow-ups</h1>
-        <p style={{ color: 'var(--text-secondary)' }}>Assign duties to staff, monitor Excel regular checklists, and write feedback comments.</p>
+      <div style={{ marginBottom: '8px' }}>
+        <h1 style={{ margin: '0 0 6px 0' }}>Task Management & Follow-ups</h1>
+        <p style={{ color: 'var(--text-secondary)', margin: 0 }}>Assign duties to staff, monitor Excel regular checklists, and write feedback comments.</p>
       </div>
 
       <div className="tasks-grid">
@@ -369,19 +381,37 @@ export default function Tasks({
               </div>
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Assign To Staff Member</label>
-              <select 
-                className="form-input"
-                value={taskAssignedTo}
-                onChange={e => setTaskAssignedTo(e.target.value)}
-              >
-                <option value="">All Office Staff</option>
-                {allStaff.map(s => (
-                  <option key={s.id || s._id} value={s.id || s._id}>{s.name}</option>
-                ))}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div className="form-group">
+                <label className="form-label">Assign To Staff Member</label>
+                <select 
+                  className="form-input"
+                  value={taskAssignedTo}
+                  onChange={e => setTaskAssignedTo(e.target.value)}
+                >
+                  <option value="">All Office Staff</option>
+                  {allStaff.map(s => (
+                    <option key={s.id || s._id} value={s.id || s._id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
 
-              </select>
+              <div className="form-group">
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Volume2 size={14} style={{ color: '#4f46e5' }} />
+                  Voice Alert Language
+                </label>
+                <select 
+                  className="form-input"
+                  value={taskVoiceLang}
+                  onChange={e => setTaskVoiceLang(e.target.value as any)}
+                  style={{ fontWeight: 600 }}
+                >
+                  <option value="en">🇬🇧 English (Default)</option>
+                  <option value="hi">🇮🇳 Hindi (हिन्दी)</option>
+                  <option value="ta">🌴 Tamil (தமிழ்)</option>
+                </select>
+              </div>
             </div>
 
             <div style={{ display: 'flex', gap: '12px' }}>

@@ -526,9 +526,65 @@ export default function App() {
     }
   };
 
-  const speakOwnerAnnouncement = async (textToSpeak: string) => {
+  // Voice Announcement Language State ('en' | 'hi' | 'ta') - Default English
+  const [announcementLang, setAnnouncementLang] = useState<'en' | 'hi' | 'ta'>(() => {
+    return (localStorage.getItem('officepro_voice_lang') as any) || 'en';
+  });
+
+  const changeAnnouncementLanguage = async (newLang: 'en' | 'hi' | 'ta') => {
+    setAnnouncementLang(newLang);
+    localStorage.setItem('officepro_voice_lang', newLang);
     try {
-      const cleanText = (textToSpeak || '').replace(/[^\w\s\u0900-\u097F]/gi, '');
+      await fetch(`${API_BASE}/settings/announcement_language`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ value: newLang })
+      });
+      const langNames = { en: 'English', hi: 'Hindi (हिन्दी)', ta: 'Tamil (தமிழ்)' };
+      showToast(`🗣️ Voice Announcement Language set to ${langNames[newLang]}!`, 'info');
+      
+      // Sample preview in selected language
+      if (newLang === 'hi') {
+        speakOwnerAnnouncement('Office Pro Alert! Announcement bhasha ab Hindi set ho gayi hai.', 'hi');
+      } else if (newLang === 'ta') {
+        speakOwnerAnnouncement('Office Pro Alert! Kural arivippu mozhi Tamilil maatrapattadhu.', 'ta');
+      } else {
+        speakOwnerAnnouncement('Office Pro Alert! Announcement language is set to English.', 'en');
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const getOwnerAnnouncementText = (
+    type: 'new_task' | 'task_completed' | 'task_updated',
+    params: { staffName: string; title: string },
+    lang: 'en' | 'hi' | 'ta' = 'en'
+  ) => {
+    const { staffName, title } = params;
+    if (lang === 'hi') {
+      if (type === 'new_task') return `Namaste Sir! ${staffName} ji ne aapke liye ek naya kaam add kiya hai: ${title}.`;
+      if (type === 'task_completed') return `Namaste Sir! ${staffName} ji ne kaam safalta-purvak poora kar diya hai: ${title}.`;
+      return `Namaste Sir! ${staffName} ji ne work details update kar di hai: ${title}.`;
+    }
+    if (lang === 'ta') {
+      if (type === 'new_task') return `Vanakkam Sir! ${staffName} ungalukkaga pudhiya velaip paniyai pathivu seidhaar: ${title}.`;
+      if (type === 'task_completed') return `Vanakkam Sir! ${staffName} velaip paniyai vetrigaramaga mudithuvittaar: ${title}.`;
+      return `Vanakkam Sir! ${staffName} velaip vivarangalai maatriyullaar: ${title}.`;
+    }
+    // Default English - Warm, Sweet & Respectful
+    if (type === 'new_task') return `Hello Sir, ${staffName} has logged a new work task for you: ${title}.`;
+    if (type === 'task_completed') return `Hello Sir, ${staffName} has successfully completed the task: ${title}.`;
+    return `Hello Sir, ${staffName} has updated the work details for: ${title}.`;
+  };
+
+  const speakOwnerAnnouncement = async (textToSpeak: string, langOverride?: 'en' | 'hi' | 'ta') => {
+    const activeLang = langOverride || announcementLang || 'en';
+    try {
+      const cleanText = (textToSpeak || '').replace(/[^\w\s\u0900-\u097F\u0B80-\u0BFF]/gi, '');
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 1800);
 
@@ -538,7 +594,10 @@ export default function App() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ text: cleanText, lang: 'en', voice: 'en-US-AndrewNeural' }),
+        body: JSON.stringify({ 
+          text: cleanText, 
+          lang: activeLang
+        }),
         signal: controller.signal
       });
       clearTimeout(timeoutId);
@@ -610,7 +669,8 @@ export default function App() {
                 playLoudNotificationSound();
                 showToast(`📌 New Work Logged by ${staffName}: "${t.title}"`, 'warning');
                 triggerDesktopPushNotification(`📌 New Work by ${staffName}!`, t.title);
-                speakOwnerAnnouncement(`Office Pro Alert! Attention Sir! ${staffName} has logged a new work task: ${t.title}.`);
+                const announceText = getOwnerAnnouncementText('new_task', { staffName, title: t.title }, announcementLang);
+                speakOwnerAnnouncement(announceText);
               }
             } else {
               // Event 2: Task completed by Staff
@@ -624,7 +684,8 @@ export default function App() {
                 playLoudNotificationSound();
                 showToast(`✅ Work Completed by ${completedByName}: "${t.title}"`, 'success');
                 triggerDesktopPushNotification(`✅ Work Completed by ${completedByName}!`, t.title);
-                speakOwnerAnnouncement(`Office Pro Alert! Attention Sir! ${completedByName} has marked work completed: ${t.title}.`);
+                const announceText = getOwnerAnnouncementText('task_completed', { staffName: completedByName, title: t.title }, announcementLang);
+                speakOwnerAnnouncement(announceText);
               }
               // Event 3: Staff updated remarks or follow-up
               else if (prev.remarks !== (t.remarks || '') || prev.nextFollowup !== (t.nextFollowup || '')) {
@@ -635,7 +696,8 @@ export default function App() {
                 });
                 playLoudNotificationSound();
                 showToast(`📝 Work details updated by ${staffName}: "${t.title}"`, 'info');
-                speakOwnerAnnouncement(`Office Pro Alert! Attention Sir! ${staffName} has updated work details for: ${t.title}.`);
+                const announceText = getOwnerAnnouncementText('task_updated', { staffName, title: t.title }, announcementLang);
+                speakOwnerAnnouncement(announceText);
               }
             }
           });
@@ -845,6 +907,8 @@ export default function App() {
             setConfirmModal={setConfirmModal}
             showToast={showToast}
             onTaskCreatedLocally={registerMDTaskLocally}
+            announcementLang={announcementLang}
+            onAnnouncementLangChange={changeAnnouncementLanguage}
           />
         );
       case 'chat':
