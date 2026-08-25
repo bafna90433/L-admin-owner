@@ -359,6 +359,9 @@ export default function App() {
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioContextClass) return;
       const ctx = new AudioContextClass();
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+      }
 
       const playTone = (freq: number, startTime: number, duration: number) => {
         const osc = ctx.createOscillator();
@@ -430,100 +433,168 @@ export default function App() {
         });
         notif.onclick = () => {
           window.focus();
-          navigateTo('tasks');
           notif.close();
         };
       } catch (e) {
-        console.error('Desktop notification error:', e);
+        console.error('Notification error:', e);
       }
     }
   };
 
-  const speakWebSpeechFallback = (textToSpeak: string) => {
-    if (!('speechSynthesis' in window)) return;
-    try {
-      window.speechSynthesis.cancel();
-      window.speechSynthesis.resume();
-      const utterance = new SpeechSynthesisUtterance(textToSpeak);
-      utterance.lang = 'en-US';
-      utterance.rate = 0.95;
-      utterance.pitch = 0.95;
-      utterance.volume = 1.0;
+  const speechQueueRef = useRef<{ text: string; lang: 'en' | 'hi' | 'ta' }[]>([]);
+  const isSpeakingRef = useRef(false);
 
-      const getAndSetVoice = () => {
-        const voices = window.speechSynthesis.getVoices();
-        if (!voices || voices.length === 0) return;
-        const isFemale = (name: string) => /zira|jenny|aria|ava|samantha|victoria|karen|female|woman|neerja|susan|catherine|hazel|heera|ayumi|haruka|yating|zhiyu/i.test(name);
-        
-        // Strictly Select Real Man / Male Voice
-        const maleVoice = voices.find(v => 
-          !isFemale(v.name) && (v.name.includes('Natural') || v.name.includes('Neural') || v.name.includes('Online')) && (v.name.includes('Andrew') || v.name.includes('Brian') || v.name.includes('Guy') || v.name.includes('Christopher') || v.name.includes('Prabhat') || v.name.includes('David'))
-        ) || voices.find(v => 
-          !isFemale(v.name) && v.lang.startsWith('en') && (
-            v.name.includes('Andrew') ||
-            v.name.includes('Brian') || 
-            v.name.includes('Guy') || 
-            v.name.includes('David') || 
-            v.name.includes('Mark') || 
-            v.name.includes('Prabhat') || 
-            v.name.includes('George') ||
-            v.name.includes('Male') ||
-            v.name.includes('Desktop')
-          )
-        ) || voices.find(v => !isFemale(v.name) && v.lang.startsWith('en')) || voices[0];
+  const getMaleVoice = (lang: string) => {
+    if (!('speechSynthesis' in window)) return null;
+    const voices = window.speechSynthesis.getVoices();
+    const isFemale = (name: string) => /zira|jenny|aria|ava|samantha|victoria|karen|female|woman|neerja|susan|catherine|hazel|heera|ayumi|haruka|yating|zhiyu/i.test(name);
+    
+    // Strict priority for verified male voices
+    const maleVoice = voices.find(v => 
+      !isFemale(v.name) && 
+      (v.name.toLowerCase().includes('david') || 
+       v.name.toLowerCase().includes('mark') || 
+       v.name.toLowerCase().includes('george') || 
+       v.name.toLowerCase().includes('male') || 
+       v.name.toLowerCase().includes('guy') || 
+       v.name.toLowerCase().includes('madhur') || 
+       v.name.toLowerCase().includes('valluvar') || 
+       v.name.toLowerCase().includes('andrew') || 
+       v.name.toLowerCase().includes('brian')) && 
+      (lang ? v.lang.startsWith(lang) : true)
+    );
+    if (maleVoice) return maleVoice;
 
-        if (maleVoice) {
-          utterance.voice = maleVoice;
+    // Fallback: any voice that is NOT explicitly female
+    const nonFemale = voices.find(v => !isFemale(v.name) && (lang ? v.lang.startsWith(lang) : true));
+    return nonFemale || null;
+  };
+
+  const speakWebSpeech = (textToSpeak: string, lang: 'en' | 'hi' | 'ta', onDone: () => void) => {
+    if ('speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.resume();
+        const utterance = new SpeechSynthesisUtterance(textToSpeak);
+        utterance.lang = lang === 'hi' ? 'hi-IN' : (lang === 'ta' ? 'ta-IN' : 'en-US');
+        utterance.rate = 0.95;
+        utterance.pitch = 1.0;
+        utterance.onend = () => onDone();
+        utterance.onerror = () => onDone();
+
+        const voice = getMaleVoice(utterance.lang.slice(0, 2));
+        if (voice) utterance.voice = voice;
+
+        window.speechSynthesis.speak(utterance);
+        setTimeout(onDone, 7000);
+      } catch (err) {
+        console.error('Speech synthesis error:', err);
+        onDone();
+      }
+    } else {
+      onDone();
+    }
+  };
+
+  const playSingleAnnouncement = (textToSpeak: string, langOverride?: 'en' | 'hi' | 'ta'): Promise<void> => {
+    return new Promise(async (resolve) => {
+      const activeLang = langOverride || announcementLang || 'en';
+      let resolved = false;
+      const safeResolve = () => {
+        if (!resolved) {
+          resolved = true;
+          resolve();
         }
       };
 
-      getAndSetVoice();
-      if (window.speechSynthesis.onvoiceschanged !== undefined) {
-        window.speechSynthesis.onvoiceschanged = getAndSetVoice;
+      try {
+        const cleanText = (textToSpeak || '').replace(/[^\w\s\u0900-\u097F\u0B80-\u0BFF]/gi, '');
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+        const res = await fetch(`${API_BASE}/ai/tts`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ 
+            text: cleanText, 
+            lang: activeLang
+          }),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data.audioContent) {
+            const mimeType = data.mimeType || 'audio/mp3';
+            if (mimeType.includes('pcm') || mimeType.includes('raw')) {
+              const binaryString = atob(data.audioContent);
+              const len = binaryString.length;
+              const bytes = new Uint8Array(len);
+              for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
+              const int16Array = new Int16Array(bytes.buffer);
+              const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+              const audioCtx = new AudioContextClass({ sampleRate: 24000 });
+              if (audioCtx.state === 'suspended') audioCtx.resume();
+              const buffer = audioCtx.createBuffer(1, int16Array.length, 24000);
+              const channelData = buffer.getChannelData(0);
+              for (let i = 0; i < int16Array.length; i++) channelData[i] = int16Array[i] / 32768.0;
+              const source = audioCtx.createBufferSource();
+              source.buffer = buffer;
+              source.connect(audioCtx.destination);
+              source.onended = () => safeResolve();
+              source.start();
+              setTimeout(safeResolve, 8000);
+              return;
+            } else {
+              const audio = new Audio(`data:${mimeType};base64,${data.audioContent}`);
+              audio.volume = 1.0;
+              audio.onended = () => safeResolve();
+              audio.onerror = () => safeResolve();
+              const playPromise = audio.play();
+              if (playPromise !== undefined) {
+                playPromise.catch(() => {
+                  speakWebSpeech(textToSpeak, activeLang, safeResolve);
+                });
+              }
+              setTimeout(safeResolve, 8000);
+              return;
+            }
+          }
+        }
+      } catch (err) {
+        // Fall through to Web Speech
       }
 
-      (window as any)._activeSpeechUtterance = utterance;
-      window.speechSynthesis.speak(utterance);
-    } catch (e) {
-      console.error('Web Speech error:', e);
-    }
+      speakWebSpeech(textToSpeak, activeLang, safeResolve);
+    });
   };
 
-  const playHumanAudio = (audioBase64: string, mimeType: string = 'audio/mp3', fallbackText?: string) => {
-    try {
-      if (mimeType.includes('pcm') || mimeType.includes('raw')) {
-        const binaryString = atob(audioBase64);
-        const len = binaryString.length;
-        const bytes = new Uint8Array(len);
-        for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
-        const int16Array = new Int16Array(bytes.buffer);
-        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-        const audioCtx = new AudioContextClass({ sampleRate: 24000 });
-        if (audioCtx.state === 'suspended') {
-          audioCtx.resume();
-        }
-        const buffer = audioCtx.createBuffer(1, int16Array.length, 24000);
-        const channelData = buffer.getChannelData(0);
-        for (let i = 0; i < int16Array.length; i++) channelData[i] = int16Array[i] / 32768.0;
-        const source = audioCtx.createBufferSource();
-        source.buffer = buffer;
-        source.connect(audioCtx.destination);
-        source.start();
-      } else {
-        const audio = new Audio(`data:${mimeType};base64,${audioBase64}`);
-        audio.volume = 1.0;
-        const playPromise = audio.play();
-        if (playPromise !== undefined) {
-          playPromise.catch(e => {
-            console.warn('HTML5 Audio playback blocked, using Web Speech fallback:', e);
-            if (fallbackText) speakWebSpeechFallback(fallbackText);
-          });
-        }
+  const processSpeechQueue = async () => {
+    if (isSpeakingRef.current || speechQueueRef.current.length === 0) return;
+    isSpeakingRef.current = true;
+
+    while (speechQueueRef.current.length > 0) {
+      const item = speechQueueRef.current.shift();
+      if (item) {
+        await playSingleAnnouncement(item.text, item.lang);
+        await new Promise(r => setTimeout(r, 450));
       }
-    } catch (e) {
-      console.error('Audio decode error:', e);
-      if (fallbackText) speakWebSpeechFallback(fallbackText);
     }
+
+    isSpeakingRef.current = false;
+  };
+
+  const speakOwnerAnnouncement = (textToSpeak: string, langOverride?: 'en' | 'hi' | 'ta') => {
+    const activeLang = langOverride || announcementLang || 'en';
+    if (speechQueueRef.current.length >= 3) {
+      speechQueueRef.current = speechQueueRef.current.slice(-2);
+    }
+    speechQueueRef.current.push({ text: textToSpeak, lang: activeLang });
+    processSpeechQueue();
   };
 
   // Voice Announcement Language State ('en' | 'hi' | 'ta') - Default English
@@ -548,11 +619,11 @@ export default function App() {
       
       // Sample preview in selected language
       if (newLang === 'hi') {
-        speakOwnerAnnouncement('Office Pro Alert! Announcement bhasha ab Hindi set ho gayi hai.', 'hi');
+        speakOwnerAnnouncement('Namaste Sir! Announcement bhasha ab Hindi set ho gayi hai.', 'hi');
       } else if (newLang === 'ta') {
-        speakOwnerAnnouncement('Office Pro Alert! Kural arivippu mozhi Tamilil maatrapattadhu.', 'ta');
+        speakOwnerAnnouncement('Vanakkam Sir! Kural arivippu mozhi Tamilil maatrapattadhu.', 'ta');
       } else {
-        speakOwnerAnnouncement('Office Pro Alert! Announcement language is set to English.', 'en');
+        speakOwnerAnnouncement('Hello Sir, announcement language is set to English.', 'en');
       }
     } catch (e) {
       console.error(e);
@@ -560,7 +631,7 @@ export default function App() {
   };
 
   const getOwnerAnnouncementText = (
-    type: 'new_task' | 'task_completed' | 'task_updated',
+    type: 'new_task' | 'task_completed' | 'task_updated' | 'task_comment',
     params: { staffName: string; title: string },
     lang: 'en' | 'hi' | 'ta' = 'en'
   ) => {
@@ -568,56 +639,30 @@ export default function App() {
     if (lang === 'hi') {
       if (type === 'new_task') return `Namaste Sir! ${staffName} ji ne aapke liye ek naya kaam add kiya hai: ${title}.`;
       if (type === 'task_completed') return `Namaste Sir! ${staffName} ji ne kaam safalta-purvak poora kar diya hai: ${title}.`;
-      return `Namaste Sir! ${staffName} ji ne work details update kar di hai: ${title}.`;
+      if (type === 'task_comment') return `Namaste Sir! ${staffName} ji ne task "${title}" par naya comment bheja hai.`;
+      return `Namaste Sir! ${staffName} ji ne task "${title}" ka follow-up details update kiya hai.`;
     }
     if (lang === 'ta') {
       if (type === 'new_task') return `Vanakkam Sir! ${staffName} ungalukkaga pudhiya velaip paniyai pathivu seidhaar: ${title}.`;
       if (type === 'task_completed') return `Vanakkam Sir! ${staffName} velaip paniyai vetrigaramaga mudithuvittaar: ${title}.`;
-      return `Vanakkam Sir! ${staffName} velaip vivarangalai maatriyullaar: ${title}.`;
+      if (type === 'task_comment') return `Vanakkam Sir! ${staffName} velaip panikkana pudhiya kurinpai pathivu seidhaar: ${title}.`;
+      return `Vanakkam Sir! ${staffName} velaip paniyin thodarpudaya vivarangalai maatriyullaar: ${title}.`;
     }
     // Default English - Warm, Sweet & Respectful
     if (type === 'new_task') return `Hello Sir, ${staffName} has logged a new work task for you: ${title}.`;
     if (type === 'task_completed') return `Hello Sir, ${staffName} has successfully completed the task: ${title}.`;
-    return `Hello Sir, ${staffName} has updated the work details for: ${title}.`;
-  };
-
-  const speakOwnerAnnouncement = async (textToSpeak: string, langOverride?: 'en' | 'hi' | 'ta') => {
-    const activeLang = langOverride || announcementLang || 'en';
-    try {
-      const cleanText = (textToSpeak || '').replace(/[^\w\s\u0900-\u097F\u0B80-\u0BFF]/gi, '');
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1800);
-
-      const res = await fetch(`${API_BASE}/ai/tts`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ 
-          text: cleanText, 
-          lang: activeLang
-        }),
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data.audioContent) {
-          playHumanAudio(data.audioContent, data.mimeType || 'audio/mp3', textToSpeak);
-          return;
-        }
-      }
-    } catch (err) {
-      console.warn('Owner TTS fetch fallback to Web Speech:', err);
-    }
-
-    speakWebSpeechFallback(textToSpeak);
+    if (type === 'task_comment') return `Hello Sir, ${staffName} has posted a new update comment on: ${title}.`;
+    return `Hello Sir, ${staffName} has updated the follow-up details for: ${title}.`;
   };
 
   const isInitialOwnerTaskFetchRef = useRef(true);
-  const knownTaskMapRef = useRef<Map<string, { status: string; remarks: string; nextFollowup: string }>>(new Map());
+  const knownTaskMapRef = useRef<Map<string, { 
+    status: string; 
+    remarks: string; 
+    nextFollowup: string;
+    description: string;
+    commentsCount: number;
+  }>>(new Map());
   const mdCreatedTaskIdsRef = useRef<Set<string>>(new Set());
 
   const registerMDTaskLocally = (taskId: string) => {
@@ -635,20 +680,30 @@ export default function App() {
 
         if (isInitialOwnerTaskFetchRef.current) {
           data.forEach((t: any) => {
-            knownTaskMapRef.current.set(t._id, {
-              status: t.status,
-              remarks: t.remarks || '',
-              nextFollowup: t.nextFollowup || ''
+            knownTaskMapRef.current.set(String(t._id), {
+              status: t.status || 'pending',
+              remarks: String(t.remarks || '').trim(),
+              nextFollowup: String(t.nextFollowup || '').trim(),
+              description: String(t.description || '').trim(),
+              commentsCount: Array.isArray(t.comments) ? t.comments.length : 0
             });
           });
           isInitialOwnerTaskFetchRef.current = false;
         } else {
+          let chimePlayedInBatch = false;
+          const pendingAnnouncements: { text: string; lang: 'en' | 'hi' | 'ta' }[] = [];
+
           data.forEach((t: any) => {
-            const prev = knownTaskMapRef.current.get(t._id);
-            const staffName = t.createdBy?.name || t.assignedTo?.name || 'Staff';
+            const taskId = String(t._id);
+            const prev = knownTaskMapRef.current.get(taskId);
+            const staffName = t.assignedTo?.name || t.createdBy?.name || 'Staff';
+            const currentCommentsCount = Array.isArray(t.comments) ? t.comments.length : 0;
+            const currentRemarks = String(t.remarks || '').trim();
+            const currentNextFollowup = String(t.nextFollowup || '').trim();
+            const currentDescription = String(t.description || '').trim();
 
             const currentOwnerId = user?._id || user?.id || '';
-            const isCreatedByMD = mdCreatedTaskIdsRef.current.has(String(t._id)) ||
+            const isCreatedByMD = mdCreatedTaskIdsRef.current.has(taskId) ||
                                   (t.createdBy?._id && String(t.createdBy._id) === String(currentOwnerId)) ||
                                   (t.createdBy?.id && String(t.createdBy.id) === String(currentOwnerId)) ||
                                   (typeof t.createdBy === 'string' && String(t.createdBy) === String(currentOwnerId)) ||
@@ -658,49 +713,100 @@ export default function App() {
 
             // Event 1: New task logged by Staff
             if (!prev) {
-              knownTaskMapRef.current.set(t._id, {
-                status: t.status,
-                remarks: t.remarks || '',
-                nextFollowup: t.nextFollowup || ''
+              knownTaskMapRef.current.set(taskId, {
+                status: t.status || 'pending',
+                remarks: currentRemarks,
+                nextFollowup: currentNextFollowup,
+                description: currentDescription,
+                commentsCount: currentCommentsCount
               });
 
               // If MD created it -> SILENT. If Staff created it -> Announce to MD!
               if (!isCreatedByMD) {
-                playLoudNotificationSound();
+                if (!chimePlayedInBatch) {
+                  playLoudNotificationSound();
+                  chimePlayedInBatch = true;
+                }
                 showToast(`📌 New Work Logged by ${staffName}: "${t.title}"`, 'warning');
                 triggerDesktopPushNotification(`📌 New Work by ${staffName}!`, t.title);
                 const announceText = getOwnerAnnouncementText('new_task', { staffName, title: t.title }, announcementLang);
-                speakOwnerAnnouncement(announceText);
+                pendingAnnouncements.push({ text: announceText, lang: announcementLang });
               }
             } else {
               // Event 2: Task completed by Staff
               if (prev.status !== 'completed' && t.status === 'completed') {
-                knownTaskMapRef.current.set(t._id, {
+                knownTaskMapRef.current.set(taskId, {
                   status: t.status,
-                  remarks: t.remarks || '',
-                  nextFollowup: t.nextFollowup || ''
+                  remarks: currentRemarks,
+                  nextFollowup: currentNextFollowup,
+                  description: currentDescription,
+                  commentsCount: currentCommentsCount
                 });
                 const completedByName = t.completedBy?.name || staffName;
-                playLoudNotificationSound();
+                if (!chimePlayedInBatch) {
+                  playLoudNotificationSound();
+                  chimePlayedInBatch = true;
+                }
                 showToast(`✅ Work Completed by ${completedByName}: "${t.title}"`, 'success');
                 triggerDesktopPushNotification(`✅ Work Completed by ${completedByName}!`, t.title);
                 const announceText = getOwnerAnnouncementText('task_completed', { staffName: completedByName, title: t.title }, announcementLang);
-                speakOwnerAnnouncement(announceText);
+                pendingAnnouncements.push({ text: announceText, lang: announcementLang });
               }
-              // Event 3: Staff updated remarks or follow-up
-              else if (prev.remarks !== (t.remarks || '') || prev.nextFollowup !== (t.nextFollowup || '')) {
-                knownTaskMapRef.current.set(t._id, {
+              // Event 3: Staff posted a new comment / discussion note
+              else if (currentCommentsCount > prev.commentsCount) {
+                knownTaskMapRef.current.set(taskId, {
                   status: t.status,
-                  remarks: t.remarks || '',
-                  nextFollowup: t.nextFollowup || ''
+                  remarks: currentRemarks,
+                  nextFollowup: currentNextFollowup,
+                  description: currentDescription,
+                  commentsCount: currentCommentsCount
                 });
-                playLoudNotificationSound();
-                showToast(`📝 Work details updated by ${staffName}: "${t.title}"`, 'info');
+                if (!chimePlayedInBatch) {
+                  playLoudNotificationSound();
+                  chimePlayedInBatch = true;
+                }
+                showToast(`💬 New update note from ${staffName}: "${t.title}"`, 'info');
+                triggerDesktopPushNotification(`💬 New Note from ${staffName}!`, t.title);
+                const announceText = getOwnerAnnouncementText('task_comment', { staffName, title: t.title }, announcementLang);
+                pendingAnnouncements.push({ text: announceText, lang: announcementLang });
+              }
+              // Event 4: Staff updated remarks, follow-up date, or description
+              else if (
+                prev.nextFollowup !== currentNextFollowup ||
+                prev.remarks !== currentRemarks ||
+                prev.description !== currentDescription
+              ) {
+                knownTaskMapRef.current.set(taskId, {
+                  status: t.status,
+                  remarks: currentRemarks,
+                  nextFollowup: currentNextFollowup,
+                  description: currentDescription,
+                  commentsCount: currentCommentsCount
+                });
+                if (!chimePlayedInBatch) {
+                  playLoudNotificationSound();
+                  chimePlayedInBatch = true;
+                }
+                showToast(`📝 Follow-up details updated by ${staffName}: "${t.title}"`, 'info');
+                triggerDesktopPushNotification(`📝 Follow-up Updated by ${staffName}!`, t.title);
                 const announceText = getOwnerAnnouncementText('task_updated', { staffName, title: t.title }, announcementLang);
-                speakOwnerAnnouncement(announceText);
+                pendingAnnouncements.push({ text: announceText, lang: announcementLang });
               }
             }
           });
+
+          // Smart Batch Announcement Delivery:
+          if (pendingAnnouncements.length > 2) {
+            let batchSummary = `Hello Sir, you have ${pendingAnnouncements.length} new task updates from your staff.`;
+            if (announcementLang === 'hi') {
+              batchSummary = `Namaste Sir! Aapke staff se ${pendingAnnouncements.length} naye task updates aaye hain.`;
+            } else if (announcementLang === 'ta') {
+              batchSummary = `Vanakkam Sir! Ungal paniyaalargalidamirundhu ${pendingAnnouncements.length} pudhiya velaip pathivugal vandhullaana.`;
+            }
+            speakOwnerAnnouncement(batchSummary, announcementLang);
+          } else {
+            pendingAnnouncements.forEach(a => speakOwnerAnnouncement(a.text, a.lang));
+          }
         }
 
         setTasks(data);

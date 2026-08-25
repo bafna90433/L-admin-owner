@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Loader, Edit2, Trash2 } from 'lucide-react';
+import { Loader, Edit2, Trash2, Volume2 } from 'lucide-react';
 import '../styles/Reminders.css';
 
 interface Reminder {
@@ -8,6 +8,7 @@ interface Reminder {
   targetDate: string;
   status: 'pending' | 'acknowledged';
   type?: 'general' | 'salary-delay' | 'self';
+  language?: 'en' | 'hi' | 'ta';
   createdBy?: {
     _id?: string;
     name: string;
@@ -42,6 +43,7 @@ export default function Reminders({
 }: RemindersProps) {
   const [newRemMsg, setNewRemMsg] = useState('remind me');
   const [targetStaffId, setTargetStaffId] = useState('');
+  const [remVoiceLang, setRemVoiceLang] = useState<'en' | 'hi' | 'ta'>('en');
   const [remSubmitting, setRemSubmitting] = useState(false);
   const [editingReminderId, setEditingReminderId] = useState<string | null>(null);
   const [deletingReminderId, setDeletingReminderId] = useState<string | null>(null);
@@ -58,20 +60,26 @@ export default function Reminders({
 
   const handleCreateOrUpdateReminder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newRemMsg) return;
+    if (!newRemMsg.trim()) return;
     setRemSubmitting(true);
     try {
       const url = editingReminderId 
-        ? `${apiBase}/reminders/${editingReminderId}`
+        ? `${apiBase}/reminders/${editingReminderId}` 
         : `${apiBase}/reminders`;
       const method = editingReminderId ? 'PUT' : 'POST';
+
+      const cleanMsg = newRemMsg.replace(/\[lang:(en|hi|ta)\]\s*/g, '').trim();
+      const finalMsg = `[lang:${remVoiceLang}] ${cleanMsg}`;
+
       const payload: {
         message: string;
         targetStaffId: string | null;
         targetDate?: string;
+        language?: string;
       } = {
-        message: newRemMsg,
-        targetStaffId: targetStaffId || null
+        message: finalMsg,
+        targetStaffId: targetStaffId || null,
+        language: remVoiceLang
       };
 
       if (!editingReminderId) {
@@ -89,6 +97,7 @@ export default function Reminders({
       if (res.ok) {
         setNewRemMsg('remind me');
         setTargetStaffId('');
+        setRemVoiceLang('en');
         setEditingReminderId(null);
         fetchReminders();
         showToast(editingReminderId ? 'Notice updated successfully!' : 'Notice broadcasted to office staff successfully!', 'success');
@@ -105,7 +114,13 @@ export default function Reminders({
 
   const handleEdit = (rem: Reminder) => {
     setEditingReminderId(rem._id);
-    setNewRemMsg(rem.message);
+    const langMatch = rem.message?.match(/\[lang:(en|hi|ta)\]/);
+    if (langMatch) {
+      setRemVoiceLang(langMatch[1] as any);
+    } else {
+      setRemVoiceLang(rem.language || 'en');
+    }
+    setNewRemMsg((rem.message || '').replace(/\[lang:(en|hi|ta)\]\s*/g, '').trim());
     setTargetStaffId(rem.targetStaffId ? (rem.targetStaffId as any)._id || (rem.targetStaffId as any).id : '');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -214,18 +229,37 @@ export default function Reminders({
               />
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Assign To Staff Member</label>
-              <select 
-                className="form-input"
-                value={targetStaffId}
-                onChange={e => setTargetStaffId(e.target.value)}
-              >
-                <option value="">All Office Staff (Broadcast to Everyone)</option>
-                {allStaff.map(s => (
-                  <option key={s.id || s._id} value={s.id || s._id}>{s.name}</option>
-                ))}
-              </select>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div className="form-group">
+                <label className="form-label">Assign To Staff Member</label>
+                <select 
+                  className="form-input"
+                  value={targetStaffId}
+                  onChange={e => setTargetStaffId(e.target.value)}
+                >
+                  <option value="">All Staff (Broadcast)</option>
+                  {allStaff.map(s => (
+                    <option key={s.id || s._id} value={s.id || s._id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Volume2 size={14} style={{ color: '#4f46e5' }} />
+                  Voice Alert Language
+                </label>
+                <select 
+                  className="form-input"
+                  value={remVoiceLang}
+                  onChange={e => setRemVoiceLang(e.target.value as any)}
+                  style={{ fontWeight: 600 }}
+                >
+                  <option value="en">🇬🇧 English (Default)</option>
+                  <option value="hi">🇮🇳 Hindi (हिन्दी)</option>
+                  <option value="ta">🌴 Tamil (தமிழ்)</option>
+                </select>
+              </div>
             </div>
 
             <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={remSubmitting}>
@@ -271,6 +305,7 @@ export default function Reminders({
               const timeDiff = new Date(rem.targetDate).getTime() - Date.now();
               const isUrgent = rem.status === 'pending' && timeDiff <= 10 * 60 * 1000;
               const isPersonal = rem.type === 'self';
+              const cleanDisplayMsg = (rem.message || '').replace(/\[lang:(en|hi|ta)\]\s*/g, '').trim();
               
               return (
               <div key={rem._id} className={`reminder-history-card ${isUrgent ? 'urgent-pulse' : ''}`} style={isUrgent ? { border: '2px solid var(--color-danger)' } : isPersonal ? { borderLeft: '4px solid #6366f1' } : {}}>
@@ -310,7 +345,7 @@ export default function Reminders({
                 </div>
                 
                 <p style={{ fontWeight: 600, fontSize: '1.05rem', margin: '8px 0', color: 'var(--text-primary)' }}>
-                  {rem.message}
+                  {cleanDisplayMsg}
                 </p>
 
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '12px', paddingTop: '8px', borderTop: '1px solid rgba(0,0,0,0.05)' }}>

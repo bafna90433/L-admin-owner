@@ -68,12 +68,8 @@ export default function Tasks({
   const [taskAssignedTo, setTaskAssignedTo] = useState('');
   const [taskSubmitting, setTaskSubmitting] = useState(false);
   
-  // Form Voice Language State
-  const [taskVoiceLang, setTaskVoiceLang] = useState<'en' | 'hi' | 'ta'>(announcementLang || 'en');
-
-  React.useEffect(() => {
-    if (announcementLang) setTaskVoiceLang(announcementLang);
-  }, [announcementLang]);
+  // Form Voice Language State (Default English)
+  const [taskVoiceLang, setTaskVoiceLang] = useState<'en' | 'hi' | 'ta'>('en');
 
   // Edit task state
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -141,13 +137,15 @@ export default function Tasks({
     if (!createdAt) return 0;
     const createdDate = new Date(createdAt);
     const today = new Date();
-    // Set to start of day for exact calendar day difference
     const createdZero = new Date(createdDate.getFullYear(), createdDate.getMonth(), createdDate.getDate());
     const todayZero = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    
     const diffTime = todayZero.getTime() - createdZero.getTime();
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
     return diffDays < 0 ? 0 : diffDays;
+  };
+
+  const getDaysAgo = (dateStr: string) => {
+    return getDaysElapsed(dateStr);
   };
 
   const handleStartEditTask = (task: Task) => {
@@ -156,6 +154,8 @@ export default function Tasks({
     setNewTaskType(task.taskType);
     setNewTaskFreq(task.frequency);
     setTaskAssignedTo(task.assignedTo?._id || '');
+    const langMatch = (task as any).description?.match(/\[lang:(en|hi|ta)\]/);
+    setTaskVoiceLang((task as any).language || (langMatch ? langMatch[1] : 'en'));
   };
 
   const handleCancelEditTask = () => {
@@ -164,7 +164,7 @@ export default function Tasks({
     setNewTaskType('custom');
     setNewTaskFreq('one-time');
     setTaskAssignedTo('');
-    setTaskVoiceLang(announcementLang || 'en');
+    setTaskVoiceLang('en');
   };
 
   const handleTaskSubmit = async (e: React.FormEvent) => {
@@ -204,7 +204,7 @@ export default function Tasks({
         setNewTaskType('custom');
         setNewTaskFreq('one-time');
         setTaskAssignedTo('');
-        setTaskVoiceLang(announcementLang || 'en');
+        setTaskVoiceLang('en');
         setEditingTask(null);
         fetchTasks();
         showToast(editingTask ? 'Task updated successfully!' : '✨ Task auto-refined & assigned successfully!', 'success');
