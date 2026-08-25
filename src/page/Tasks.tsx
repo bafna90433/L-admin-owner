@@ -44,8 +44,6 @@ interface TasksProps {
   setConfirmModal: (modal: { title: string; message: string; onConfirm: () => void } | null) => void;
   showToast: (message: string, type?: 'success' | 'danger' | 'warning' | 'info') => void;
   onTaskCreatedLocally?: (taskId: string) => void;
-  announcementLang?: 'en' | 'hi' | 'ta';
-  onAnnouncementLangChange?: (lang: 'en' | 'hi' | 'ta') => void;
 }
 
 export default function Tasks({
@@ -57,9 +55,7 @@ export default function Tasks({
   setSelectedTaskForComments,
   setConfirmModal,
   showToast,
-  onTaskCreatedLocally,
-  announcementLang = 'en',
-  onAnnouncementLangChange
+  onTaskCreatedLocally
 }: TasksProps) {
   // New task form fields
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -142,10 +138,6 @@ export default function Tasks({
     const diffTime = todayZero.getTime() - createdZero.getTime();
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
     return diffDays < 0 ? 0 : diffDays;
-  };
-
-  const getDaysAgo = (dateStr: string) => {
-    return getDaysElapsed(dateStr);
   };
 
   const handleStartEditTask = (task: Task) => {

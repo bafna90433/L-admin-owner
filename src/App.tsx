@@ -1013,8 +1013,6 @@ export default function App() {
             setConfirmModal={setConfirmModal}
             showToast={showToast}
             onTaskCreatedLocally={registerMDTaskLocally}
-            announcementLang={announcementLang}
-            onAnnouncementLangChange={changeAnnouncementLanguage}
           />
         );
       case 'chat':
