@@ -598,37 +598,9 @@ export default function App() {
   };
 
   // Voice Announcement Language State ('en' | 'hi' | 'ta') - Default English
-  const [announcementLang, setAnnouncementLang] = useState<'en' | 'hi' | 'ta'>(() => {
+  const [announcementLang] = useState<'en' | 'hi' | 'ta'>(() => {
     return (localStorage.getItem('officepro_voice_lang') as any) || 'en';
   });
-
-  const changeAnnouncementLanguage = async (newLang: 'en' | 'hi' | 'ta') => {
-    setAnnouncementLang(newLang);
-    localStorage.setItem('officepro_voice_lang', newLang);
-    try {
-      await fetch(`${API_BASE}/settings/announcement_language`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ value: newLang })
-      });
-      const langNames = { en: 'English', hi: 'Hindi (हिन्दी)', ta: 'Tamil (தமிழ்)' };
-      showToast(`🗣️ Voice Announcement Language set to ${langNames[newLang]}!`, 'info');
-      
-      // Sample preview in selected language
-      if (newLang === 'hi') {
-        speakOwnerAnnouncement('Namaste Sir! Announcement bhasha ab Hindi set ho gayi hai.', 'hi');
-      } else if (newLang === 'ta') {
-        speakOwnerAnnouncement('Vanakkam Sir! Kural arivippu mozhi Tamilil maatrapattadhu.', 'ta');
-      } else {
-        speakOwnerAnnouncement('Hello Sir, announcement language is set to English.', 'en');
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
 
   const getOwnerAnnouncementText = (
     type: 'new_task' | 'task_completed' | 'task_updated' | 'task_comment',
