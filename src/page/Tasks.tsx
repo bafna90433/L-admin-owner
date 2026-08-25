@@ -44,6 +44,8 @@ interface TasksProps {
   setConfirmModal: (modal: { title: string; message: string; onConfirm: () => void } | null) => void;
   showToast: (message: string, type?: 'success' | 'danger' | 'warning' | 'info') => void;
   onTaskCreatedLocally?: (taskId: string) => void;
+  targetTaskId?: string | null;
+  onClearTargetTaskId?: () => void;
 }
 
 export default function Tasks({
@@ -55,7 +57,9 @@ export default function Tasks({
   setSelectedTaskForComments,
   setConfirmModal,
   showToast,
-  onTaskCreatedLocally
+  onTaskCreatedLocally,
+  targetTaskId,
+  onClearTargetTaskId
 }: TasksProps) {
   // New task form fields
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -78,6 +82,34 @@ export default function Tasks({
   const [selectedStaffId, setSelectedStaffId] = useState<string | 'all' | 'unassigned'>('all');
   const [previewPhoto, setPreviewPhoto] = useState<{ name: string; url: string } | null>(null);
   const [isAiGenerating, setIsAiGenerating] = useState(false);
+  const [highlightedTaskId, setHighlightedTaskId] = useState<string | null>(null);
+
+  // Auto-scroll and highlight target task if navigated from Notifications
+  React.useEffect(() => {
+    if (targetTaskId) {
+      setHighlightedTaskId(targetTaskId);
+      setSelectedStaffId('all');
+      setTaskFilterStatus('all');
+      setTaskFilterType('all');
+      
+      const timer = setTimeout(() => {
+        const el = document.getElementById(`task-item-${targetTaskId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 250);
+
+      const clearTimer = setTimeout(() => {
+        setHighlightedTaskId(null);
+        if (onClearTargetTaskId) onClearTargetTaskId();
+      }, 5000);
+
+      return () => {
+        clearTimeout(timer);
+        clearTimeout(clearTimer);
+      };
+    }
+  }, [targetTaskId, onClearTargetTaskId]);
 
   const sanitizeTitle = (text: string) => {
     return text.split('•')[0].split('\n')[0].replace(/^📌\s*Task:\s*/i, '').trim();
@@ -643,14 +675,22 @@ export default function Tasks({
 
               return displayTasks.map((t) => {
                 const isCompleted = t.status === 'completed';
+                const isTargetHighlighted = highlightedTaskId === t._id;
                 return (
                   <div 
                     key={t._id} 
-                    className="task-item-card animate-fade-in"
+                    id={`task-item-${t._id}`}
+                    className={`task-item-card animate-fade-in ${isTargetHighlighted ? 'task-highlighted-card' : ''}`}
                     style={{ 
-                      border: `1px solid ${isCompleted ? 'rgba(16, 185, 129, 0.4)' : 'var(--glass-border)'}`,
-                      background: isCompleted ? 'rgba(16, 185, 129, 0.05)' : 'var(--bg-tertiary)',
-                      cursor: 'pointer'
+                      border: isTargetHighlighted
+                        ? '2.5px solid #4f46e5'
+                        : `1px solid ${isCompleted ? 'rgba(16, 185, 129, 0.4)' : 'var(--glass-border)'}`,
+                      background: isTargetHighlighted
+                        ? 'rgba(79, 70, 229, 0.08)'
+                        : isCompleted ? 'rgba(16, 185, 129, 0.05)' : 'var(--bg-tertiary)',
+                      boxShadow: isTargetHighlighted ? '0 0 20px rgba(79, 70, 229, 0.35)' : 'none',
+                      cursor: 'pointer',
+                      transition: 'all 0.3s ease'
                     }}
                     onClick={() => setSelectedTaskForComments(t)}
                   >

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Loader, Send } from 'lucide-react';
+import { Loader, Send, Lock } from 'lucide-react';
 import '../styles/Tasks.css';
 
 interface Task {
@@ -86,65 +86,125 @@ export default function TaskDetailModal({
   return (
     <div style={{
       position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-      background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100
+      background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(6px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100,
+      padding: '16px'
     }}>
-      <div className="glass-panel glass-panel-glow animate-fade-in" style={{ width: '100%', maxWidth: '540px', padding: '32px', display: 'flex', flexDirection: 'column', maxHeight: '90vh' }}>
-        <div className="flex-between" style={{ marginBottom: '16px' }}>
-          <span className={`badge ${task.status === 'completed' ? 'badge-success' : 'badge-warning'}`} style={{ textTransform: 'uppercase' }}>
-            {task.status}
-          </span>
+      <div className="glass-panel animate-fade-in" style={{ 
+        width: '100%', 
+        maxWidth: '560px', 
+        padding: '24px 28px', 
+        display: 'flex', 
+        flexDirection: 'column', 
+        maxHeight: '90vh',
+        background: '#ffffff',
+        borderRadius: '20px',
+        boxShadow: '0 20px 40px rgba(15, 23, 42, 0.25)',
+        border: '1.5px solid rgba(226, 232, 240, 0.95)'
+      }}>
+        {/* Header */}
+        <div className="flex-between" style={{ marginBottom: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span className={`badge ${task.status === 'completed' ? 'badge-success' : 'badge-warning'}`} style={{ textTransform: 'uppercase', fontWeight: 800 }}>
+              {task.status}
+            </span>
+            {task.taskType === 'reminder-sir' && (
+              <span className="badge badge-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <Lock size={12} /> MD Directive
+              </span>
+            )}
+          </div>
           <button 
             type="button" 
             onClick={onClose} 
             className="btn btn-secondary"
-            style={{ padding: '4px 8px', borderRadius: '50%' }}
+            style={{ padding: '6px 10px', borderRadius: '50%', fontSize: '0.85rem' }}
           >
             ✕
           </button>
         </div>
 
-        <h3 style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '8px' }}>
+        <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', margin: '0 0 6px 0', lineHeight: 1.3 }}>
           {task.title}
         </h3>
         
-        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '20px', paddingBottom: '12px', borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
-          Category: <span style={{ fontWeight: 600, textTransform: 'capitalize' }}>{task.taskType} ({task.frequency})</span> | Assigned to: <span style={{ fontWeight: 600 }}>{task.assignedTo?.name || 'All Staff'}</span>
+        <p style={{ fontSize: '0.82rem', color: '#64748b', margin: '0 0 16px 0', paddingBottom: '12px', borderBottom: '1px solid rgba(226, 232, 240, 0.8)' }}>
+          Category: <span style={{ fontWeight: 700, textTransform: 'capitalize', color: '#0f172a' }}>{task.taskType} ({task.frequency})</span> • Assigned to: <span style={{ fontWeight: 700, color: '#4f46e5' }}>{task.assignedTo?.name || 'All Staff'}</span>
         </p>
 
-        {/* Comments List */}
-        <div className="task-comments-wrapper">
+        {/* Discussion / Follow-up Notes (Chat View) */}
+        <div style={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          gap: '12px', 
+          maxHeight: '340px', 
+          overflowY: 'auto', 
+          padding: '14px', 
+          background: '#f8fafc', 
+          border: '1.5px solid rgba(226, 232, 240, 0.95)',
+          borderRadius: '16px', 
+          marginBottom: '16px' 
+        }}>
           {task.comments && task.comments.length > 0 ? (
             task.comments.map((c: any, index: number) => {
-              const isOwner = c.authorRole === 'owner';
+              const isMD = c.authorRole === 'owner' || 
+                           c.authorRole === 'admin' || 
+                           (c.authorName && (
+                             c.authorName.toLowerCase().includes('owner') || 
+                             c.authorName.toLowerCase().includes('director') || 
+                             c.authorName.toLowerCase().includes('sir') || 
+                             c.authorName.toLowerCase().includes('md')
+                           ));
+
               return (
                 <div 
                   key={index}
                   style={{
-                    padding: '12px',
-                    borderRadius: '12px',
-                    maxWidth: '85%',
-                    alignSelf: isOwner ? 'flex-end' : 'flex-start',
-                    background: isOwner ? 'rgba(79, 70, 229, 0.1)' : 'var(--bg-tertiary)',
-                    border: isOwner ? '1px solid rgba(79, 70, 229, 0.2)' : '1px solid var(--glass-border)'
+                    padding: '12px 16px',
+                    maxWidth: '82%',
+                    alignSelf: isMD ? 'flex-end' : 'flex-start',
+                    background: isMD 
+                      ? 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)' 
+                      : '#ffffff',
+                    color: isMD ? '#ffffff' : '#0f172a',
+                    borderRadius: isMD ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                    border: isMD ? 'none' : '1.5px solid rgba(226, 232, 240, 0.95)',
+                    boxShadow: isMD 
+                      ? '0 4px 14px rgba(79, 70, 229, 0.25)' 
+                      : '0 2px 6px rgba(15, 23, 42, 0.03)'
                   }}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', marginBottom: '4px' }}>
-                    <span style={{ fontWeight: 700, fontSize: '0.8rem', color: isOwner ? '#4f46e5' : 'var(--text-primary)' }}>
-                      {c.authorName} ({isOwner ? 'Owner' : 'Staff'})
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', marginBottom: '4px' }}>
+                    <span style={{ 
+                      fontWeight: 800, 
+                      fontSize: '0.76rem', 
+                      color: isMD ? '#e0e7ff' : '#4f46e5',
+                      letterSpacing: '0.02em'
+                    }}>
+                      {isMD ? '👑 You (MD / Owner)' : `👤 ${c.authorName || 'Staff'} (Staff)`}
                     </span>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
-                      {new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    <span style={{ 
+                      fontSize: '0.68rem', 
+                      color: isMD ? 'rgba(255, 255, 255, 0.75)' : '#94a3b8' 
+                    }}>
+                      {c.createdAt ? new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently'}
                     </span>
                   </div>
-                  <p style={{ fontSize: '0.92rem', color: 'var(--text-primary)', margin: 0, whiteSpace: 'pre-wrap' }}>
+                  <p style={{ 
+                    fontSize: '0.92rem', 
+                    color: isMD ? '#ffffff' : '#1e293b', 
+                    margin: 0, 
+                    whiteSpace: 'pre-wrap',
+                    lineHeight: 1.45 
+                  }}>
                     {c.text}
                   </p>
                 </div>
               );
             })
           ) : (
-            <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '24px', fontStyle: 'italic' }}>
-              No updates or follow-up comments on this task yet.
+            <div style={{ textAlign: 'center', color: '#94a3b8', padding: '32px 16px', fontSize: '0.88rem' }}>
+              💬 No discussion notes yet. Write a message below to give instructions or ask staff for an update.
             </div>
           )}
         </div>
@@ -154,14 +214,32 @@ export default function TaskDetailModal({
           <input 
             type="text" 
             className="form-input" 
-            placeholder="Ask for update or reply..."
+            placeholder="Ask for update, give instructions or reply..."
             value={newCommentText}
             onChange={e => setNewCommentText(e.target.value)}
             required
-            style={{ flexGrow: 1 }}
+            style={{ 
+              flexGrow: 1, 
+              padding: '10px 14px', 
+              fontSize: '0.88rem', 
+              borderRadius: '12px',
+              border: '1.5px solid rgba(226, 232, 240, 0.95)'
+            }}
           />
-          <button type="submit" className="btn btn-primary" disabled={commentSubmitting} style={{ padding: '10px 16px' }}>
-            {commentSubmitting ? <Loader className="spinner" size={14} /> : <Send size={16} />}
+          <button 
+            type="submit" 
+            className="btn btn-primary" 
+            disabled={commentSubmitting} 
+            style={{ 
+              padding: '10px 18px', 
+              borderRadius: '12px',
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '6px',
+              background: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)' 
+            }}
+          >
+            {commentSubmitting ? <Loader className="spinner" size={16} /> : <Send size={16} />}
           </button>
         </form>
       </div>

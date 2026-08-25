@@ -1,24 +1,25 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { 
-  Users, 
-  Calendar, 
-  IndianRupee, 
-  ArrowUpRight, 
-  TrendingUp, 
-  LogOut, 
-  CheckCircle, 
-  Bell, 
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import {
+  Users,
+  Calendar,
+  IndianRupee,
+  ArrowUpRight,
+  TrendingUp,
+  LogOut,
+  CheckCircle,
+  Bell,
   MessageSquare,
   Settings as SettingsIcon,
   History,
   Receipt,
-  Plus,
   Loader,
-  Trash2
+  Trash2,
+  Clock
 } from 'lucide-react';
 
 // Import Modular Page Components
 import Login from './page/Login';
+import Notifications, { type NotificationItem } from './page/Notifications';
 import Dashboard from './page/Dashboard';
 import Labourers from './page/Labourers';
 import Attendance from './page/Attendance';
@@ -99,20 +100,98 @@ interface AdvanceRequest {
   };
 }
 
+class AlarmSoundEngine {
+  private audioCtx: AudioContext | null = null;
+  private intervalId: any = null;
+  public isRinging: boolean = false;
+
+  start() {
+    if (this.isRinging) return;
+    this.isRinging = true;
+
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+      this.audioCtx = new AudioContextClass();
+      if (this.audioCtx.state === 'suspended') {
+        this.audioCtx.resume();
+      }
+
+      const playBeep = () => {
+        if (!this.audioCtx || this.audioCtx.state === 'closed' || !this.isRinging) return;
+        try {
+          const osc1 = this.audioCtx.createOscillator();
+          const osc2 = this.audioCtx.createOscillator();
+          const gain = this.audioCtx.createGain();
+
+          osc1.type = 'sawtooth';
+          osc1.frequency.setValueAtTime(880, this.audioCtx.currentTime); // A5
+
+          osc2.type = 'square';
+          osc2.frequency.setValueAtTime(1760, this.audioCtx.currentTime); // A6
+
+          gain.gain.setValueAtTime(0.01, this.audioCtx.currentTime);
+          gain.gain.linearRampToValueAtTime(0.85, this.audioCtx.currentTime + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.001, this.audioCtx.currentTime + 0.15);
+
+          osc1.connect(gain);
+          osc2.connect(gain);
+          gain.connect(this.audioCtx.destination);
+
+          osc1.start(this.audioCtx.currentTime);
+          osc2.start(this.audioCtx.currentTime);
+          osc1.stop(this.audioCtx.currentTime + 0.16);
+          osc2.stop(this.audioCtx.currentTime + 0.16);
+        } catch (e) {}
+      };
+
+      playBeep();
+      setTimeout(playBeep, 160);
+
+      this.intervalId = setInterval(() => {
+        if (!this.isRinging) return;
+        playBeep();
+        setTimeout(playBeep, 160);
+      }, 850);
+    } catch (e) {
+      console.error('Alarm audio engine error:', e);
+    }
+  }
+
+  stop() {
+    this.isRinging = false;
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+      this.intervalId = null;
+    }
+    if (this.audioCtx) {
+      this.audioCtx.close().catch(() => {});
+      this.audioCtx = null;
+    }
+  }
+}
+
+const pcAlarmEngine = new AlarmSoundEngine();
+
 export default function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem('admin_token'));
   const [user, setUser] = useState<User | null>(null);
-  
+
   // Router Tab
-  const adminValidTabs = ['dashboard', 'labourers', 'attendance', 'salary', 'advances', 'advance-history', 'transaction-history', 'deleted-logs', 'reminders', 'tasks', 'chat', 'settings', 'profile'] as const;
+  const adminValidTabs = ['notifications', 'dashboard', 'labourers', 'attendance', 'salary', 'advances', 'advance-history', 'transaction-history', 'deleted-logs', 'reminders', 'tasks', 'chat', 'settings', 'profile'] as const;
   type AdminTabType = typeof adminValidTabs[number];
   const adminSavedTab = localStorage.getItem('admin_active_tab') as AdminTabType | null;
   const [activeTab, setActiveTab] = useState<AdminTabType>(adminSavedTab && adminValidTabs.includes(adminSavedTab) ? adminSavedTab : 'dashboard');
+  const [targetTaskId, setTargetTaskId] = useState<string | null>(null);
 
   const navigateTo = (tab: AdminTabType) => {
     localStorage.setItem('admin_active_tab', tab);
     setActiveTab(tab);
-    if (tab === 'reminders') {
+    if (tab === 'notifications') {
+      fetchTasks();
+      fetchAdvances();
+      fetchReminders();
+    } else if (tab === 'reminders') {
       fetchReminders();
     } else if (tab === 'tasks') {
       fetchTasks();
@@ -145,6 +224,7 @@ export default function App() {
 
   // Send Cash Modal States
   const [showCashModal, setShowCashModal] = useState(false);
+
   const [cashAmount, setCashAmount] = useState('');
   const [cashDesc, setCashDesc] = useState('');
   const [selectedStaffId, setSelectedStaffId] = useState('');
@@ -153,7 +233,7 @@ export default function App() {
 
   // Toast Notification State
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'danger' | 'warning' | 'info' } | null>(null);
-  
+
   // Custom Confirm Modal State
   const [confirmModal, setConfirmModal] = useState<{
     title: string;
@@ -163,6 +243,275 @@ export default function App() {
 
   // Selected Task comments overlay
   const [selectedTaskForComments, setSelectedTaskForComments] = useState<any | null>(null);
+
+  // Notification persistent read tracking state
+  const [readNotifIds, setReadNotifIds] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem('officepro_read_notif_ids');
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  const saveReadNotifIds = (newSet: Set<string>) => {
+    setReadNotifIds(newSet);
+    try {
+      localStorage.setItem('officepro_read_notif_ids', JSON.stringify(Array.from(newSet)));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleToggleNotificationRead = (id: string) => {
+    const next = new Set(readNotifIds);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    saveReadNotifIds(next);
+  };
+
+  const handleMarkAllNotificationsAsRead = () => {
+    const allIds = new Set(readNotifIds);
+    allNotifications.forEach(n => allIds.add(n.id));
+    saveReadNotifIds(allIds);
+    showToast('All notifications marked as read', 'success');
+  };
+
+  // Build aggregated notifications list from tasks, comments, advances, and reminders
+  const allNotifications = useMemo<NotificationItem[]>(() => {
+    const list: NotificationItem[] = [];
+
+    const getAvatarUrl = (userOrStaffObj?: any, nameOrUsername?: string) => {
+      if (userOrStaffObj?.imageUrl) {
+        const url = userOrStaffObj.imageUrl;
+        return url.startsWith('http') ? url : `${API_BASE}${url}`;
+      }
+
+      const targetKey = String(userOrStaffObj?._id || userOrStaffObj?.id || userOrStaffObj || nameOrUsername || '').trim().toLowerCase();
+      if (!targetKey) return undefined;
+
+      if (user) {
+        const ownerId = String(user.id || user._id || '').toLowerCase();
+        const ownerName = String(user.name || '').toLowerCase();
+        const ownerUsername = String(user.username || '').toLowerCase();
+        if (targetKey === ownerId || targetKey === ownerName || targetKey === ownerUsername || targetKey.includes('owner') || targetKey.includes('md') || targetKey.includes('admin')) {
+          if (user.imageUrl) {
+            return user.imageUrl.startsWith('http') ? user.imageUrl : `${API_BASE}${user.imageUrl}`;
+          }
+        }
+      }
+
+      const foundStaff = allStaff.find(s => {
+        const sId = String(s.id || s._id || '').toLowerCase();
+        const sName = String(s.name || '').toLowerCase();
+        const sUsername = String(s.username || '').toLowerCase();
+        return (targetKey && sId === targetKey) || (targetKey && sName === targetKey) || (targetKey && sUsername === targetKey) || (sName && sName.includes(targetKey)) || (targetKey && targetKey.includes(sName));
+      });
+
+      if (foundStaff?.imageUrl) {
+        return foundStaff.imageUrl.startsWith('http') ? foundStaff.imageUrl : `${API_BASE}${foundStaff.imageUrl}`;
+      }
+
+      const foundLabour = labours.find(l => {
+        const lId = String(l._id || '').toLowerCase();
+        const lName = String(l.name || '').toLowerCase();
+        return (targetKey && lId === targetKey) || (targetKey && lName === targetKey) || (lName && lName.includes(targetKey)) || (targetKey && targetKey.includes(lName));
+      });
+
+      if (foundLabour?.imageUrl) {
+        return foundLabour.imageUrl.startsWith('http') ? foundLabour.imageUrl : `${API_BASE}${foundLabour.imageUrl}`;
+      }
+
+      return undefined;
+    };
+
+    // 1. Tasks: New tasks logged by staff, completed tasks, staff comments, follow-ups
+    tasks.forEach(t => {
+      const taskId = String(t._id);
+      const isMDTask = t.createdByRole === 'owner' || t.taskType === 'reminder-sir';
+      const staffName = t.assignedTo?.name || t.createdBy?.name || 'Staff';
+      const staffImage = getAvatarUrl(t.assignedTo || t.createdBy, staffName);
+      const cleanDesc = (t.description || '').replace(/\[lang:(en|hi|ta)\]\s*/g, '').trim();
+
+      // Event A: New task logged by staff (EXCLUDE MD's own assigned tasks)
+      if (!isMDTask) {
+        list.push({
+          id: `notif_task_new_${taskId}`,
+          type: 'new_task',
+          title: `📌 New Task: ${t.title}`,
+          description: `Assigned to ${staffName}${cleanDesc ? ` • ${cleanDesc}` : ''}`,
+          timestamp: t.createdAt || new Date(),
+          taskId: taskId,
+          staffName: staffName,
+          staffImage: staffImage,
+          badge: 'New Task',
+          badgeColor: 'warning',
+          targetTab: 'tasks',
+          action: 'open_task',
+          isRead: readNotifIds.has(`notif_task_new_${taskId}`)
+        });
+      }
+
+      // Event B: Task completed by staff
+      if (t.status === 'completed') {
+        const compByName = t.completedBy?.name || staffName;
+        const compImage = getAvatarUrl(t.completedBy, compByName) || staffImage;
+        list.push({
+          id: `notif_task_comp_${taskId}`,
+          type: 'task_completed',
+          title: `✅ Completed: ${t.title}`,
+          description: `Completed by ${compByName}${t.remarks ? ` • Remarks: ${t.remarks}` : ''}`,
+          timestamp: t.completedAt || t.createdAt || new Date(),
+          taskId: taskId,
+          staffName: compByName,
+          staffImage: compImage,
+          badge: 'Completed',
+          badgeColor: 'success',
+          targetTab: 'tasks',
+          action: 'open_task',
+          isRead: readNotifIds.has(`notif_task_comp_${taskId}`)
+        });
+      }
+
+      // Event C: Comments & discussion notes (ONLY from staff, exclude MD/Owner comments)
+      if (Array.isArray(t.comments) && t.comments.length > 0) {
+        t.comments.forEach((c: any, cIdx: number) => {
+          const isMDComment = c.authorRole === 'owner' || 
+                              c.authorRole === 'admin' || 
+                              (c.authorName && (
+                                c.authorName.toLowerCase().includes('owner') || 
+                                c.authorName.toLowerCase().includes('director') || 
+                                c.authorName.toLowerCase().includes('sir') || 
+                                c.authorName.toLowerCase().includes('md')
+                              ));
+          
+          // Exclude MD's own comments from MD's feed!
+          if (isMDComment) return;
+
+          const commentId = `notif_task_comment_${taskId}_${c._id || cIdx || c.createdAt}`;
+          const authorImage = getAvatarUrl(undefined, c.authorName);
+          list.push({
+            id: commentId,
+            type: 'task_comment',
+            title: `💬 Staff Note on: ${t.title}`,
+            description: `${c.authorName || 'Staff'}: "${c.text}"`,
+            timestamp: c.createdAt || t.createdAt || new Date(),
+            taskId: taskId,
+            staffName: c.authorName || staffName,
+            staffImage: authorImage,
+            badge: 'Task Note',
+            badgeColor: 'info',
+            targetTab: 'tasks',
+            action: 'open_comments',
+            isRead: readNotifIds.has(commentId)
+          });
+        });
+      }
+
+      // Event D: Follow-up details updated by staff (only if task is staff-managed)
+      if (!isMDTask && (t.remarks || t.nextFollowup)) {
+        const updateId = `notif_task_update_${taskId}_${t.nextFollowup || ''}`;
+        list.push({
+          id: updateId,
+          type: 'task_update',
+          title: `📝 Follow-up: ${t.title}`,
+          description: `${t.remarks ? `Remarks: ${t.remarks}` : ''}${t.nextFollowup ? ` • Next: ${t.nextFollowup}` : ''}`.trim(),
+          timestamp: t.updatedAt || t.createdAt || new Date(),
+          taskId: taskId,
+          staffName: staffName,
+          staffImage: staffImage,
+          badge: 'Follow-up',
+          badgeColor: 'primary',
+          targetTab: 'tasks',
+          action: 'open_task',
+          isRead: readNotifIds.has(updateId)
+        });
+      }
+    });
+
+    // 2. Advance Requests from Staff
+    advances.forEach(a => {
+      const advId = String(a._id);
+      const notifId = `notif_advance_${advId}`;
+      const requesterName = a.requestedBy?.name || 'Staff';
+      const labourName = a.labourId?.name || 'Labourer';
+      const advImage = getAvatarUrl(a.labourId, labourName) || getAvatarUrl(a.requestedBy, requesterName);
+      list.push({
+        id: notifId,
+        type: 'advance_request',
+        title: `💸 Advance Request: ₹${a.amount.toLocaleString('en-IN')} for ${labourName}`,
+        description: `Requested by ${requesterName}${a.reason ? ` • Reason: ${a.reason}` : ''} • Status: ${a.status.toUpperCase()}`,
+        timestamp: a.date || new Date(),
+        advanceId: advId,
+        staffName: requesterName,
+        staffImage: advImage,
+        badge: a.status === 'pending' ? 'Pending Advance' : `Advance ${a.status}`,
+        badgeColor: a.status === 'pending' ? 'danger' : 'secondary',
+        targetTab: 'advances',
+        action: 'open_advance',
+        isRead: readNotifIds.has(notifId)
+      });
+    });
+
+    // 3. Staff Reminders (Only include staff self-reminders or staff alarms)
+    reminders.forEach(r => {
+      const isMDNotice = r.type !== 'self' && r.createdByRole === 'owner';
+      // Exclude MD's own broadcast notices from MD Panel
+      if (isMDNotice) return;
+
+      const remId = String(r._id);
+      const notifId = `notif_reminder_${remId}`;
+      const staffName = r.createdBy?.name || 'Staff';
+      list.push({
+        id: notifId,
+        type: 'reminder',
+        title: `🔔 Staff Reminder: ${r.message}`,
+        description: `Staff: ${staffName} • Target: ${new Date(r.targetDate).toLocaleDateString('en-GB')}`,
+        timestamp: r.createdAt || new Date(),
+        reminderId: remId,
+        staffName: staffName,
+        staffImage: getAvatarUrl(r.createdBy, staffName),
+        badge: 'Staff Reminder',
+        badgeColor: 'purple',
+        targetTab: 'reminders',
+        isRead: readNotifIds.has(notifId)
+      });
+    });
+
+    return list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  }, [tasks, advances, reminders, readNotifIds]);
+
+  const unreadNotificationCount = allNotifications.filter(n => !n.isRead).length;
+
+  const handleNotificationClick = (notif: NotificationItem) => {
+    // Mark as read immediately
+    const next = new Set(readNotifIds);
+    next.add(notif.id);
+    saveReadNotifIds(next);
+
+    // Redirect to Active Task List (or other specific tab)
+    if (notif.targetTab === 'tasks' || notif.taskId) {
+      if (notif.taskId) {
+        setTargetTaskId(notif.taskId);
+        if (notif.action === 'open_comments') {
+          const targetTask = tasks.find(t => String(t._id) === String(notif.taskId));
+          if (targetTask) {
+            setSelectedTaskForComments(targetTask);
+          }
+        }
+      }
+      navigateTo('tasks');
+    } else if (notif.targetTab === 'advances') {
+      navigateTo('advances');
+    } else if (notif.targetTab === 'reminders') {
+      navigateTo('reminders');
+    } else {
+      navigateTo('tasks');
+    }
+  };
 
   const showToast = useCallback((message: string, type: 'success' | 'danger' | 'warning' | 'info' = 'success') => {
     setToast({ message, type });
@@ -210,9 +559,9 @@ export default function App() {
     try {
       const res = await fetch(`${API_BASE}/expenses/cash-received`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` 
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           amount: parseFloat(cashAmount),
@@ -448,19 +797,19 @@ export default function App() {
     if (!('speechSynthesis' in window)) return null;
     const voices = window.speechSynthesis.getVoices();
     const isFemale = (name: string) => /zira|jenny|aria|ava|samantha|victoria|karen|female|woman|neerja|susan|catherine|hazel|heera|ayumi|haruka|yating|zhiyu/i.test(name);
-    
+
     // Strict priority for verified male voices
-    const maleVoice = voices.find(v => 
-      !isFemale(v.name) && 
-      (v.name.toLowerCase().includes('david') || 
-       v.name.toLowerCase().includes('mark') || 
-       v.name.toLowerCase().includes('george') || 
-       v.name.toLowerCase().includes('male') || 
-       v.name.toLowerCase().includes('guy') || 
-       v.name.toLowerCase().includes('madhur') || 
-       v.name.toLowerCase().includes('valluvar') || 
-       v.name.toLowerCase().includes('andrew') || 
-       v.name.toLowerCase().includes('brian')) && 
+    const maleVoice = voices.find(v =>
+      !isFemale(v.name) &&
+      (v.name.toLowerCase().includes('david') ||
+        v.name.toLowerCase().includes('mark') ||
+        v.name.toLowerCase().includes('george') ||
+        v.name.toLowerCase().includes('male') ||
+        v.name.toLowerCase().includes('guy') ||
+        v.name.toLowerCase().includes('madhur') ||
+        v.name.toLowerCase().includes('valluvar') ||
+        v.name.toLowerCase().includes('andrew') ||
+        v.name.toLowerCase().includes('brian')) &&
       (lang ? v.lang.startsWith(lang) : true)
     );
     if (maleVoice) return maleVoice;
@@ -518,8 +867,8 @@ export default function App() {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify({ 
-            text: cleanText, 
+          body: JSON.stringify({
+            text: cleanText,
             lang: activeLang
           }),
           signal: controller.signal
@@ -602,35 +951,57 @@ export default function App() {
     return (localStorage.getItem('officepro_voice_lang') as any) || 'en';
   });
 
+  useEffect(() => {
+    if (token && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+    // Pre-unlock speech synthesis audio on user click or key press
+    const unlockAudio = () => {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.resume();
+        const silentUtterance = new SpeechSynthesisUtterance('');
+        silentUtterance.volume = 0;
+        window.speechSynthesis.speak(silentUtterance);
+      }
+    };
+    window.addEventListener('click', unlockAudio, { once: true });
+    window.addEventListener('keydown', unlockAudio, { once: true });
+    return () => {
+      window.removeEventListener('click', unlockAudio);
+      window.removeEventListener('keydown', unlockAudio);
+    };
+  }, [token]);
+
   const getOwnerAnnouncementText = (
     type: 'new_task' | 'task_completed' | 'task_updated' | 'task_comment',
-    params: { staffName: string; title: string },
+    params: { staffName: string; title: string; commentText?: string },
     lang: 'en' | 'hi' | 'ta' = 'en'
   ) => {
-    const { staffName, title } = params;
+    const { staffName, title, commentText } = params;
+    const cleanComment = (commentText || '').replace(/[^\w\s\u0900-\u097F\u0B80-\u0BFF]/gi, '').trim();
     if (lang === 'hi') {
       if (type === 'new_task') return `Namaste Sir! ${staffName} ji ne aapke liye ek naya kaam add kiya hai: ${title}.`;
       if (type === 'task_completed') return `Namaste Sir! ${staffName} ji ne kaam safalta-purvak poora kar diya hai: ${title}.`;
-      if (type === 'task_comment') return `Namaste Sir! ${staffName} ji ne task "${title}" par naya comment bheja hai.`;
-      return `Namaste Sir! ${staffName} ji ne task "${title}" ka follow-up details update kiya hai.`;
+      if (type === 'task_comment') return `Namaste Sir! ${staffName} ji ne task "${title}" par naya reply bheja hai: ${cleanComment || 'Kripya check karein.'}`;
+      return `Namaste Sir! ${staffName} ji ne task "${title}" ka follow-up update kiya hai.`;
     }
     if (lang === 'ta') {
       if (type === 'new_task') return `Vanakkam Sir! ${staffName} ungalukkaga pudhiya velaip paniyai pathivu seidhaar: ${title}.`;
       if (type === 'task_completed') return `Vanakkam Sir! ${staffName} velaip paniyai vetrigaramaga mudithuvittaar: ${title}.`;
-      if (type === 'task_comment') return `Vanakkam Sir! ${staffName} velaip panikkana pudhiya kurinpai pathivu seidhaar: ${title}.`;
+      if (type === 'task_comment') return `Vanakkam Sir! ${staffName} velaip panikkana pudhiya kurinpai pathivu seidhaar: ${title}. ${cleanComment}`;
       return `Vanakkam Sir! ${staffName} velaip paniyin thodarpudaya vivarangalai maatriyullaar: ${title}.`;
     }
     // Default English - Warm, Sweet & Respectful
     if (type === 'new_task') return `Hello Sir, ${staffName} has logged a new work task for you: ${title}.`;
     if (type === 'task_completed') return `Hello Sir, ${staffName} has successfully completed the task: ${title}.`;
-    if (type === 'task_comment') return `Hello Sir, ${staffName} has posted a new update comment on: ${title}.`;
+    if (type === 'task_comment') return `Hello Sir, ${staffName} has replied on task "${title}": ${cleanComment || 'Please check.'}`;
     return `Hello Sir, ${staffName} has updated the follow-up details for: ${title}.`;
   };
 
   const isInitialOwnerTaskFetchRef = useRef(true);
-  const knownTaskMapRef = useRef<Map<string, { 
-    status: string; 
-    remarks: string; 
+  const knownTaskMapRef = useRef<Map<string, {
+    status: string;
+    remarks: string;
     nextFollowup: string;
     description: string;
     commentsCount: number;
@@ -676,12 +1047,12 @@ export default function App() {
 
             const currentOwnerId = user?._id || user?.id || '';
             const isCreatedByMD = mdCreatedTaskIdsRef.current.has(taskId) ||
-                                  (t.createdBy?._id && String(t.createdBy._id) === String(currentOwnerId)) ||
-                                  (t.createdBy?.id && String(t.createdBy.id) === String(currentOwnerId)) ||
-                                  (typeof t.createdBy === 'string' && String(t.createdBy) === String(currentOwnerId)) ||
-                                  t.createdByRole === 'owner' ||
-                                  t.createdBy?.role === 'owner' ||
-                                  t.taskType === 'reminder-sir';
+              (t.createdBy?._id && String(t.createdBy._id) === String(currentOwnerId)) ||
+              (t.createdBy?.id && String(t.createdBy.id) === String(currentOwnerId)) ||
+              (typeof t.createdBy === 'string' && String(t.createdBy) === String(currentOwnerId)) ||
+              t.createdByRole === 'owner' ||
+              t.createdBy?.role === 'owner' ||
+              t.taskType === 'reminder-sir';
 
             const taskLangMatch = t.description?.match(/\[lang:(en|hi|ta)\]/);
             const taskLang = ((t as any).language || (taskLangMatch ? taskLangMatch[1] : announcementLang) || 'en') as 'en' | 'hi' | 'ta';
@@ -736,14 +1107,33 @@ export default function App() {
                   description: currentDescription,
                   commentsCount: currentCommentsCount
                 });
-                if (!chimePlayedInBatch) {
-                  playLoudNotificationSound();
-                  chimePlayedInBatch = true;
+
+                // Check who sent the new comment(s) - EXCLUDE MD/Owner comments from announcing back to MD!
+                const newComments = Array.isArray(t.comments) ? t.comments.slice(prev.commentsCount) : [];
+                const staffComments = newComments.filter((c: any) => {
+                  const isMD = c.authorRole === 'owner' || 
+                               c.authorRole === 'admin' || 
+                               (c.authorName && (
+                                 c.authorName.toLowerCase().includes('owner') || 
+                                 c.authorName.toLowerCase().includes('director') || 
+                                 c.authorName.toLowerCase().includes('sir') || 
+                                 c.authorName.toLowerCase().includes('md')
+                               ));
+                  return !isMD;
+                });
+
+                if (staffComments.length > 0) {
+                  const latestStaffComment = staffComments[staffComments.length - 1];
+                  const commenterName = latestStaffComment.authorName || staffName;
+                  if (!chimePlayedInBatch) {
+                    playLoudNotificationSound();
+                    chimePlayedInBatch = true;
+                  }
+                  showToast(`💬 New update note from ${commenterName}: "${t.title}"`, 'info');
+                  triggerDesktopPushNotification(`💬 New Note from ${commenterName}!`, latestStaffComment.text || t.title);
+                  const announceText = getOwnerAnnouncementText('task_comment', { staffName: commenterName, title: t.title, commentText: latestStaffComment.text }, taskLang);
+                  pendingAnnouncements.push({ text: announceText, lang: taskLang });
                 }
-                showToast(`💬 New update note from ${staffName}: "${t.title}"`, 'info');
-                triggerDesktopPushNotification(`💬 New Note from ${staffName}!`, t.title);
-                const announceText = getOwnerAnnouncementText('task_comment', { staffName, title: t.title }, taskLang);
-                pendingAnnouncements.push({ text: announceText, lang: taskLang });
               }
               // Event 4: Staff updated remarks, follow-up date, or description
               else if (
@@ -798,6 +1188,101 @@ export default function App() {
     }
   };
 
+  // Active Reminder Alarm State for MD Panel
+  const [activeAlarmReminder, setActiveAlarmReminder] = useState<{
+    id: string;
+    title: string;
+    targetDate?: string;
+    staffName?: string;
+    language?: string;
+  } | null>(null);
+
+  const triggeredAlarmIdsRef = useRef<Set<string>>(new Set());
+  const snoozedAlarmMapRef = useRef<Map<string, number>>(new Map());
+
+  const getStoppedAlarmIds = (): Set<string> => {
+    try {
+      const stored = localStorage.getItem('officepro_md_stopped_alarms');
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch {
+      return new Set();
+    }
+  };
+
+  const markAlarmStoppedLocally = (id: string) => {
+    try {
+      const set = getStoppedAlarmIds();
+      set.add(id);
+      localStorage.setItem('officepro_md_stopped_alarms', JSON.stringify(Array.from(set)));
+    } catch {}
+  };
+
+  const speakAlarmVoice = async (staffName: string, reminderMessage: string, lang?: string) => {
+    const chosenLang = (lang || announcementLang || 'en') as 'en' | 'hi' | 'ta';
+    const cleanMsg = (reminderMessage || '').replace(/\[lang:(en|hi|ta)\]\s*/g, '').replace(/[^\w\s\u0900-\u097F\u0B80-\u0BFF]/gi, '');
+    const senderTag = staffName && staffName !== 'Staff' ? ` with ${staffName}` : '';
+    
+    let textToSpeak = `Managing Director Sir! Scheduled Reminder Alert${senderTag}: ${cleanMsg}.`;
+    if (chosenLang === 'hi') {
+      textToSpeak = `Namaste Managing Director Sir! ${staffName ? `${staffName} ji ka ` : ''}Zaroori Reminder Alert: ${cleanMsg}.`;
+    } else if (chosenLang === 'ta') {
+      textToSpeak = `Vanakkam Managing Director Sir! ${staffName ? `${staffName} ` : ''}Mukkiya ninaivuttal: ${cleanMsg}.`;
+    }
+
+    speakOwnerAnnouncement(textToSpeak, chosenLang);
+  };
+
+  // Check reminders every 2.5 seconds to trigger MD PC Alarm
+  useEffect(() => {
+    if (!token || !user || user.role !== 'owner' || !reminders || reminders.length === 0) return;
+
+    const checkRemindersForAlarm = () => {
+      const now = Date.now();
+      const stoppedIds = getStoppedAlarmIds();
+
+      reminders.forEach((r: any) => {
+        if (!r.targetDate || r.status === 'completed' || stoppedIds.has(r._id)) return;
+
+        const targetTime = new Date(r.targetDate).getTime();
+        if (isNaN(targetTime)) return;
+
+        const isSnoozed = snoozedAlarmMapRef.current.has(r._id) && now < snoozedAlarmMapRef.current.get(r._id)!;
+        const isAlreadyTriggered = triggeredAlarmIdsRef.current.has(r._id);
+
+        if (targetTime <= now && !isSnoozed && !isAlreadyTriggered && !activeAlarmReminder) {
+          // Ring Continuous Loud Alarm in MD Panel!
+          pcAlarmEngine.start();
+          const cleanMsg = (r.message || '').replace(/\[lang:(en|hi|ta)\]\s*/g, '');
+          const staffLabel = r.targetStaffId?.name || r.acknowledgedBy?.name || 'Staff';
+          
+          setActiveAlarmReminder({
+            id: r._id,
+            title: cleanMsg,
+            targetDate: r.targetDate,
+            staffName: staffLabel,
+            language: r.language
+          });
+
+          speakAlarmVoice(staffLabel, cleanMsg, r.language);
+          triggerDesktopPushNotification('⏰ REMINDER ALARM RINGING!', cleanMsg);
+          showToast(`⏰ REMINDER ALARM RINGING: ${cleanMsg}`, 'danger');
+        }
+      });
+    };
+
+    checkRemindersForAlarm();
+    const interval = setInterval(checkRemindersForAlarm, 2500);
+    return () => clearInterval(interval);
+  }, [token, user, reminders, activeAlarmReminder]);
+
+  // Poll reminders every 3.5 seconds in background so MD gets updated target dates from staff in real time
+  useEffect(() => {
+    if (!token || !user || user.role !== 'owner') return;
+    fetchReminders();
+    const interval = setInterval(fetchReminders, 3500);
+    return () => clearInterval(interval);
+  }, [token, user]);
+
   // Poll tasks every 2.5 seconds in background for real-time sound & voice notifications
   useEffect(() => {
     if (!token || !user || user.role !== 'owner') return;
@@ -819,10 +1304,10 @@ export default function App() {
       const groups = groupRes.ok ? await groupRes.json() : [];
       const groupCounts = Array.isArray(groups)
         ? groups.reduce((counts: Record<string, number>, group: any) => {
-            const unread = Number(group?.unreadCount || 0);
-            if (unread > 0) counts[`group:${group.id}`] = unread;
-            return counts;
-          }, {})
+          const unread = Number(group?.unreadCount || 0);
+          if (unread > 0) counts[`group:${group.id}`] = unread;
+          return counts;
+        }, {})
         : {};
 
       setUnreadCounts({ ...directCounts, ...groupCounts });
@@ -850,7 +1335,7 @@ export default function App() {
           return;
         }
       }
-      
+
       // Fallback: build staff from expenses database
       const expRes = await fetch(`${API_BASE}/expenses`, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -869,13 +1354,14 @@ export default function App() {
           return;
         }
       }
-      
+
       // Secondary fallback
       setAllStaff([{ id: 'mock_staff_id', username: 'staff', name: 'Office Staff', role: 'staff' }]);
     } catch (err) {
       console.error('Error fetching staff:', err);
     }
   };
+
 
   if (!token) {
     return <Login apiBase={API_BASE} onLoginSuccess={handleLoginSuccess} />;
@@ -885,9 +1371,24 @@ export default function App() {
 
   const renderContent = () => {
     switch (activeTab) {
+      case 'notifications':
+        return (
+          <Notifications
+            notifications={allNotifications}
+            onNotificationClick={handleNotificationClick}
+            onMarkAllAsRead={handleMarkAllNotificationsAsRead}
+            onToggleRead={handleToggleNotificationRead}
+            onRefreshFeed={() => {
+              fetchTasks();
+              fetchAdvances();
+              fetchReminders();
+              showToast('Notifications refreshed', 'info');
+            }}
+          />
+        );
       case 'dashboard':
         return (
-          <Dashboard 
+          <Dashboard
             expenses={expenses}
             balanceData={balanceData}
             onViewHistoryClick={() => navigateTo('transaction-history')}
@@ -895,7 +1396,7 @@ export default function App() {
         );
       case 'labourers':
         return (
-          <Labourers 
+          <Labourers
             token={token}
             apiBase={API_BASE}
             labours={labours}
@@ -908,7 +1409,7 @@ export default function App() {
 
       case 'attendance':
         return (
-          <Attendance 
+          <Attendance
             token={token}
             apiBase={API_BASE}
             labours={labours}
@@ -917,7 +1418,7 @@ export default function App() {
         );
       case 'salary':
         return (
-          <Salary 
+          <Salary
             token={token}
             apiBase={API_BASE}
             showToast={showToast}
@@ -925,7 +1426,7 @@ export default function App() {
         );
       case 'advances':
         return (
-          <Advances 
+          <Advances
             token={token}
             apiBase={API_BASE}
             advances={advances}
@@ -937,7 +1438,7 @@ export default function App() {
         );
       case 'advance-history':
         return (
-          <AdvanceHistory 
+          <AdvanceHistory
             token={token}
             apiBase={API_BASE}
             labours={labours}
@@ -950,7 +1451,7 @@ export default function App() {
         );
       case 'transaction-history':
         return (
-          <TransactionHistory 
+          <TransactionHistory
             token={token}
             apiBase={API_BASE}
             allStaff={allStaff}
@@ -959,7 +1460,7 @@ export default function App() {
         );
       case 'deleted-logs':
         return (
-          <DeletedLogs 
+          <DeletedLogs
             token={token}
             apiBase={API_BASE}
             showToast={showToast}
@@ -967,7 +1468,7 @@ export default function App() {
         );
       case 'reminders':
         return (
-          <Reminders 
+          <Reminders
             token={token}
             apiBase={API_BASE}
             reminders={reminders}
@@ -978,7 +1479,7 @@ export default function App() {
         );
       case 'tasks':
         return (
-          <Tasks 
+          <Tasks
             token={token}
             apiBase={API_BASE}
             tasks={tasks}
@@ -988,11 +1489,13 @@ export default function App() {
             setConfirmModal={setConfirmModal}
             showToast={showToast}
             onTaskCreatedLocally={registerMDTaskLocally}
+            targetTaskId={targetTaskId}
+            onClearTargetTaskId={() => setTargetTaskId(null)}
           />
         );
       case 'chat':
         return (
-          <Chat 
+          <Chat
             token={token}
             user={user}
             apiBase={API_BASE}
@@ -1003,7 +1506,7 @@ export default function App() {
         );
       case 'settings':
         return (
-          <Settings 
+          <Settings
             token={token}
             apiBase={API_BASE}
             allStaff={allStaff}
@@ -1013,7 +1516,7 @@ export default function App() {
         );
       case 'profile':
         return (
-          <Profile 
+          <Profile
             token={token}
             user={user}
             apiBase={API_BASE}
@@ -1036,33 +1539,28 @@ export default function App() {
         </div>
 
 
-        <div style={{ marginTop: '16px', marginBottom: '16px', padding: '0 4px' }}>
-          <button 
-            onClick={() => setShowCashModal(true)} 
-            className="btn btn-primary" 
-            style={{ width: '100%', padding: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 700, fontSize: '0.9rem', borderRadius: '8px', border: 'none', cursor: 'pointer' }}
-          >
-            <Plus size={16} /> Send Cash to Staff
-          </button>
-        </div>
-
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: '8px', flexGrow: 1 }}>
-          <button 
-            onClick={() => navigateTo('dashboard')} 
-            className={`nav-link btn-secondary ${activeTab === 'dashboard' ? 'active' : ''}`}
+        <nav style={{ display: 'flex', flexDirection: 'column', gap: '8px', flexGrow: 1, marginTop: '16px' }}>
+          <button
+            onClick={() => navigateTo('notifications')}
+            className={`nav-link btn-secondary ${activeTab === 'notifications' ? 'active' : ''}`}
             style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
           >
-            <TrendingUp size={18} /> Dashboard
+            <Bell size={18} /> Notifications
+            {unreadNotificationCount > 0 && (
+              <span className="badge badge-danger" style={{ marginLeft: 'auto', padding: '2px 6px' }}>
+                {unreadNotificationCount}
+              </span>
+            )}
           </button>
-          <button 
-            onClick={() => navigateTo('reminders')} 
+          <button
+            onClick={() => navigateTo('reminders')}
             className={`nav-link btn-secondary ${activeTab === 'reminders' ? 'active' : ''}`}
             style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
           >
             <Bell size={18} /> Staff Reminders
           </button>
-          <button 
-            onClick={() => navigateTo('tasks')} 
+          <button
+            onClick={() => navigateTo('tasks')}
             className={`nav-link btn-secondary ${activeTab === 'tasks' ? 'active' : ''}`}
             style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
           >
@@ -1073,8 +1571,8 @@ export default function App() {
               </span>
             )}
           </button>
-          <button 
-            onClick={() => navigateTo('chat')} 
+          <button
+            onClick={() => navigateTo('chat')}
             className={`nav-link btn-secondary ${activeTab === 'chat' ? 'active' : ''}`}
             style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
           >
@@ -1085,8 +1583,8 @@ export default function App() {
               </span>
             )}
           </button>
-          <button 
-            onClick={() => navigateTo('settings')} 
+          <button
+            onClick={() => navigateTo('settings')}
             className={`nav-link btn-secondary ${activeTab === 'settings' ? 'active' : ''}`}
             style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
           >
@@ -1095,29 +1593,29 @@ export default function App() {
 
           <hr style={{ border: 'none', borderTop: '1px solid var(--glass-border)', margin: '8px 0' }} />
 
-          <button 
-            onClick={() => navigateTo('labourers')} 
+          <button
+            onClick={() => navigateTo('labourers')}
             className={`nav-link btn-secondary ${activeTab === 'labourers' ? 'active' : ''}`}
             style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
           >
             <Users size={18} /> Labour Directory
           </button>
-          <button 
-            onClick={() => navigateTo('attendance')} 
+          <button
+            onClick={() => navigateTo('attendance')}
             className={`nav-link btn-secondary ${activeTab === 'attendance' ? 'active' : ''}`}
             style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
           >
             <Calendar size={18} /> Attendance Ledger
           </button>
-          <button 
-            onClick={() => navigateTo('salary')} 
+          <button
+            onClick={() => navigateTo('salary')}
             className={`nav-link btn-secondary ${activeTab === 'salary' ? 'active' : ''}`}
             style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
           >
             <IndianRupee size={18} /> Salary Generator
           </button>
-          <button 
-            onClick={() => navigateTo('advances')} 
+          <button
+            onClick={() => navigateTo('advances')}
             className={`nav-link btn-secondary ${activeTab === 'advances' ? 'active' : ''}`}
             style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
           >
@@ -1128,22 +1626,29 @@ export default function App() {
               </span>
             )}
           </button>
-          <button 
-            onClick={() => navigateTo('advance-history')} 
+          <button
+            onClick={() => navigateTo('advance-history')}
             className={`nav-link btn-secondary ${activeTab === 'advance-history' ? 'active' : ''}`}
             style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
           >
             <History size={18} /> Advance Ledger
           </button>
-          <button 
-            onClick={() => navigateTo('transaction-history')} 
+          <button
+            onClick={() => navigateTo('dashboard')}
+            className={`nav-link btn-secondary ${activeTab === 'dashboard' ? 'active' : ''}`}
+            style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
+          >
+            <TrendingUp size={18} /> Expenses Desk
+          </button>
+          <button
+            onClick={() => navigateTo('transaction-history')}
             className={`nav-link btn-secondary ${activeTab === 'transaction-history' ? 'active' : ''}`}
             style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
           >
             <Receipt size={18} /> Transaction History
           </button>
-          <button 
-            onClick={() => navigateTo('deleted-logs')} 
+          <button
+            onClick={() => navigateTo('deleted-logs')}
             className={`nav-link btn-secondary ${activeTab === 'deleted-logs' ? 'active' : ''}`}
             style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
           >
@@ -1152,14 +1657,14 @@ export default function App() {
         </nav>
 
         <div style={{ marginTop: 'auto' }}>
-          <div 
+          <div
             onClick={() => navigateTo('profile')}
             className={`profile-bottom-btn ${activeTab === 'profile' ? 'active' : ''}`}
-            style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '12px', 
-              marginBottom: '16px', 
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              marginBottom: '16px',
               cursor: 'pointer',
               padding: '8px',
               borderRadius: '8px',
@@ -1168,10 +1673,10 @@ export default function App() {
             }}
           >
             {user?.imageUrl ? (
-              <img 
-                src={user.imageUrl} 
-                alt={user.name} 
-                style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--glass-border)' }} 
+              <img
+                src={user.imageUrl}
+                alt={user.name}
+                style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--glass-border)' }}
               />
             ) : (
               <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
@@ -1190,13 +1695,13 @@ export default function App() {
       </aside>
 
       {/* Main Content */}
-      <main className={`main-content ${activeTab === 'settings' ? 'settings-main-content' : ''}`}>
+      <main className={`main-content ${activeTab === 'settings' ? 'settings-main-content' : ''} ${activeTab === 'notifications' ? 'notifications-main-content' : ''}`}>
         {renderContent()}
       </main>
 
       {/* MODAL: TASK COMMENTS / FOLLOW-UP */}
       {selectedTaskForComments && (
-        <TaskDetailModal 
+        <TaskDetailModal
           task={selectedTaskForComments}
           token={token}
           apiBase={API_BASE}
@@ -1228,20 +1733,20 @@ export default function App() {
           <div className="glass-panel glass-panel-glow animate-fade-in" style={{ width: '100%', maxWidth: '440px', padding: '32px', textAlign: 'center' }}>
             <h3 className="gradient-text" style={{ fontSize: '1.45rem', fontWeight: 800, marginBottom: '16px' }}>{confirmModal.title}</h3>
             <p style={{ color: 'var(--text-secondary)', marginBottom: '28px', lineHeight: '1.6', fontSize: '1.05rem' }}>{confirmModal.message}</p>
-            
+
             <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
-              <button 
+              <button
                 onClick={() => {
                   confirmModal.onConfirm();
                   setConfirmModal(null);
-                }} 
+                }}
                 className="btn btn-primary"
                 style={{ padding: '10px 28px', fontWeight: 'bold' }}
               >
                 Confirm
               </button>
-              <button 
-                onClick={() => setConfirmModal(null)} 
+              <button
+                onClick={() => setConfirmModal(null)}
                 className="btn btn-secondary"
                 style={{ padding: '10px 28px', fontWeight: 'bold' }}
               >
@@ -1263,7 +1768,7 @@ export default function App() {
             <form onSubmit={handleGiveCash}>
               <div className="form-group" style={{ marginBottom: '16px' }}>
                 <label className="form-label">Select Staff Member</label>
-                <select 
+                <select
                   className="form-input"
                   value={selectedStaffId}
                   onChange={e => setSelectedStaffId(e.target.value)}
@@ -1279,9 +1784,9 @@ export default function App() {
 
               <div className="form-group" style={{ marginBottom: '16px' }}>
                 <label className="form-label">Amount (₹)</label>
-                <input 
-                  type="number" 
-                  className="form-input" 
+                <input
+                  type="number"
+                  className="form-input"
                   placeholder="e.g. 50000"
                   value={cashAmount}
                   onChange={e => setCashAmount(e.target.value)}
@@ -1292,7 +1797,7 @@ export default function App() {
 
               <div className="form-group" style={{ marginBottom: '16px' }}>
                 <label className="form-label">Payment Mode</label>
-                <select 
+                <select
                   className="form-input"
                   value={cashPaymentMode}
                   onChange={e => setCashPaymentMode(e.target.value as any)}
@@ -1306,9 +1811,9 @@ export default function App() {
 
               <div className="form-group" style={{ marginBottom: '24px' }}>
                 <label className="form-label">Description / Remarks</label>
-                <input 
-                  type="text" 
-                  className="form-input" 
+                <input
+                  type="text"
+                  className="form-input"
                   placeholder="e.g. Monthly cash expenses budget"
                   value={cashDesc}
                   onChange={e => setCashDesc(e.target.value)}
@@ -1325,6 +1830,136 @@ export default function App() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Active Alarm Fullscreen Popup Alert */}
+      {activeAlarmReminder && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(15, 23, 42, 0.85)',
+          backdropFilter: 'blur(8px)',
+          zIndex: 99999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px'
+        }}>
+          <div style={{
+            background: 'linear-gradient(145deg, #1e293b, #0f172a)',
+            border: '2px solid #ef4444',
+            borderRadius: '24px',
+            padding: '36px',
+            maxWidth: '520px',
+            width: '100%',
+            color: '#ffffff',
+            boxShadow: '0 25px 60px -15px rgba(239, 68, 68, 0.5), 0 0 40px rgba(239, 68, 68, 0.35)',
+            textAlign: 'center'
+          }}>
+            <div style={{
+              display: 'inline-flex',
+              padding: '16px',
+              borderRadius: '50%',
+              background: 'rgba(239, 68, 68, 0.2)',
+              color: '#ef4444',
+              marginBottom: '20px',
+              fontSize: '2.2rem'
+            }}>
+              🔔
+            </div>
+
+            <div style={{
+              fontSize: '0.85rem',
+              fontWeight: 800,
+              textTransform: 'uppercase',
+              letterSpacing: '0.1em',
+              color: '#f87171',
+              marginBottom: '8px'
+            }}>
+              ⏰ REMINDER ALARM RINGING!
+            </div>
+
+            <h2 style={{ fontSize: '1.45rem', fontWeight: 800, margin: '0 0 12px 0', lineHeight: 1.3 }}>
+              {activeAlarmReminder.title}
+            </h2>
+
+            {activeAlarmReminder.staffName && (
+              <p style={{ fontSize: '0.9rem', color: '#94a3b8', marginBottom: '8px' }}>
+                Assigned to / Set by: <strong style={{ color: '#ffffff' }}>{activeAlarmReminder.staffName}</strong>
+              </p>
+            )}
+
+            <p style={{ fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '28px' }}>
+              Scheduled reminder time has arrived. Please review this notice.
+            </p>
+
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  pcAlarmEngine.stop();
+                  snoozedAlarmMapRef.current.set(activeAlarmReminder.id, Date.now() + 5 * 60 * 1000);
+                  setActiveAlarmReminder(null);
+                  showToast('⏰ Alarm snoozed for 5 minutes', 'info');
+                }}
+                style={{
+                  flex: 1,
+                  padding: '14px 16px',
+                  borderRadius: '14px',
+                  background: 'rgba(255, 255, 255, 0.12)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  color: '#ffffff',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}
+              >
+                <Clock size={16} /> Snooze 5 Min
+              </button>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  pcAlarmEngine.stop();
+                  triggeredAlarmIdsRef.current.add(activeAlarmReminder.id);
+                  markAlarmStoppedLocally(activeAlarmReminder.id);
+                  try {
+                    await fetch(`${API_BASE}/reminders/${activeAlarmReminder.id}/stop-alarm`, {
+                      method: 'POST',
+                      headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    fetchReminders();
+                  } catch (e) {}
+                  setActiveAlarmReminder(null);
+                  showToast('🔕 Alarm stopped & reminder completed', 'success');
+                }}
+                style={{
+                  flex: 1,
+                  padding: '14px 16px',
+                  borderRadius: '14px',
+                  background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                  border: 'none',
+                  color: '#ffffff',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 14px rgba(239, 68, 68, 0.4)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px'
+                }}
+              >
+                🔕 Stop Alarm
+              </button>
+            </div>
           </div>
         </div>
       )}
