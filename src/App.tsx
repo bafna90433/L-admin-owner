@@ -683,6 +683,9 @@ export default function App() {
                                   t.createdBy?.role === 'owner' ||
                                   t.taskType === 'reminder-sir';
 
+            const taskLangMatch = t.description?.match(/\[lang:(en|hi|ta)\]/);
+            const taskLang = ((t as any).language || (taskLangMatch ? taskLangMatch[1] : announcementLang) || 'en') as 'en' | 'hi' | 'ta';
+
             // Event 1: New task logged by Staff
             if (!prev) {
               knownTaskMapRef.current.set(taskId, {
@@ -701,8 +704,8 @@ export default function App() {
                 }
                 showToast(`📌 New Work Logged by ${staffName}: "${t.title}"`, 'warning');
                 triggerDesktopPushNotification(`📌 New Work by ${staffName}!`, t.title);
-                const announceText = getOwnerAnnouncementText('new_task', { staffName, title: t.title }, announcementLang);
-                pendingAnnouncements.push({ text: announceText, lang: announcementLang });
+                const announceText = getOwnerAnnouncementText('new_task', { staffName, title: t.title }, taskLang);
+                pendingAnnouncements.push({ text: announceText, lang: taskLang });
               }
             } else {
               // Event 2: Task completed by Staff
@@ -721,8 +724,8 @@ export default function App() {
                 }
                 showToast(`✅ Work Completed by ${completedByName}: "${t.title}"`, 'success');
                 triggerDesktopPushNotification(`✅ Work Completed by ${completedByName}!`, t.title);
-                const announceText = getOwnerAnnouncementText('task_completed', { staffName: completedByName, title: t.title }, announcementLang);
-                pendingAnnouncements.push({ text: announceText, lang: announcementLang });
+                const announceText = getOwnerAnnouncementText('task_completed', { staffName: completedByName, title: t.title }, taskLang);
+                pendingAnnouncements.push({ text: announceText, lang: taskLang });
               }
               // Event 3: Staff posted a new comment / discussion note
               else if (currentCommentsCount > prev.commentsCount) {
@@ -739,8 +742,8 @@ export default function App() {
                 }
                 showToast(`💬 New update note from ${staffName}: "${t.title}"`, 'info');
                 triggerDesktopPushNotification(`💬 New Note from ${staffName}!`, t.title);
-                const announceText = getOwnerAnnouncementText('task_comment', { staffName, title: t.title }, announcementLang);
-                pendingAnnouncements.push({ text: announceText, lang: announcementLang });
+                const announceText = getOwnerAnnouncementText('task_comment', { staffName, title: t.title }, taskLang);
+                pendingAnnouncements.push({ text: announceText, lang: taskLang });
               }
               // Event 4: Staff updated remarks, follow-up date, or description
               else if (
@@ -761,8 +764,8 @@ export default function App() {
                 }
                 showToast(`📝 Follow-up details updated by ${staffName}: "${t.title}"`, 'info');
                 triggerDesktopPushNotification(`📝 Follow-up Updated by ${staffName}!`, t.title);
-                const announceText = getOwnerAnnouncementText('task_updated', { staffName, title: t.title }, announcementLang);
-                pendingAnnouncements.push({ text: announceText, lang: announcementLang });
+                const announceText = getOwnerAnnouncementText('task_updated', { staffName, title: t.title }, taskLang);
+                pendingAnnouncements.push({ text: announceText, lang: taskLang });
               }
             }
           });
