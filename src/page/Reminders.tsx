@@ -41,7 +41,7 @@ export default function Reminders({
   fetchReminders,
   showToast
 }: RemindersProps) {
-  const [newRemMsg, setNewRemMsg] = useState('remind me');
+  const [newRemMsg, setNewRemMsg] = useState('');
   const [targetStaffId, setTargetStaffId] = useState('');
   const [remVoiceLang, setRemVoiceLang] = useState<'en' | 'hi' | 'ta'>('en');
   const [remSubmitting, setRemSubmitting] = useState(false);
@@ -83,7 +83,8 @@ export default function Reminders({
       };
 
       if (!editingReminderId) {
-        payload.targetDate = new Date().toISOString();
+        // Set placeholder future date until staff sets the exact date/time in Staff Desk
+        payload.targetDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
       }
 
       const res = await fetch(url, {
@@ -95,7 +96,7 @@ export default function Reminders({
         body: JSON.stringify(payload)
       });
       if (res.ok) {
-        setNewRemMsg('remind me');
+        setNewRemMsg('');
         setTargetStaffId('');
         setRemVoiceLang('en');
         setEditingReminderId(null);
@@ -221,7 +222,7 @@ export default function Reminders({
               <label className="form-label">Message / Itinerary</label>
               <textarea 
                 className="form-input"
-                placeholder="e.g. Owner going to Mumbai for client meeting on June 15"
+                placeholder="Enter instructions or reminder notice (e.g. Me kall room jaunga mujhe yaad dilao)..."
                 value={newRemMsg}
                 onChange={e => setNewRemMsg(e.target.value)}
                 style={{ minHeight: '80px', resize: 'vertical' }}
@@ -303,17 +304,23 @@ export default function Reminders({
           <div className="reminder-history-list">
             {filteredReminders.map((rem) => {
               const timeDiff = new Date(rem.targetDate).getTime() - Date.now();
-              const isUrgent = rem.status === 'pending' && timeDiff <= 10 * 60 * 1000;
+              const isUrgent = rem.status === 'acknowledged' && timeDiff <= 10 * 60 * 1000 && timeDiff > -1000 * 60 * 60 * 24;
               const isPersonal = rem.type === 'self';
               const cleanDisplayMsg = (rem.message || '').replace(/\[lang:(en|hi|ta)\]\s*/g, '').trim();
               
               return (
               <div key={rem._id} className={`reminder-history-card ${isUrgent ? 'urgent-pulse' : ''}`} style={isUrgent ? { border: '2px solid var(--color-danger)' } : isPersonal ? { borderLeft: '4px solid #6366f1' } : {}}>
                 <div className="flex-between" style={{ marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
-                  <span className={`badge ${isUrgent ? 'badge-danger' : 'badge-info'}`} style={{ fontWeight: 700 }}>
-                    {isUrgent && <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: '#fff', marginRight: '6px', animation: 'blinkDot 1s infinite' }} />}
-                    TARGET: {new Date(rem.targetDate).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' })}
-                  </span>
+                  {rem.status === 'acknowledged' || isPersonal ? (
+                    <span className={`badge ${isUrgent ? 'badge-danger' : 'badge-info'}`} style={{ fontWeight: 700 }}>
+                      {isUrgent && <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: '#fff', marginRight: '6px', animation: 'blinkDot 1s infinite' }} />}
+                      ⏰ ALARM: {new Date(rem.targetDate).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' })}
+                    </span>
+                  ) : (
+                    <span className="badge badge-warning" style={{ fontWeight: 700 }}>
+                      ⏳ Awaiting Staff Schedule
+                    </span>
+                  )}
 
                   {isPersonal ? (
                     <span className="badge badge-info" style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#3730a3', fontWeight: 600 }}>

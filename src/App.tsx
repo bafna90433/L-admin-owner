@@ -977,25 +977,24 @@ export default function App() {
     params: { staffName: string; title: string; commentText?: string },
     lang: 'en' | 'hi' | 'ta' = 'en'
   ) => {
-    const { staffName, title, commentText } = params;
-    const cleanComment = (commentText || '').replace(/[^\w\s\u0900-\u097F\u0B80-\u0BFF]/gi, '').trim();
+    const { staffName } = params;
     if (lang === 'hi') {
-      if (type === 'new_task') return `Namaste Sir! ${staffName} ji ne aapke liye ek naya kaam add kiya hai: ${title}.`;
-      if (type === 'task_completed') return `Namaste Sir! ${staffName} ji ne kaam safalta-purvak poora kar diya hai: ${title}.`;
-      if (type === 'task_comment') return `Namaste Sir! ${staffName} ji ne task "${title}" par naya reply bheja hai: ${cleanComment || 'Kripya check karein.'}`;
-      return `Namaste Sir! ${staffName} ji ne task "${title}" ka follow-up update kiya hai.`;
+      if (type === 'new_task') return `Notification: ${staffName} ji ne naya task add kiya hai.`;
+      if (type === 'task_completed') return `Notification: ${staffName} ji ne kaam complete kiya.`;
+      if (type === 'task_comment') return `Notification: ${staffName} ji ka naya message.`;
+      return `Notification: ${staffName} ji ka follow-up update.`;
     }
     if (lang === 'ta') {
-      if (type === 'new_task') return `Vanakkam Sir! ${staffName} ungalukkaga pudhiya velaip paniyai pathivu seidhaar: ${title}.`;
-      if (type === 'task_completed') return `Vanakkam Sir! ${staffName} velaip paniyai vetrigaramaga mudithuvittaar: ${title}.`;
-      if (type === 'task_comment') return `Vanakkam Sir! ${staffName} velaip panikkana pudhiya kurinpai pathivu seidhaar: ${title}. ${cleanComment}`;
-      return `Vanakkam Sir! ${staffName} velaip paniyin thodarpudaya vivarangalai maatriyullaar: ${title}.`;
+      if (type === 'new_task') return `Notification: ${staffName} pudhiya task.`;
+      if (type === 'task_completed') return `Notification: ${staffName} velai mudithaar.`;
+      if (type === 'task_comment') return `Notification from ${staffName}.`;
+      return `Notification: ${staffName} follow-up update.`;
     }
-    // Default English - Warm, Sweet & Respectful
-    if (type === 'new_task') return `Hello Sir, ${staffName} has logged a new work task for you: ${title}.`;
-    if (type === 'task_completed') return `Hello Sir, ${staffName} has successfully completed the task: ${title}.`;
-    if (type === 'task_comment') return `Hello Sir, ${staffName} has replied on task "${title}": ${cleanComment || 'Please check.'}`;
-    return `Hello Sir, ${staffName} has updated the follow-up details for: ${title}.`;
+    // Default English - Short, Crisp Notification for MD
+    if (type === 'new_task') return `Notification: New task from ${staffName}.`;
+    if (type === 'task_completed') return `Notification: Task completed by ${staffName}.`;
+    if (type === 'task_comment') return `Notification from ${staffName}.`;
+    return `Notification: Update from ${staffName}.`;
   };
 
   const isInitialOwnerTaskFetchRef = useRef(true);
@@ -1242,6 +1241,14 @@ export default function App() {
 
       reminders.forEach((r: any) => {
         if (!r.targetDate || r.status === 'completed' || stoppedIds.has(r._id)) return;
+
+        // If it's an MD broadcast notice:
+        // ONLY ring alarm if staff has set date/time & armed the alarm (r.status === 'acknowledged')!
+        // If r.status === 'pending', staff has not scheduled the alarm time yet, so DO NOT ring alarm!
+        const isBroadcastNotice = r.type !== 'self';
+        if (isBroadcastNotice && r.status !== 'acknowledged') {
+          return;
+        }
 
         const targetTime = new Date(r.targetDate).getTime();
         if (isNaN(targetTime)) return;
