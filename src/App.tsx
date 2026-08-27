@@ -351,7 +351,7 @@ export default function App() {
           badgeColor: 'warning',
           targetTab: 'tasks',
           action: 'open_task',
-          isRead: readNotifIds.has(`notif_task_new_${taskId}`)
+          isRead: readNotifIds.has(`notif_task_new_${taskId}`) || !!t.seenByOwner
         });
       }
 
@@ -372,7 +372,7 @@ export default function App() {
           badgeColor: 'success',
           targetTab: 'tasks',
           action: 'open_task',
-          isRead: readNotifIds.has(`notif_task_comp_${taskId}`)
+          isRead: readNotifIds.has(`notif_task_comp_${taskId}`) || !!t.seenByOwner
         });
       }
 
@@ -491,6 +491,17 @@ export default function App() {
     const next = new Set(readNotifIds);
     next.add(notif.id);
     saveReadNotifIds(next);
+
+    // If task notification, mark seen on server
+    if (notif.taskId) {
+      fetch(`${API_BASE}/tasks/${notif.taskId}/seen`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      }).then(() => fetchTasks()).catch(() => {});
+    }
 
     // Redirect to Active Task List (or other specific tab)
     if (notif.targetTab === 'tasks' || notif.taskId) {
@@ -1385,6 +1396,13 @@ export default function App() {
             onNotificationClick={handleNotificationClick}
             onMarkAllAsRead={handleMarkAllNotificationsAsRead}
             onToggleRead={handleToggleNotificationRead}
+            onClearHistory={() => {
+              setReadNotifIds(new Set());
+              try {
+                localStorage.removeItem('officepro_read_notif_ids');
+              } catch (e) {}
+              showToast('Read history cleared', 'success');
+            }}
             onRefreshFeed={() => {
               fetchTasks();
               fetchAdvances();

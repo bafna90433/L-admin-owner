@@ -44,6 +44,7 @@ interface NotificationsProps {
 export default function Notifications({
   notifications,
   onNotificationClick,
+  onMarkAllAsRead,
   onToggleRead,
   onClearHistory,
   onRefreshFeed
@@ -51,18 +52,25 @@ export default function Notifications({
   const [filterType, setFilterType] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Stats calculation
-  const totalCount = notifications.length;
+  // Stats calculation (Active Unread counts)
   const unreadCount = notifications.filter(n => !n.isRead).length;
-  const newTasksCount = notifications.filter(n => n.type === 'new_task').length;
-  const completedTasksCount = notifications.filter(n => n.type === 'task_completed').length;
-  const commentsCount = notifications.filter(n => n.type === 'task_comment').length;
-  const advancesCount = notifications.filter(n => n.type === 'advance_request').length;
+  const newTasksCount = notifications.filter(n => !n.isRead && n.type === 'new_task').length;
+  const completedTasksCount = notifications.filter(n => !n.isRead && n.type === 'task_completed').length;
+  const commentsCount = notifications.filter(n => !n.isRead && n.type === 'task_comment').length;
+  const advancesCount = notifications.filter(n => !n.isRead && n.type === 'advance_request').length;
+  const readHistoryCount = notifications.filter(n => n.isRead).length;
 
-  // Filter and Search Logic
+  // Filter and Search Logic: Hide already viewed/selected/read items from the active view
   const filteredNotifications = useMemo(() => {
     return notifications.filter(item => {
-      if (filterType === 'unread' && item.isRead) return false;
+      // If viewed/read history tab is selected, show read items
+      if (filterType === 'read_history') {
+        if (!item.isRead) return false;
+      } else {
+        // In all active feeds, hide items that have been viewed / read / selected by MD
+        if (item.isRead) return false;
+      }
+
       if (filterType === 'new_task' && item.type !== 'new_task') return false;
       if (filterType === 'task_completed' && item.type !== 'task_completed') return false;
       if (filterType === 'task_comment' && item.type !== 'task_comment') return false;
@@ -124,9 +132,13 @@ export default function Notifications({
                 <span className="live-feed-badge">
                   <span className="live-feed-dot" /> Live Connected
                 </span>
-                {unreadCount > 0 && (
+                {unreadCount > 0 ? (
                   <span className="pill-tag blinking-tag">
                     🔴 {unreadCount} New Alerts
+                  </span>
+                ) : (
+                  <span className="pill-tag" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>
+                    ✅ All Caught Up
                   </span>
                 )}
               </div>
@@ -142,11 +154,20 @@ export default function Notifications({
                 <Sparkles size={14} /> Refresh
               </button>
             )}
-            {onClearHistory && (
+            {onMarkAllAsRead && unreadCount > 0 && (
+              <button
+                onClick={onMarkAllAsRead}
+                className="deck-action-btn"
+                title="Mark all notifications as read / seen"
+              >
+                <CheckCircle2 size={14} /> Mark All Read
+              </button>
+            )}
+            {onClearHistory && readHistoryCount > 0 && (
               <button
                 onClick={onClearHistory}
                 className="deck-action-btn"
-                title="Clear read notifications from list"
+                title="Clear read notifications from history"
               >
                 <Trash2 size={14} /> Clear Read
               </button>
@@ -164,20 +185,7 @@ export default function Notifications({
               <Bell size={17} />
             </div>
             <div className="metric-info">
-              <span className="metric-label">Total Alerts</span>
-              <span className="metric-value">{totalCount}</span>
-            </div>
-          </div>
-
-          <div 
-            className={`deck-metric-card unread ${filterType === 'unread' ? 'active-metric' : ''}`}
-            onClick={() => setFilterType('unread')}
-          >
-            <div className="metric-icon-box">
-              <Clock size={17} />
-            </div>
-            <div className="metric-info">
-              <span className="metric-label">Unread</span>
+              <span className="metric-label">Active Alerts</span>
               <span className="metric-value">{unreadCount}</span>
             </div>
           </div>
@@ -220,6 +228,19 @@ export default function Notifications({
               <span className="metric-value">{advancesCount}</span>
             </div>
           </div>
+
+          <div 
+            className={`deck-metric-card unread ${filterType === 'read_history' ? 'active-metric' : ''}`}
+            onClick={() => setFilterType('read_history')}
+          >
+            <div className="metric-icon-box">
+              <Clock size={17} />
+            </div>
+            <div className="metric-info">
+              <span className="metric-label">Viewed / Read</span>
+              <span className="metric-value">{readHistoryCount}</span>
+            </div>
+          </div>
         </div>
 
         {/* Tier 3: Segmented Filters + Modern Search */}
@@ -230,14 +251,7 @@ export default function Notifications({
               className={`deck-filter-tab ${filterType === 'all' ? 'active' : ''}`}
               onClick={() => setFilterType('all')}
             >
-              All <span className="deck-tab-count">{totalCount}</span>
-            </button>
-            <button
-              type="button"
-              className={`deck-filter-tab ${filterType === 'unread' ? 'active' : ''}`}
-              onClick={() => setFilterType('unread')}
-            >
-              🔴 Unread <span className="deck-tab-count">{unreadCount}</span>
+              ⚡ Active Alerts <span className="deck-tab-count">{unreadCount}</span>
             </button>
             <button
               type="button"
@@ -266,6 +280,13 @@ export default function Notifications({
               onClick={() => setFilterType('advance_request')}
             >
               💸 Advances <span className="deck-tab-count">{advancesCount}</span>
+            </button>
+            <button
+              type="button"
+              className={`deck-filter-tab ${filterType === 'read_history' ? 'active' : ''}`}
+              onClick={() => setFilterType('read_history')}
+            >
+              📁 Viewed / Read <span className="deck-tab-count">{readHistoryCount}</span>
             </button>
           </div>
 

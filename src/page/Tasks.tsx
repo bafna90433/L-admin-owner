@@ -659,10 +659,10 @@ export default function Tasks({
                 if (a.status !== b.status) {
                   return a.status === 'completed' ? 1 : -1;
                 }
-                // Same status: oldest tasks first (earliest createdAt first, i.e., highest days elapsed first)
+                // Same status: newest tasks first (latest createdAt first, oldest at the bottom)
                 const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
                 const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-                return timeA - timeB;
+                return timeB - timeA;
               });
 
               if (displayTasks.length === 0) {
