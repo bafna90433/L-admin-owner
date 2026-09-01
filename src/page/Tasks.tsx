@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Loader, Edit3, Trash2, Eye, X, Sparkles, Volume2 } from 'lucide-react';
+import { Loader, Edit3, Trash2, Eye, X, Sparkles, Volume2, FileSpreadsheet } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import '../styles/Tasks.css';
 
 interface User {
@@ -319,6 +320,106 @@ export default function Tasks({
     .filter(t => taskFilterStatus === 'all' || t.status === taskFilterStatus)
     .filter(t => taskFilterType === 'all' || t.taskType === taskFilterType);
 
+  const handleExportExcel = () => {
+    let exportList = filteredTasks;
+    if (selectedStaffId && selectedStaffId !== 'all') {
+      exportList = filteredTasks.filter(t => t.assignedTo && (t.assignedTo._id === selectedStaffId || (t.assignedTo as any).id === selectedStaffId));
+    }
+
+    if (exportList.length === 0) {
+      showToast('No tasks available to export with current filters', 'warning');
+      return;
+    }
+
+    const selectedStaffName = selectedStaffId !== 'all' 
+      ? allStaff.find(s => (s.id || s._id) === selectedStaffId)?.name || 'Staff'
+      : 'All Staff';
+
+    const sheetData: any[][] = [];
+
+    // Title and Meta header rows
+    sheetData.push(['OFFICE PRO - ACTIVE TASKS & DUTIES REPORT']);
+    sheetData.push([`Generated On: ${new Date().toLocaleDateString('en-GB')} ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}`, '', `Staff Filter: ${selectedStaffName}`, '', `Status Filter: ${taskFilterStatus.toUpperCase()}`, '', `Category Filter: ${taskFilterType.toUpperCase()}`]);
+    sheetData.push([]); // blank row
+
+    // Table Headers
+    sheetData.push([
+      'S.No',
+      'Task Title / Duty',
+      'Assigned To',
+      'Category',
+      'Frequency',
+      'Status',
+      'Assigned Date',
+      'Completed Date',
+      'Completed By',
+      'Owner Seen',
+      'Feedback / Notes Count',
+      'Latest Comment / Note'
+    ]);
+
+    // Data Rows
+    exportList.forEach((t, idx) => {
+      const createdDateStr = t.createdAt ? new Date(t.createdAt).toLocaleDateString('en-GB') + ' ' + new Date(t.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '--';
+      const completedDateStr = t.completedAt ? new Date(t.completedAt).toLocaleDateString('en-GB') + ' ' + new Date(t.completedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '--';
+      
+      const categoryLabel = t.taskType === 'regular' ? 'Regular Work' : t.taskType === 'reminder-sir' ? 'Sir Reminder' : 'Custom Duty';
+      const freqLabel = t.frequency === 'daily' ? 'Daily' : t.frequency === 'weekly' ? 'Weekly' : t.frequency === 'monthly' ? 'Monthly' : 'One-Time';
+      const statusLabel = t.status === 'completed' ? 'COMPLETED' : 'PENDING';
+      const assignedStaff = t.assignedTo?.name || 'All Staff';
+      const completedStaff = t.completedBy?.name || (t.status === 'completed' ? 'Staff' : '--');
+      const seenLabel = t.seenByOwner ? 'Seen' : 'Unseen / New';
+      const commentCount = t.comments?.length || 0;
+      
+      let latestComment = '--';
+      if (t.comments && t.comments.length > 0) {
+        const last = t.comments[t.comments.length - 1];
+        latestComment = `${last.author?.name || 'Staff'}: ${last.text || ''}`;
+      }
+
+      sheetData.push([
+        idx + 1,
+        t.title,
+        assignedStaff,
+        categoryLabel,
+        freqLabel,
+        statusLabel,
+        createdDateStr,
+        completedDateStr,
+        completedStaff,
+        seenLabel,
+        commentCount,
+        latestComment
+      ]);
+    });
+
+    const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
+
+    // Set column widths
+    worksheet['!cols'] = [
+      { wch: 6 },   // S.No
+      { wch: 48 },  // Task Title
+      { wch: 18 },  // Assigned To
+      { wch: 16 },  // Category
+      { wch: 12 },  // Frequency
+      { wch: 14 },  // Status
+      { wch: 22 },  // Assigned Date
+      { wch: 22 },  // Completed Date
+      { wch: 18 },  // Completed By
+      { wch: 14 },  // Owner Seen
+      { wch: 14 },  // Comments Count
+      { wch: 42 }   // Latest Comment
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Tasks');
+
+    const dateStr = new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
+    const safeStaffName = selectedStaffName.replace(/[^a-zA-Z0-9]/g, '_');
+    XLSX.writeFile(workbook, `Active_Tasks_${safeStaffName}_${dateStr}.xlsx`);
+    showToast('📥 Tasks Excel exported & downloaded successfully!', 'success');
+  };
+
   return (
     <div className="tasks-page-container">
       <div style={{ marginBottom: '8px' }}>
@@ -456,8 +557,8 @@ export default function Tasks({
           <div className="flex-between" style={{ gap: '12px', flexWrap: 'wrap' }}>
             <h3 style={{ fontSize: '1.25rem' }}>Active Task List</h3>
             
-            {/* Filters */}
-            <div className="tasks-filter-bar">
+            {/* Filters & Export */}
+            <div className="tasks-filter-bar" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               <select 
                 className="form-input" 
                 value={taskFilterStatus} 
@@ -479,6 +580,31 @@ export default function Tasks({
                 <option value="regular">Regular Work</option>
                 <option value="custom">Custom Duties</option>
               </select>
+
+              <button
+                type="button"
+                onClick={handleExportExcel}
+                className="btn btn-success"
+                style={{
+                  padding: '6px 14px',
+                  fontSize: '0.85rem',
+                  fontWeight: 650,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  borderRadius: '8px',
+                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                  color: '#ffffff',
+                  border: 'none',
+                  boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+                title="Download Active Tasks Excel spreadsheet to send to owner"
+              >
+                <FileSpreadsheet size={15} />
+                <span>Export Excel</span>
+              </button>
             </div>
           </div>
 
