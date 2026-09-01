@@ -37,20 +37,34 @@ export default function Dashboard({
   balanceData,
   onViewHistoryClick
 }: DashboardProps) {
+  // Helper to format date and time
+  const formatDateTime = (dateStr: string | Date) => {
+    if (!dateStr) return { date: '--', time: '' };
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return { date: String(dateStr), time: '' };
+    const date = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    return { date, time };
+  };
+
   // Helper to parse description into details and reason
-  const parseDescription = (description: string, category: string, txType: string) => {
+  const parseDescription = (description: string = '', category: string = '', txType: string = '') => {
+    let raw = description || '';
+    if (raw.includes('[Staff: ')) {
+      raw = raw.replace(/\[Staff:\s*[^\]]+\]\s*/g, '').trim();
+    }
     let details = '';
     let reason = '';
 
     const reasonMarker = '. Reason: ';
     const directReasonMarker = 'Reason: ';
     
-    if (description.includes(reasonMarker)) {
-      const parts = description.split(reasonMarker);
+    if (raw.includes(reasonMarker)) {
+      const parts = raw.split(reasonMarker);
       details = parts[0];
       reason = parts.slice(1).join(reasonMarker);
-    } else if (description.includes(directReasonMarker)) {
-      const parts = description.split(directReasonMarker);
+    } else if (raw.includes(directReasonMarker)) {
+      const parts = raw.split(directReasonMarker);
       details = parts[0];
       reason = parts.slice(1).join(directReasonMarker);
     } else {
@@ -59,7 +73,7 @@ export default function Dashboard({
       } else {
         details = category.replace('-', ' ').toUpperCase();
       }
-      reason = description || '--';
+      reason = raw || '--';
     }
 
     if (details.endsWith('.')) {
@@ -396,9 +410,19 @@ export default function Dashboard({
               <tbody>
                 {expenses.map((tx) => {
                   const { details, reason } = parseDescription(tx.description, tx.category, tx.txType);
+                  const { date: txDate, time: txTime } = formatDateTime(tx.date);
                   return (
                     <tr key={tx._id}>
-                      <td>{new Date(tx.date).toLocaleDateString('en-GB')}</td>
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          <span style={{ fontWeight: 600 }}>{txDate}</span>
+                          {txTime && (
+                            <small style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
+                              {txTime}
+                            </small>
+                          )}
+                        </div>
+                      </td>
                       <td>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                           {renderDetailsCell(details)}

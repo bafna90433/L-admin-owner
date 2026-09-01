@@ -144,19 +144,33 @@ export default function TransactionHistory({
   // Extract all categories dynamically from the loaded transactions
   const dynamicCategories = Array.from(new Set(transactions.map(tx => tx.category))).filter(Boolean);
 
+  // Helper to format date and time
+  const formatDateTime = (dateStr: string | Date) => {
+    if (!dateStr) return { date: '--', time: '' };
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return { date: String(dateStr), time: '' };
+    const date = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    return { date, time };
+  };
+
   // Helper to parse description
-  const parseDescription = (description: string, category: string, txType: string) => {
+  const parseDescription = (description: string = '', category: string = '', txType: string = '') => {
+    let raw = description || '';
+    if (raw.includes('[Staff: ')) {
+      raw = raw.replace(/\[Staff:\s*[^\]]+\]\s*/g, '').trim();
+    }
     let details = '';
     let reason = '';
     const reasonMarker = '. Reason: ';
     const directReasonMarker = 'Reason: ';
     
-    if (description.includes(reasonMarker)) {
-      const parts = description.split(reasonMarker);
+    if (raw.includes(reasonMarker)) {
+      const parts = raw.split(reasonMarker);
       details = parts[0];
       reason = parts.slice(1).join(reasonMarker);
-    } else if (description.includes(directReasonMarker)) {
-      const parts = description.split(directReasonMarker);
+    } else if (raw.includes(directReasonMarker)) {
+      const parts = raw.split(directReasonMarker);
       details = parts[0];
       reason = parts.slice(1).join(directReasonMarker);
     } else {
@@ -165,7 +179,7 @@ export default function TransactionHistory({
       } else {
         details = category.replace('-', ' ').toUpperCase();
       }
-      reason = description || '--';
+      reason = raw || '--';
     }
 
     if (details.endsWith('.')) {
@@ -579,9 +593,16 @@ export default function TransactionHistory({
                     <tr key={tx._id}>
                       {/* Date */}
                       <td style={{ whiteSpace: 'nowrap' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <Calendar size={14} style={{ color: 'var(--text-muted)' }} />
-                          {new Date(tx.date).toLocaleDateString('en-GB')}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <Calendar size={14} style={{ color: 'var(--text-muted)' }} />
+                            <span style={{ fontWeight: 600 }}>{formatDateTime(tx.date).date}</span>
+                          </div>
+                          {formatDateTime(tx.date).time && (
+                            <small style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', paddingLeft: '20px' }}>
+                              {formatDateTime(tx.date).time}
+                            </small>
+                          )}
                         </div>
                       </td>
 
