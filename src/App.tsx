@@ -1,8 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   Users,
-  Calendar,
-  IndianRupee,
   ArrowUpRight,
   TrendingUp,
   LogOut,
@@ -22,8 +20,6 @@ import Login from './page/Login';
 import Notifications, { type NotificationItem } from './page/Notifications';
 import Dashboard from './page/Dashboard';
 import Labourers from './page/Labourers';
-import Attendance from './page/Attendance';
-import Salary from './page/Salary';
 import Advances from './page/Advances';
 import Reminders from './page/Reminders';
 import Tasks from './page/Tasks';
@@ -290,7 +286,7 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
 
   // Router Tab
-  const adminValidTabs = ['notifications', 'dashboard', 'labourers', 'attendance', 'salary', 'advances', 'advance-history', 'transaction-history', 'deleted-logs', 'reminders', 'tasks', 'chat', 'settings', 'profile'] as const;
+  const adminValidTabs = ['notifications', 'dashboard', 'labourers', 'advances', 'advance-history', 'transaction-history', 'deleted-logs', 'reminders', 'tasks', 'chat', 'settings', 'profile'] as const;
   type AdminTabType = typeof adminValidTabs[number];
   const adminSavedTab = localStorage.getItem('admin_active_tab') as AdminTabType | null;
   const [activeTab, setActiveTab] = useState<AdminTabType>(adminSavedTab && adminValidTabs.includes(adminSavedTab) ? adminSavedTab : 'dashboard');
@@ -315,6 +311,30 @@ export default function App() {
       fetchAdvances();
     }
   };
+
+  useEffect(() => {
+    const createPremiumRipple = (event: PointerEvent) => {
+      const source = event.target as HTMLElement | null;
+      const interactive = source?.closest<HTMLElement>('button:not(:disabled), .nav-link, .profile-bottom-btn, [role="button"]');
+      if (!interactive || !interactive.closest('.dashboard-layout')) return;
+
+      const bounds = interactive.getBoundingClientRect();
+      const size = Math.max(bounds.width, bounds.height) * 1.35;
+      const ripple = document.createElement('span');
+      ripple.className = 'premium-click-ripple';
+      ripple.style.width = `${size}px`;
+      ripple.style.height = `${size}px`;
+      ripple.style.left = `${event.clientX - bounds.left - size / 2}px`;
+      ripple.style.top = `${event.clientY - bounds.top - size / 2}px`;
+
+      interactive.querySelector('.premium-click-ripple')?.remove();
+      interactive.appendChild(ripple);
+      window.setTimeout(() => ripple.remove(), 650);
+    };
+
+    document.addEventListener('pointerdown', createPremiumRipple);
+    return () => document.removeEventListener('pointerdown', createPremiumRipple);
+  }, []);
 
   // Shared Data States
   const [labours, setLabours] = useState<Labour[]>([]);
@@ -1310,9 +1330,10 @@ export default function App() {
     }
   };
 
-  // Active Reminder Alarm State for MD Panel
+  // Active Alarm State for MD Panel
   const [activeAlarmReminder, setActiveAlarmReminder] = useState<{
     id: string;
+    alarmKey?: string;
     title: string;
     targetDate?: string;
     staffName?: string;
@@ -1321,23 +1342,24 @@ export default function App() {
     taskData?: any;
   } | null>(null);
 
-  const triggeredAlarmIdsRef = useRef<Set<string>>(new Set());
+  const triggeredAlarmKeysRef = useRef<Set<string>>(new Set());
   const snoozedAlarmMapRef = useRef<Map<string, number>>(new Map());
 
-  const getStoppedAlarmIds = (): Set<string> => {
+  const getStoppedAlarmKeys = (): Set<string> => {
     try {
-      const stored = localStorage.getItem('officepro_md_stopped_alarms');
+      const stored = localStorage.getItem('officepro_md_stopped_alarm_keys');
       return stored ? new Set(JSON.parse(stored)) : new Set();
     } catch {
       return new Set();
     }
   };
 
-  const markAlarmStoppedLocally = (id: string) => {
+  const markAlarmStoppedLocally = (alarmKey: string) => {
     try {
-      const set = getStoppedAlarmIds();
-      set.add(id);
-      localStorage.setItem('officepro_md_stopped_alarms', JSON.stringify(Array.from(set)));
+      const set = getStoppedAlarmKeys();
+      set.add(alarmKey);
+      const arr = Array.from(set).slice(-150);
+      localStorage.setItem('officepro_md_stopped_alarm_keys', JSON.stringify(arr));
     } catch {}
   };
 
@@ -1356,18 +1378,18 @@ export default function App() {
     speakOwnerAnnouncement(textToSpeak, chosenLang);
   };
 
-  // Check reminders and tasks every 2.5 seconds to trigger MD PC Alarm
+  // Check reminders and tasks every 2 seconds to trigger MD PC Alarm
   useEffect(() => {
     if (!token || !user || user.role !== 'owner') return;
 
     const checkRemindersForAlarm = () => {
       const now = Date.now();
-      const stoppedIds = getStoppedAlarmIds();
+      const stoppedKeys = getStoppedAlarmKeys();
 
       // 1. Check Broadcast Notices / Reminders
       if (reminders && reminders.length > 0) {
         reminders.forEach((r: any) => {
-          if (!r.targetDate || r.status === 'completed' || stoppedIds.has(r._id)) return;
+          if (!r.targetDate || r.status === 'completed') return;
 
           const isBroadcastNotice = r.type !== 'self';
           if (isBroadcastNotice && r.status !== 'acknowledged') {
@@ -1377,8 +1399,11 @@ export default function App() {
           const targetTime = new Date(r.targetDate).getTime();
           if (isNaN(targetTime)) return;
 
-          const isSnoozed = snoozedAlarmMapRef.current.has(r._id) && now < snoozedAlarmMapRef.current.get(r._id)!;
-          const isAlreadyTriggered = triggeredAlarmIdsRef.current.has(r._id);
+          const alarmKey = `${r._id}_${targetTime}`;
+          if (stoppedKeys.has(alarmKey)) return;
+
+          const isSnoozed = snoozedAlarmMapRef.current.has(alarmKey) && now < snoozedAlarmMapRef.current.get(alarmKey)!;
+          const isAlreadyTriggered = triggeredAlarmKeysRef.current.has(alarmKey);
 
           if (targetTime <= now && !isSnoozed && !isAlreadyTriggered && !activeAlarmReminder) {
             // Ring Continuous Loud Alarm in MD Panel!
@@ -1388,6 +1413,7 @@ export default function App() {
             
             setActiveAlarmReminder({
               id: r._id,
+              alarmKey: alarmKey,
               title: cleanMsg,
               targetDate: r.targetDate,
               staffName: staffLabel,
@@ -1405,13 +1431,16 @@ export default function App() {
       // 2. Check Tasks with Scheduled Reminders
       if (tasks && tasks.length > 0) {
         tasks.forEach((t: any) => {
-          if (!t.reminderDateTime || t.status === 'completed' || t.reminderAlarmArmed === false || stoppedIds.has(t._id)) return;
+          if (!t.reminderDateTime || t.status === 'completed' || t.reminderAlarmArmed === false) return;
 
           const targetTime = new Date(t.reminderDateTime).getTime();
           if (isNaN(targetTime)) return;
 
-          const isSnoozed = snoozedAlarmMapRef.current.has(t._id) && now < snoozedAlarmMapRef.current.get(t._id)!;
-          const isAlreadyTriggered = triggeredAlarmIdsRef.current.has(t._id);
+          const alarmKey = `${t._id}_${targetTime}`;
+          if (stoppedKeys.has(alarmKey)) return;
+
+          const isSnoozed = snoozedAlarmMapRef.current.has(alarmKey) && now < snoozedAlarmMapRef.current.get(alarmKey)!;
+          const isAlreadyTriggered = triggeredAlarmKeysRef.current.has(alarmKey);
 
           if (targetTime <= now && !isSnoozed && !isAlreadyTriggered && !activeAlarmReminder) {
             // Ring Continuous Loud Alarm in MD Panel!
@@ -1420,6 +1449,7 @@ export default function App() {
             
             setActiveAlarmReminder({
               id: t._id,
+              alarmKey: alarmKey,
               title: t.title,
               targetDate: t.reminderDateTime,
               staffName: staffLabel,
@@ -1437,7 +1467,7 @@ export default function App() {
     };
 
     checkRemindersForAlarm();
-    const interval = setInterval(checkRemindersForAlarm, 2500);
+    const interval = setInterval(checkRemindersForAlarm, 2000);
     return () => clearInterval(interval);
   }, [token, user, reminders, tasks, activeAlarmReminder]);
 
@@ -1580,23 +1610,6 @@ export default function App() {
           />
         );
 
-      case 'attendance':
-        return (
-          <Attendance
-            token={token}
-            apiBase={API_BASE}
-            labours={labours}
-            showToast={showToast}
-          />
-        );
-      case 'salary':
-        return (
-          <Salary
-            token={token}
-            apiBase={API_BASE}
-            showToast={showToast}
-          />
-        );
       case 'advances':
         return (
           <Advances
@@ -1756,14 +1769,6 @@ export default function App() {
               </span>
             )}
           </button>
-          <button
-            onClick={() => navigateTo('settings')}
-            className={`nav-link btn-secondary ${activeTab === 'settings' ? 'active' : ''}`}
-            style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
-          >
-            <SettingsIcon size={18} /> Settings
-          </button>
-
           <hr style={{ border: 'none', borderTop: '1px solid var(--glass-border)', margin: '8px 0' }} />
 
           <button
@@ -1772,20 +1777,6 @@ export default function App() {
             style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
           >
             <Users size={18} /> Labour Directory
-          </button>
-          <button
-            onClick={() => navigateTo('attendance')}
-            className={`nav-link btn-secondary ${activeTab === 'attendance' ? 'active' : ''}`}
-            style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
-          >
-            <Calendar size={18} /> Attendance Ledger
-          </button>
-          <button
-            onClick={() => navigateTo('salary')}
-            className={`nav-link btn-secondary ${activeTab === 'salary' ? 'active' : ''}`}
-            style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
-          >
-            <IndianRupee size={18} /> Salary Generator
           </button>
           <button
             onClick={() => navigateTo('advances')}
@@ -1830,6 +1821,13 @@ export default function App() {
         </nav>
 
         <div style={{ marginTop: 'auto' }}>
+          <button
+            onClick={() => navigateTo('settings')}
+            className={`nav-link btn-secondary ${activeTab === 'settings' ? 'active' : ''}`}
+            style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left', marginBottom: '12px' }}
+          >
+            <SettingsIcon size={18} /> Settings
+          </button>
           <div
             onClick={() => navigateTo('profile')}
             className={`profile-bottom-btn ${activeTab === 'profile' ? 'active' : ''}`}
@@ -1869,7 +1867,9 @@ export default function App() {
 
       {/* Main Content */}
       <main className={`main-content ${activeTab === 'settings' ? 'settings-main-content' : ''} ${activeTab === 'notifications' ? 'notifications-main-content' : ''}`}>
-        {renderContent()}
+        <div key={activeTab} className="premium-page-stage">
+          {renderContent()}
+        </div>
       </main>
 
       {/* MODAL: TASK COMMENTS / FOLLOW-UP */}
@@ -2113,8 +2113,46 @@ export default function App() {
                   type="button"
                   onClick={async () => {
                     pcAlarmEngine.stop();
-                    triggeredAlarmIdsRef.current.add(activeAlarmReminder.id);
-                    markAlarmStoppedLocally(activeAlarmReminder.id);
+                    const key = activeAlarmReminder.alarmKey || activeAlarmReminder.id;
+                    snoozedAlarmMapRef.current.set(key, Date.now() + 5 * 60 * 1000);
+                    if (activeAlarmReminder.isTask) {
+                      try {
+                        await fetch(`${API_BASE}/tasks/${activeAlarmReminder.id}/snooze-alarm`, {
+                          method: 'POST',
+                          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ minutes: 5 })
+                        });
+                        fetchTasks();
+                      } catch (e) {}
+                    }
+                    setActiveAlarmReminder(null);
+                    showToast('⏰ Alarm snoozed for 5 minutes', 'info');
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '12px 16px',
+                    borderRadius: '14px',
+                    background: 'rgba(255, 255, 255, 0.12)',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    color: '#ffffff',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <Clock size={16} /> Snooze 5 Min
+                </button>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    pcAlarmEngine.stop();
+                    const key = activeAlarmReminder.alarmKey || activeAlarmReminder.id;
+                    triggeredAlarmKeysRef.current.add(key);
+                    markAlarmStoppedLocally(key);
                     if (activeAlarmReminder.isTask) {
                       try {
                         await fetch(`${API_BASE}/tasks/${activeAlarmReminder.id}/stop-alarm`, {
@@ -2160,8 +2198,9 @@ export default function App() {
                   type="button"
                   onClick={() => {
                     pcAlarmEngine.stop();
-                    triggeredAlarmIdsRef.current.add(activeAlarmReminder.id);
-                    markAlarmStoppedLocally(activeAlarmReminder.id);
+                    const key = activeAlarmReminder.alarmKey || activeAlarmReminder.id;
+                    triggeredAlarmKeysRef.current.add(key);
+                    markAlarmStoppedLocally(key);
                     const tData = activeAlarmReminder.taskData;
                     setActiveAlarmReminder(null);
                     setSelectedTaskForComments(tData);

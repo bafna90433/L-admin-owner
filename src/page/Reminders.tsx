@@ -48,13 +48,37 @@ export default function Reminders({
   const [editingReminderId, setEditingReminderId] = useState<string | null>(null);
   const [deletingReminderId, setDeletingReminderId] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<'all' | 'broadcast' | 'personal'>('all');
+  const [selectedStaffId, setSelectedStaffId] = useState<string | 'all'>('all');
 
   const broadcastCount = reminders.filter(r => r.type !== 'self').length;
   const personalCount = reminders.filter(r => r.type === 'self').length;
 
   const filteredReminders = reminders.filter(rem => {
-    if (filterType === 'broadcast') return rem.type !== 'self';
-    if (filterType === 'personal') return rem.type === 'self';
+    if (filterType === 'broadcast' && rem.type === 'self') return false;
+    if (filterType === 'personal' && rem.type !== 'self') return false;
+
+    if (selectedStaffId !== 'all') {
+      const staffObj = allStaff.find(s => (s.id || s._id) === selectedStaffId);
+      const staffName = staffObj?.name?.trim().toLowerCase();
+      
+      const createdById = rem.createdBy?._id;
+      const createdByName = rem.createdBy?.name?.trim().toLowerCase();
+      
+      const targetId = (rem.targetStaffId as any)?._id || (rem.targetStaffId as any)?.id;
+      const targetName = rem.targetStaffId?.name?.trim().toLowerCase();
+      
+      const ackById = (rem.acknowledgedBy as any)?._id || (rem.acknowledgedBy as any)?.id;
+      const ackByName = rem.acknowledgedBy?.name?.trim().toLowerCase();
+
+      const matchesCreated = (createdById && createdById === selectedStaffId) || (Boolean(staffName) && createdByName === staffName);
+      const matchesTarget = (targetId && targetId === selectedStaffId) || (Boolean(staffName) && targetName === staffName);
+      const matchesAck = (ackById && ackById === selectedStaffId) || (Boolean(staffName) && ackByName === staffName);
+
+      if (!matchesCreated && !matchesTarget && !matchesAck) {
+        return false;
+      }
+    }
+
     return true;
   });
 
@@ -199,7 +223,7 @@ export default function Reminders({
 
       <div className="reminders-grid">
         {/* Form to create reminder */}
-        <div className="glass-panel" style={{ height: 'fit-content' }}>
+        <div className="glass-panel reminders-create-panel" style={{ height: 'fit-content' }}>
           <div className="flex-between" style={{ marginBottom: '20px' }}>
             <h3 style={{ fontSize: '1.25rem' }}>{editingReminderId ? 'Update Reminder' : 'Create New Reminder'}</h3>
             {editingReminderId && (
@@ -270,38 +294,173 @@ export default function Reminders({
         </div>
 
         {/* List of existing reminders */}
-        <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div className="flex-between" style={{ flexWrap: 'wrap', gap: '10px' }}>
-            <h3 style={{ fontSize: '1.25rem' }}>Reminders & Broadcast History</h3>
-            <div style={{ display: 'flex', gap: '6px' }}>
-              <button 
-                type="button" 
-                className={`btn ${filterType === 'all' ? 'btn-primary' : 'btn-secondary'}`} 
-                style={{ padding: '4px 10px', fontSize: '0.75rem' }}
-                onClick={() => setFilterType('all')}
+        <div className="glass-panel reminders-list-panel">
+          {/* Sticky Header Section */}
+          <div className="reminders-sticky-header">
+            <div className="flex-between" style={{ flexWrap: 'wrap', gap: '10px' }}>
+              <h3 style={{ fontSize: '1.25rem', margin: 0 }}>Reminders & Broadcast History</h3>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <button 
+                  type="button" 
+                  className={`btn ${filterType === 'all' ? 'btn-primary' : 'btn-secondary'}`} 
+                  style={{ padding: '4px 10px', fontSize: '0.75rem' }}
+                  onClick={() => setFilterType('all')}
+                >
+                  All ({reminders.length})
+                </button>
+                <button 
+                  type="button" 
+                  className={`btn ${filterType === 'broadcast' ? 'btn-primary' : 'btn-secondary'}`} 
+                  style={{ padding: '4px 10px', fontSize: '0.75rem' }}
+                  onClick={() => setFilterType('broadcast')}
+                >
+                  Broadcasts ({broadcastCount})
+                </button>
+                <button 
+                  type="button" 
+                  className={`btn ${filterType === 'personal' ? 'btn-primary' : 'btn-secondary'}`} 
+                  style={{ padding: '4px 10px', fontSize: '0.75rem' }}
+                  onClick={() => setFilterType('personal')}
+                >
+                  Staff Personal ({personalCount})
+                </button>
+              </div>
+            </div>
+
+            {/* Horizontal Staff Tabs (Extra Large Circular Avatars with Name Below) */}
+            <div style={{ display: 'flex', gap: '22px', overflowX: 'auto', padding: '10px 4px 4px 4px', marginTop: '6px', alignItems: 'flex-start' }}>
+              {/* All Staff / All Notices Button */}
+              <button
+                type="button"
+                onClick={() => setSelectedStaffId('all')}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '8px',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  minWidth: '76px',
+                  transition: 'transform 0.15s ease'
+                }}
               >
-                All ({reminders.length})
+                <div
+                  style={{
+                    width: 70,
+                    height: 70,
+                    borderRadius: '50%',
+                    background: selectedStaffId === 'all'
+                      ? 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)'
+                      : '#f1f5f9',
+                    color: selectedStaffId === 'all' ? '#ffffff' : '#64748b',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1.75rem',
+                    border: selectedStaffId === 'all' ? '3.5px solid #6366f1' : '2px solid #cbd5e1',
+                    boxShadow: selectedStaffId === 'all' ? '0 6px 18px rgba(99, 102, 241, 0.45)' : 'none',
+                    transition: 'all 0.18s ease'
+                  }}
+                >
+                  📋
+                </div>
+                <span
+                  style={{
+                    fontSize: '0.85rem',
+                    fontWeight: selectedStaffId === 'all' ? 700 : 550,
+                    color: selectedStaffId === 'all' ? '#4f46e5' : '#475569',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  All Notices
+                </span>
               </button>
-              <button 
-                type="button" 
-                className={`btn ${filterType === 'broadcast' ? 'btn-primary' : 'btn-secondary'}`} 
-                style={{ padding: '4px 10px', fontSize: '0.75rem' }}
-                onClick={() => setFilterType('broadcast')}
-              >
-                Broadcasts ({broadcastCount})
-              </button>
-              <button 
-                type="button" 
-                className={`btn ${filterType === 'personal' ? 'btn-primary' : 'btn-secondary'}`} 
-                style={{ padding: '4px 10px', fontSize: '0.75rem' }}
-                onClick={() => setFilterType('personal')}
-              >
-                Staff Personal ({personalCount})
-              </button>
+
+              {/* Staff Members List */}
+              {allStaff.map(staff => {
+                const staffId = staff.id || staff._id || '';
+                const isSelected = selectedStaffId === staffId;
+                const avatarUrl = staff.imageUrl ? (staff.imageUrl.startsWith('http') ? staff.imageUrl : `${apiBase}${staff.imageUrl}`) : null;
+                
+                return (
+                  <button
+                    key={staffId}
+                    type="button"
+                    onClick={() => setSelectedStaffId(staffId)}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '8px',
+                      background: 'transparent',
+                      border: 'none',
+                      cursor: 'pointer',
+                      padding: '4px',
+                      minWidth: '76px',
+                      transition: 'transform 0.15s ease'
+                    }}
+                  >
+                    <div
+                      style={{
+                        position: 'relative',
+                        width: 70,
+                        height: 70,
+                        borderRadius: '50%',
+                        padding: isSelected ? '3px' : '0px',
+                        border: isSelected ? '3.5px solid #6366f1' : '2px solid #e2e8f0',
+                        boxShadow: isSelected ? '0 6px 18px rgba(99, 102, 241, 0.4)' : '0 2px 8px rgba(0,0,0,0.06)',
+                        background: '#ffffff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transition: 'all 0.18s ease',
+                        pointerEvents: 'none'
+                      }}
+                    >
+                      {avatarUrl ? (
+                        <img 
+                          src={avatarUrl} 
+                          alt={staff.name} 
+                          style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} 
+                        />
+                      ) : (
+                        <div 
+                          style={{ 
+                            width: '100%', 
+                            height: '100%', 
+                            borderRadius: '50%', 
+                            background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            color: '#ffffff', 
+                            fontWeight: 700, 
+                            fontSize: '1.4rem' 
+                          }}
+                        >
+                          {staff.name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                    </div>
+                    <span
+                      style={{
+                        fontSize: '0.85rem',
+                        fontWeight: isSelected ? 700 : 550,
+                        color: isSelected ? '#4f46e5' : '#475569',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      {staff.name}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          <div className="reminder-history-list">
+          <div className="reminder-history-list" style={{ padding: '0 20px 20px 20px' }}>
             {filteredReminders.map((rem) => {
               const timeDiff = new Date(rem.targetDate).getTime() - Date.now();
               const isUrgent = rem.status === 'acknowledged' && timeDiff <= 10 * 60 * 1000 && timeDiff > -1000 * 60 * 60 * 24;

@@ -115,7 +115,7 @@ export default function Tasks({
   const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   // List filters
-  const [taskFilterStatus, setTaskFilterStatus] = useState<'all' | 'pending' | 'completed'>('all');
+  const [taskFilterStatus, setTaskFilterStatus] = useState<'all' | 'pending' | 'discussion' | 'completed'>('all');
   const [taskFilterType, setTaskFilterType] = useState<'all' | 'regular' | 'reminder-sir' | 'custom'>('all');
 
   // Tab state for staff filtering
@@ -399,7 +399,7 @@ export default function Tasks({
     });
   };
 
-  const handleMarkAsSeen = async (id: string) => {
+  const handleMarkAsSeen = async (id: string, showNotification = true) => {
     try {
       const res = await fetch(`${apiBase}/tasks/${id}/seen`, {
         method: 'POST',
@@ -410,18 +410,27 @@ export default function Tasks({
       });
       if (res.ok) {
         fetchTasks();
-        showToast('Task marked as seen', 'success');
-      } else {
-        showToast('Failed to mark task as seen', 'danger');
+        if (showNotification) {
+          showToast('Task marked as seen', 'success');
+        }
       }
     } catch (err) {
       console.error(err);
-      showToast('Error connecting to server', 'danger');
     }
   };
 
   const filteredTasks = tasks
-    .filter(t => taskFilterStatus === 'all' || t.status === taskFilterStatus)
+    .filter(t => {
+      if (taskFilterStatus === 'all') return true;
+      if (taskFilterStatus === 'completed') return t.status === 'completed';
+      if (taskFilterStatus === 'discussion') {
+        return t.status !== 'completed' && (t.comments?.length || 0) > 0;
+      }
+      if (taskFilterStatus === 'pending') {
+        return t.status !== 'completed' && (!t.comments || t.comments.length === 0);
+      }
+      return true;
+    })
     .filter(t => taskFilterType === 'all' || t.taskType === taskFilterType);
 
   const handleExportExcel = () => {
@@ -534,7 +543,7 @@ export default function Tasks({
       <div className="tasks-grid">
         
         {/* Form to Assign Work */}
-        <div className="glass-panel" style={{ height: 'fit-content' }}>
+        <div className="glass-panel tasks-create-panel" style={{ height: 'fit-content' }}>
           <h3 style={{ fontSize: '1.25rem', marginBottom: '20px' }}>{editingTask ? 'Edit Task Details' : 'Assign New Task'}</h3>
           <form onSubmit={handleTaskSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             
@@ -1121,194 +1130,198 @@ export default function Tasks({
         </div>
 
         {/* Task list and tracking */}
-        <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div className="flex-between" style={{ gap: '12px', flexWrap: 'wrap' }}>
-            <h3 style={{ fontSize: '1.25rem' }}>Active Task List</h3>
-            
-            {/* Filters & Export */}
-            <div className="tasks-filter-bar" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <select 
-                className="form-input" 
-                value={taskFilterStatus} 
-                onChange={e => setTaskFilterStatus(e.target.value as any)}
-                style={{ padding: '6px 12px', fontSize: '0.85rem', width: 'auto' }}
-              >
-                <option value="all">All Statuses</option>
-                <option value="pending">Pending</option>
-                <option value="completed">Completed</option>
-              </select>
+        <div className="glass-panel tasks-list-panel">
+          {/* Sticky Controls & Staff Avatars Header */}
+          <div className="tasks-sticky-header">
+            <div className="flex-between" style={{ gap: '12px', flexWrap: 'wrap' }}>
+              <h3 style={{ fontSize: '1.25rem', margin: 0 }}>Active Task List</h3>
+              
+              {/* Filters & Export */}
+              <div className="tasks-filter-bar" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <select 
+                  className="form-input" 
+                  value={taskFilterStatus} 
+                  onChange={e => setTaskFilterStatus(e.target.value as any)}
+                  style={{ padding: '6px 12px', fontSize: '0.85rem', width: 'auto' }}
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="pending">Pending</option>
+                  <option value="discussion">💬 Discussion</option>
+                  <option value="completed">Completed</option>
+                </select>
 
-              <select 
-                className="form-input" 
-                value={taskFilterType} 
-                onChange={e => setTaskFilterType(e.target.value as any)}
-                style={{ padding: '6px 12px', fontSize: '0.85rem', width: 'auto' }}
-              >
-                <option value="all">All Categories</option>
-                <option value="regular">Regular Work</option>
-                <option value="custom">Custom Duties</option>
-              </select>
+                <select 
+                  className="form-input" 
+                  value={taskFilterType} 
+                  onChange={e => setTaskFilterType(e.target.value as any)}
+                  style={{ padding: '6px 12px', fontSize: '0.85rem', width: 'auto' }}
+                >
+                  <option value="all">All Categories</option>
+                  <option value="regular">Regular Work</option>
+                  <option value="custom">Custom Duties</option>
+                </select>
 
+                <button
+                  type="button"
+                  onClick={handleExportExcel}
+                  className="btn btn-success"
+                  style={{
+                    padding: '6px 14px',
+                    fontSize: '0.85rem',
+                    fontWeight: 650,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    borderRadius: '8px',
+                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    color: '#ffffff',
+                    border: 'none',
+                    boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                  title="Download Active Tasks Excel spreadsheet to send to owner"
+                >
+                  <FileSpreadsheet size={15} />
+                  <span>Export Excel</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Horizontal Staff Tabs (Extra Large Circular Avatars with Name Below & Image Preview) */}
+            <div style={{ display: 'flex', gap: '22px', overflowX: 'auto', padding: '10px 4px 4px 4px', marginTop: '6px', alignItems: 'flex-start' }}>
+              {/* All Tasks Button */}
               <button
                 type="button"
-                onClick={handleExportExcel}
-                className="btn btn-success"
+                onClick={() => setSelectedStaffId('all')}
                 style={{
-                  padding: '6px 14px',
-                  fontSize: '0.85rem',
-                  fontWeight: 650,
-                  display: 'inline-flex',
+                  display: 'flex',
+                  flexDirection: 'column',
                   alignItems: 'center',
-                  gap: '6px',
-                  borderRadius: '8px',
-                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                  color: '#ffffff',
+                  gap: '8px',
+                  background: 'transparent',
                   border: 'none',
-                  boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
                   cursor: 'pointer',
-                  transition: 'all 0.15s ease'
+                  padding: '4px',
+                  minWidth: '76px',
+                  transition: 'transform 0.15s ease'
                 }}
-                title="Download Active Tasks Excel spreadsheet to send to owner"
               >
-                <FileSpreadsheet size={15} />
-                <span>Export Excel</span>
+                <div
+                  style={{
+                    width: 70,
+                    height: 70,
+                    borderRadius: '50%',
+                    background: selectedStaffId === 'all'
+                      ? 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)'
+                      : '#f1f5f9',
+                    color: selectedStaffId === 'all' ? '#ffffff' : '#64748b',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1.75rem',
+                    border: selectedStaffId === 'all' ? '3.5px solid #6366f1' : '2px solid #cbd5e1',
+                    boxShadow: selectedStaffId === 'all' ? '0 6px 18px rgba(99, 102, 241, 0.45)' : 'none',
+                    transition: 'all 0.18s ease'
+                  }}
+                >
+                  📋
+                </div>
+                <span
+                  style={{
+                    fontSize: '0.85rem',
+                    fontWeight: selectedStaffId === 'all' ? 700 : 550,
+                    color: selectedStaffId === 'all' ? '#4f46e5' : '#475569',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  All Tasks
+                </span>
               </button>
+
+              {/* Staff Members List */}
+              {allStaff.map(staff => {
+                const staffId = staff.id || staff._id || '';
+                const isSelected = selectedStaffId === staffId;
+                const avatarUrl = staff.imageUrl ? (staff.imageUrl.startsWith('http') ? staff.imageUrl : `${apiBase}${staff.imageUrl}`) : null;
+                
+                return (
+                  <button
+                    key={staffId}
+                    type="button"
+                    onClick={() => setSelectedStaffId(staffId)}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '8px',
+                      background: 'transparent',
+                      border: 'none',
+                      cursor: 'pointer',
+                      padding: '4px',
+                      minWidth: '76px',
+                      transition: 'transform 0.15s ease'
+                    }}
+                  >
+                    <div
+                      style={{
+                        position: 'relative',
+                        width: 70,
+                        height: 70,
+                        borderRadius: '50%',
+                        padding: isSelected ? '3px' : '0px',
+                        border: isSelected ? '3.5px solid #6366f1' : '2px solid #e2e8f0',
+                        boxShadow: isSelected ? '0 6px 18px rgba(99, 102, 241, 0.4)' : '0 2px 8px rgba(0,0,0,0.06)',
+                        background: '#ffffff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transition: 'all 0.18s ease',
+                        pointerEvents: 'none'
+                      }}
+                    >
+                      {avatarUrl ? (
+                        <img 
+                          src={avatarUrl} 
+                          alt={staff.name} 
+                          style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} 
+                        />
+                      ) : (
+                        <div 
+                          style={{ 
+                            width: '100%', 
+                            height: '100%', 
+                            borderRadius: '50%', 
+                            background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            color: '#ffffff', 
+                            fontWeight: 700, 
+                            fontSize: '1.4rem' 
+                          }}
+                        >
+                          {staff.name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                    </div>
+                    <span
+                      style={{
+                        fontSize: '0.85rem',
+                        fontWeight: isSelected ? 700 : 550,
+                        color: isSelected ? '#4f46e5' : '#475569',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      {staff.name}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* Horizontal Staff Tabs (Extra Large Circular Avatars with Name Below & Image Preview) */}
-          <div style={{ display: 'flex', gap: '22px', overflowX: 'auto', padding: '10px 4px 16px 4px', borderBottom: '1px solid var(--glass-border)', marginTop: '8px', alignItems: 'flex-start' }}>
-            {/* All Tasks Button */}
-            <button
-              type="button"
-              onClick={() => setSelectedStaffId('all')}
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '8px',
-                background: 'transparent',
-                border: 'none',
-                cursor: 'pointer',
-                padding: '4px',
-                minWidth: '76px',
-                transition: 'transform 0.15s ease'
-              }}
-            >
-              <div
-                style={{
-                  width: 70,
-                  height: 70,
-                  borderRadius: '50%',
-                  background: selectedStaffId === 'all'
-                    ? 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)'
-                    : '#f1f5f9',
-                  color: selectedStaffId === 'all' ? '#ffffff' : '#64748b',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '1.75rem',
-                  border: selectedStaffId === 'all' ? '3.5px solid #6366f1' : '2px solid #cbd5e1',
-                  boxShadow: selectedStaffId === 'all' ? '0 6px 18px rgba(99, 102, 241, 0.45)' : 'none',
-                  transition: 'all 0.18s ease'
-                }}
-              >
-                📋
-              </div>
-              <span
-                style={{
-                  fontSize: '0.85rem',
-                  fontWeight: selectedStaffId === 'all' ? 700 : 550,
-                  color: selectedStaffId === 'all' ? '#4f46e5' : '#475569',
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                All Tasks
-              </span>
-            </button>
-
-            {/* Staff Members List */}
-            {allStaff.map(staff => {
-              const staffId = staff.id || staff._id || '';
-              const isSelected = selectedStaffId === staffId;
-              const avatarUrl = staff.imageUrl ? (staff.imageUrl.startsWith('http') ? staff.imageUrl : `${apiBase}${staff.imageUrl}`) : null;
-              
-              return (
-                <button
-                  key={staffId}
-                  type="button"
-                  onClick={() => setSelectedStaffId(staffId)}
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: '8px',
-                    background: 'transparent',
-                    border: 'none',
-                    cursor: 'pointer',
-                    padding: '4px',
-                    minWidth: '76px',
-                    transition: 'transform 0.15s ease'
-                  }}
-                >
-                  <div
-                    style={{
-                      position: 'relative',
-                      width: 70,
-                      height: 70,
-                      borderRadius: '50%',
-                      padding: isSelected ? '3px' : '0px',
-                      border: isSelected ? '3.5px solid #6366f1' : '2px solid #e2e8f0',
-                      boxShadow: isSelected ? '0 6px 18px rgba(99, 102, 241, 0.4)' : '0 2px 8px rgba(0,0,0,0.06)',
-                      background: '#ffffff',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      transition: 'all 0.18s ease',
-                      pointerEvents: 'none'
-                    }}
-                  >
-                    {avatarUrl ? (
-                      <img 
-                        src={avatarUrl} 
-                        alt={staff.name} 
-                        style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} 
-                      />
-                    ) : (
-                      <div 
-                        style={{ 
-                          width: '100%', 
-                          height: '100%', 
-                          borderRadius: '50%', 
-                          background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)', 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          justifyContent: 'center', 
-                          color: '#ffffff', 
-                          fontWeight: 700, 
-                          fontSize: '1.4rem' 
-                        }}
-                      >
-                        {staff.name.charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                  </div>
-                  <span
-                    style={{
-                      fontSize: '0.85rem',
-                      fontWeight: isSelected ? 700 : 550,
-                      color: isSelected ? '#4f46e5' : '#475569',
-                      whiteSpace: 'nowrap'
-                    }}
-                  >
-                    {staff.name}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="tasks-scroll-list">
+          <div className="tasks-scroll-list" style={{ padding: '0 20px 20px 20px' }}>
             {(() => {
               let displayTasks = filteredTasks;
               if (selectedStaffId !== 'all') {
@@ -1334,27 +1347,63 @@ export default function Tasks({
 
               return displayTasks.map((t) => {
                 const isCompleted = t.status === 'completed';
+                const isPending = !isCompleted;
                 const isTargetHighlighted = highlightedTaskId === t._id;
+                const commentCount = t.comments?.length || 0;
+                const hasActiveCommunication = !isCompleted && commentCount > 0;
+                const cardStatusClass = isCompleted 
+                  ? 'task-completed-card' 
+                  : hasActiveCommunication 
+                    ? 'task-discussion-card' 
+                    : 'task-pending-card';
+
                 return (
                   <div 
                     key={t._id} 
                     id={`task-item-${t._id}`}
-                    className={`task-item-card animate-fade-in ${isTargetHighlighted ? 'task-highlighted-card' : ''}`}
+                    className={`task-item-card animate-fade-in ${cardStatusClass} ${isTargetHighlighted ? 'task-highlighted-card' : ''}`}
                     style={{ 
                       border: isTargetHighlighted
                         ? '2.5px solid #4f46e5'
-                        : `1px solid ${isCompleted ? 'rgba(16, 185, 129, 0.4)' : 'var(--glass-border)'}`,
+                        : isCompleted 
+                          ? '1px solid rgba(16, 185, 129, 0.4)' 
+                          : hasActiveCommunication
+                            ? '1.5px solid rgba(245, 158, 11, 0.5)'
+                            : '1.5px solid rgba(239, 68, 68, 0.45)',
+                      borderLeft: isTargetHighlighted
+                        ? '6px solid #4f46e5'
+                        : isCompleted
+                          ? '5px solid #10b981'
+                          : hasActiveCommunication
+                            ? '6px solid #f59e0b'
+                            : '6px solid #ef4444',
                       background: isTargetHighlighted
                         ? 'rgba(79, 70, 229, 0.08)'
-                        : isCompleted ? 'rgba(16, 185, 129, 0.05)' : 'var(--bg-tertiary)',
-                      boxShadow: isTargetHighlighted ? '0 0 20px rgba(79, 70, 229, 0.35)' : 'none',
+                        : isCompleted 
+                          ? 'rgba(16, 185, 129, 0.05)' 
+                          : hasActiveCommunication
+                            ? 'linear-gradient(135deg, rgba(254, 243, 199, 0.55) 0%, rgba(255, 255, 255, 0.98) 100%)'
+                            : 'linear-gradient(135deg, rgba(254, 242, 242, 0.95) 0%, rgba(255, 255, 255, 0.98) 100%)',
+                      boxShadow: isTargetHighlighted 
+                        ? '0 0 20px rgba(79, 70, 229, 0.35)' 
+                        : isCompleted
+                          ? 'none'
+                          : hasActiveCommunication
+                            ? '0 3px 12px rgba(245, 158, 11, 0.1)'
+                            : '0 3px 12px rgba(239, 68, 68, 0.08)',
                       cursor: 'pointer',
-                      transition: 'all 0.3s ease'
+                      transition: 'all 0.3s ease',
+                      position: 'relative'
                     }}
-                    onClick={() => setSelectedTaskForComments(t)}
+                    onClick={() => {
+                      if (!t.seenByOwner) {
+                        handleMarkAsSeen(t._id, false);
+                      }
+                      setSelectedTaskForComments(t);
+                    }}
                   >
                     <div className="flex-between" style={{ marginBottom: '8px', gap: '8px' }}>
-                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
                         <span className={`badge ${
                           t.taskType === 'regular' ? 'badge-info' : 
                           t.taskType === 'reminder-sir' ? 'badge-warning' : 
@@ -1403,18 +1452,30 @@ export default function Tasks({
                           </span>
                         )}
                       </div>
-                      <span className={`badge ${isCompleted ? 'badge-success' : 'badge-danger'}`} style={{ textTransform: 'uppercase' }}>
-                        {t.status}
-                      </span>
+                      
+                      {isCompleted ? (
+                        <span className="badge badge-status-completed" style={{ textTransform: 'uppercase' }}>
+                          {t.status}
+                        </span>
+                      ) : hasActiveCommunication ? (
+                        <span className="badge badge-status-discussion" style={{ textTransform: 'uppercase' }} title="Active discussion on this task">
+                          💬 DISCUSSION ({commentCount})
+                        </span>
+                      ) : (
+                        <span className="badge badge-status-pending" style={{ textTransform: 'uppercase' }} title="Pending task without discussion">
+                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ffffff', display: 'inline-block', marginRight: 4 }} />
+                          PENDING
+                        </span>
+                      )}
                     </div>
 
                     <p style={{ 
                       fontWeight: 600, 
                       fontSize: '1.05rem', 
                       margin: '8px 0', 
-                      color: 'var(--text-primary)', 
+                      color: isCompleted ? '#059669' : 'var(--text-primary)', 
                       textDecoration: isCompleted ? 'line-through' : 'none', 
-                      opacity: isCompleted ? 0.7 : 1 
+                      opacity: isCompleted ? 0.75 : 1 
                     }}>
                       {t.title}
                     </p>
@@ -1466,58 +1527,6 @@ export default function Tasks({
                       </div>
 
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        {!isCompleted ? (
-                          <button 
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); handleCompleteTask(t._id, t.title); }}
-                            className="btn btn-success" 
-                            style={{ 
-                              padding: '6px 14px', 
-                              fontSize: '0.8rem', 
-                              fontWeight: 750,
-                              display: 'inline-flex', 
-                              alignItems: 'center', 
-                              gap: '5px', 
-                              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                              boxShadow: '0 2px 6px rgba(16, 185, 129, 0.25)',
-                              borderRadius: '8px'
-                            }}
-                            title="Finish & Mark as Completed by MD"
-                          >
-                            <Check size={14} strokeWidth={2.5} /> Finish Work
-                          </button>
-                        ) : (
-                          <button 
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); handleResetTask(t._id); }}
-                            className="btn btn-secondary" 
-                            style={{ padding: '6px 12px', fontSize: '0.8rem', color: 'var(--color-warning)', fontWeight: 700 }}
-                            title="Reopen task to pending"
-                          >
-                            Reopen
-                          </button>
-                        )}
-
-                        {!t.seenByOwner && !isCompleted && (
-                          <button 
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); handleMarkAsSeen(t._id); }}
-                            className="btn btn-success" 
-                            style={{ padding: '6px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px', background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}
-                          >
-                            👁️ Mark Seen
-                          </button>
-                        )}
-
-                        <button 
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); setSelectedTaskForComments(t); }}
-                          className="btn btn-secondary" 
-                          style={{ padding: '6px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-                        >
-                          💬 View & Reply ({t.comments?.length || 0})
-                        </button>
-
                         <button 
                           type="button"
                           onClick={(e) => { e.stopPropagation(); handleStartEditTask(t); }}

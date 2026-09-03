@@ -326,7 +326,8 @@ export default function TaskDetailModal({
         {/* Header */}
         <div className="flex-between" style={{ marginBottom: '10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <span className={`badge ${task.status === 'completed' ? 'badge-success' : 'badge-warning'}`} style={{ textTransform: 'uppercase', fontWeight: 800 }}>
+            <span className={`badge ${task.status === 'completed' ? 'badge-status-completed' : 'badge-status-pending'}`} style={{ textTransform: 'uppercase' }}>
+              {task.status !== 'completed' && <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ffffff', display: 'inline-block', marginRight: 4 }} />}
               {task.status}
             </span>
             {task.taskType === 'reminder-sir' && (
