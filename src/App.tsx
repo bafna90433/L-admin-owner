@@ -100,62 +100,170 @@ interface AdvanceRequest {
   };
 }
 
+// Synthesize loud urgent digital alarm WAV in-memory (No server or asset dependency)
+function generateUrgentAlarmWav(): string {
+  const sampleRate = 44100;
+  const duration = 0.88; // 880ms total loop
+  const totalSamples = Math.floor(sampleRate * duration);
+  const buffer = new ArrayBuffer(44 + totalSamples * 2);
+  const view = new DataView(buffer);
+
+  // RIFF header
+  view.setUint32(0, 0x52494646, false); // "RIFF"
+  view.setUint32(4, 36 + totalSamples * 2, true);
+  view.setUint32(8, 0x57415645, false); // "WAVE"
+  view.setUint32(12, 0x666d7420, false); // "fmt "
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true); // PCM
+  view.setUint16(22, 1, true); // Mono
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  view.setUint32(36, 0x64617461, false); // "data"
+  view.setUint32(40, totalSamples * 2, true);
+
+  // 2 piercing digital alarm beeps (0-140ms and 200-340ms)
+  for (let i = 0; i < totalSamples; i++) {
+    const t = i / sampleRate;
+    let sample = 0;
+    const isBeep1 = t >= 0 && t < 0.14;
+    const isBeep2 = t >= 0.20 && t < 0.34;
+    if (isBeep1 || isBeep2) {
+      const tone1 = Math.sin(2 * Math.PI * 960 * t);
+      const tone2 = Math.sin(2 * Math.PI * 1920 * t);
+      const tone3 = Math.sin(2 * Math.PI * 480 * t);
+      sample = (tone1 * 0.50 + tone2 * 0.30 + tone3 * 0.20);
+    }
+    const intSample = Math.max(-32768, Math.min(32767, Math.floor(sample * 32767)));
+    view.setInt16(44 + i * 2, intSample, true);
+  }
+
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return 'data:audio/wav;base64,' + btoa(binary);
+}
+
+// Multi-layered Alarm Sound Engine (HTML5 Audio Loop + Web Audio API Dual Tone Siren)
 class AlarmSoundEngine {
   private audioCtx: AudioContext | null = null;
-  private intervalId: any = null;
+  private audioElement: HTMLAudioElement | null = null;
   public isRinging: boolean = false;
+  private intervalId: any = null;
+  private wavDataUrl: string | null = null;
+
+  constructor() {
+    try {
+      this.wavDataUrl = generateUrgentAlarmWav();
+    } catch (e) { }
+
+    const unlock = () => {
+      try {
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioContextClass && !this.audioCtx) {
+          this.audioCtx = new AudioContextClass();
+        }
+        if (this.audioCtx && this.audioCtx.state === 'suspended') {
+          this.audioCtx.resume().catch(() => {});
+        }
+      } catch (e) {}
+    };
+    ['click', 'keydown', 'touchstart', 'mousemove', 'focus'].forEach(evt => {
+      window.addEventListener(evt, unlock, { passive: true });
+    });
+  }
 
   start() {
     if (this.isRinging) return;
     this.isRinging = true;
 
+    // 1. HTML5 Audio Loop (Piercing continuous digital alarm)
+    try {
+      if (!this.audioElement && this.wavDataUrl) {
+        this.audioElement = new Audio(this.wavDataUrl);
+        this.audioElement.loop = true;
+        this.audioElement.volume = 1.0;
+      }
+      if (this.audioElement) {
+        this.audioElement.currentTime = 0;
+        const playPromise = this.audioElement.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(e => console.warn('Audio waiting for user gesture:', e));
+        }
+      }
+    } catch (e) {
+      console.error('HTML5 audio error:', e);
+    }
+
+    // 2. Web Audio API Dual-Tone Siren
     try {
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioContextClass) return;
-      this.audioCtx = new AudioContextClass();
-      if (this.audioCtx.state === 'suspended') {
-        this.audioCtx.resume();
-      }
+      if (AudioContextClass) {
+        if (!this.audioCtx) {
+          this.audioCtx = new AudioContextClass();
+        }
+        if (this.audioCtx.state === 'suspended') {
+          this.audioCtx.resume().catch(() => {});
+        }
 
-      const playBeep = () => {
-        if (!this.audioCtx || this.audioCtx.state === 'closed' || !this.isRinging) return;
-        try {
-          const osc1 = this.audioCtx.createOscillator();
-          const osc2 = this.audioCtx.createOscillator();
-          const gain = this.audioCtx.createGain();
+        const playBeep = () => {
+          if (!this.isRinging || !this.audioCtx) return;
+          try {
+            if (this.audioCtx.state === 'suspended') {
+              this.audioCtx.resume().catch(() => {});
+            }
+            const osc1 = this.audioCtx.createOscillator();
+            const osc2 = this.audioCtx.createOscillator();
+            const gain = this.audioCtx.createGain();
 
-          osc1.type = 'sawtooth';
-          osc1.frequency.setValueAtTime(880, this.audioCtx.currentTime); // A5
+            osc1.type = 'sawtooth';
+            osc1.frequency.setValueAtTime(960, this.audioCtx.currentTime);
+            osc2.type = 'sine';
+            osc2.frequency.setValueAtTime(1920, this.audioCtx.currentTime);
 
-          osc2.type = 'square';
-          osc2.frequency.setValueAtTime(1760, this.audioCtx.currentTime); // A6
+            gain.gain.setValueAtTime(0.50, this.audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, this.audioCtx.currentTime + 0.16);
 
-          gain.gain.setValueAtTime(0.01, this.audioCtx.currentTime);
-          gain.gain.linearRampToValueAtTime(0.85, this.audioCtx.currentTime + 0.02);
-          gain.gain.exponentialRampToValueAtTime(0.001, this.audioCtx.currentTime + 0.15);
+            osc1.connect(gain);
+            osc2.connect(gain);
+            gain.connect(this.audioCtx.destination);
 
-          osc1.connect(gain);
-          osc2.connect(gain);
-          gain.connect(this.audioCtx.destination);
+            osc1.start(this.audioCtx.currentTime);
+            osc2.start(this.audioCtx.currentTime);
+            osc1.stop(this.audioCtx.currentTime + 0.16);
+            osc2.stop(this.audioCtx.currentTime + 0.16);
+          } catch (e) {}
+        };
 
-          osc1.start(this.audioCtx.currentTime);
-          osc2.start(this.audioCtx.currentTime);
-          osc1.stop(this.audioCtx.currentTime + 0.16);
-          osc2.stop(this.audioCtx.currentTime + 0.16);
-        } catch (e) {}
-      };
-
-      playBeep();
-      setTimeout(playBeep, 160);
-
-      this.intervalId = setInterval(() => {
-        if (!this.isRinging) return;
         playBeep();
         setTimeout(playBeep, 160);
-      }, 850);
+
+        this.intervalId = setInterval(() => {
+          if (!this.isRinging) return;
+          playBeep();
+          setTimeout(playBeep, 160);
+        }, 850);
+      }
     } catch (e) {
-      console.error('Alarm audio engine error:', e);
+      console.error('Alarm WebAudio error:', e);
     }
+
+    // Auto-resume audio immediately on any user gesture while ringing
+    const onGestureWhileRinging = () => {
+      if (!this.isRinging) return;
+      if (this.audioElement && this.audioElement.paused) {
+        this.audioElement.play().catch(() => {});
+      }
+      if (this.audioCtx && this.audioCtx.state === 'suspended') {
+        this.audioCtx.resume().catch(() => {});
+      }
+    };
+    ['click', 'keydown', 'touchstart', 'mousemove', 'focus'].forEach(evt => {
+      window.addEventListener(evt, onGestureWhileRinging, { passive: true });
+    });
   }
 
   stop() {
@@ -163,6 +271,10 @@ class AlarmSoundEngine {
     if (this.intervalId) {
       clearInterval(this.intervalId);
       this.intervalId = null;
+    }
+    if (this.audioElement) {
+      this.audioElement.pause();
+      this.audioElement.currentTime = 0;
     }
     if (this.audioCtx) {
       this.audioCtx.close().catch(() => {});
