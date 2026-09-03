@@ -1205,6 +1205,8 @@ export default function App() {
     targetDate?: string;
     staffName?: string;
     language?: string;
+    isTask?: boolean;
+    taskData?: any;
   } | null>(null);
 
   const triggeredAlarmIdsRef = useRef<Set<string>>(new Set());
@@ -1227,14 +1229,14 @@ export default function App() {
     } catch {}
   };
 
-  const speakAlarmVoice = async (staffName: string, reminderMessage: string, lang?: string) => {
+  const speakAlarmVoice = async (staffName: string, reminderMessage: string, lang?: string, isTask: boolean = false) => {
     const chosenLang = (lang || announcementLang || 'en') as 'en' | 'hi' | 'ta';
     const cleanMsg = (reminderMessage || '').replace(/\[lang:(en|hi|ta)\]\s*/g, '').replace(/[^\w\s\u0900-\u097F\u0B80-\u0BFF]/gi, '');
     const senderTag = staffName && staffName !== 'Staff' ? ` with ${staffName}` : '';
     
-    let textToSpeak = `Managing Director Sir! Scheduled Reminder Alert${senderTag}: ${cleanMsg}.`;
+    let textToSpeak = `Managing Director Sir! Scheduled ${isTask ? 'Task' : ''} Reminder Alert${senderTag}: ${cleanMsg}.`;
     if (chosenLang === 'hi') {
-      textToSpeak = `Namaste Managing Director Sir! ${staffName ? `${staffName} ji ka ` : ''}Zaroori Reminder Alert: ${cleanMsg}.`;
+      textToSpeak = `Namaste Managing Director Sir! ${staffName ? `${staffName} ji ka ` : ''}${isTask ? 'Task ' : ''}Zaroori Reminder Alert: ${cleanMsg}.`;
     } else if (chosenLang === 'ta') {
       textToSpeak = `Vanakkam Managing Director Sir! ${staffName ? `${staffName} ` : ''}Mukkiya ninaivuttal: ${cleanMsg}.`;
     }
@@ -1242,56 +1244,90 @@ export default function App() {
     speakOwnerAnnouncement(textToSpeak, chosenLang);
   };
 
-  // Check reminders every 2.5 seconds to trigger MD PC Alarm
+  // Check reminders and tasks every 2.5 seconds to trigger MD PC Alarm
   useEffect(() => {
-    if (!token || !user || user.role !== 'owner' || !reminders || reminders.length === 0) return;
+    if (!token || !user || user.role !== 'owner') return;
 
     const checkRemindersForAlarm = () => {
       const now = Date.now();
       const stoppedIds = getStoppedAlarmIds();
 
-      reminders.forEach((r: any) => {
-        if (!r.targetDate || r.status === 'completed' || stoppedIds.has(r._id)) return;
+      // 1. Check Broadcast Notices / Reminders
+      if (reminders && reminders.length > 0) {
+        reminders.forEach((r: any) => {
+          if (!r.targetDate || r.status === 'completed' || stoppedIds.has(r._id)) return;
 
-        // If it's an MD broadcast notice:
-        // ONLY ring alarm if staff has set date/time & armed the alarm (r.status === 'acknowledged')!
-        // If r.status === 'pending', staff has not scheduled the alarm time yet, so DO NOT ring alarm!
-        const isBroadcastNotice = r.type !== 'self';
-        if (isBroadcastNotice && r.status !== 'acknowledged') {
-          return;
-        }
+          const isBroadcastNotice = r.type !== 'self';
+          if (isBroadcastNotice && r.status !== 'acknowledged') {
+            return;
+          }
 
-        const targetTime = new Date(r.targetDate).getTime();
-        if (isNaN(targetTime)) return;
+          const targetTime = new Date(r.targetDate).getTime();
+          if (isNaN(targetTime)) return;
 
-        const isSnoozed = snoozedAlarmMapRef.current.has(r._id) && now < snoozedAlarmMapRef.current.get(r._id)!;
-        const isAlreadyTriggered = triggeredAlarmIdsRef.current.has(r._id);
+          const isSnoozed = snoozedAlarmMapRef.current.has(r._id) && now < snoozedAlarmMapRef.current.get(r._id)!;
+          const isAlreadyTriggered = triggeredAlarmIdsRef.current.has(r._id);
 
-        if (targetTime <= now && !isSnoozed && !isAlreadyTriggered && !activeAlarmReminder) {
-          // Ring Continuous Loud Alarm in MD Panel!
-          pcAlarmEngine.start();
-          const cleanMsg = (r.message || '').replace(/\[lang:(en|hi|ta)\]\s*/g, '');
-          const staffLabel = r.targetStaffId?.name || r.acknowledgedBy?.name || 'Staff';
-          
-          setActiveAlarmReminder({
-            id: r._id,
-            title: cleanMsg,
-            targetDate: r.targetDate,
-            staffName: staffLabel,
-            language: r.language
-          });
+          if (targetTime <= now && !isSnoozed && !isAlreadyTriggered && !activeAlarmReminder) {
+            // Ring Continuous Loud Alarm in MD Panel!
+            pcAlarmEngine.start();
+            const cleanMsg = (r.message || '').replace(/\[lang:(en|hi|ta)\]\s*/g, '');
+            const staffLabel = r.targetStaffId?.name || r.acknowledgedBy?.name || 'Staff';
+            
+            setActiveAlarmReminder({
+              id: r._id,
+              title: cleanMsg,
+              targetDate: r.targetDate,
+              staffName: staffLabel,
+              language: r.language,
+              isTask: false
+            });
 
-          speakAlarmVoice(staffLabel, cleanMsg, r.language);
-          triggerDesktopPushNotification('⏰ REMINDER ALARM RINGING!', cleanMsg);
-          showToast(`⏰ REMINDER ALARM RINGING: ${cleanMsg}`, 'danger');
-        }
-      });
+            speakAlarmVoice(staffLabel, cleanMsg, r.language, false);
+            triggerDesktopPushNotification('⏰ REMINDER ALARM RINGING!', cleanMsg);
+            showToast(`⏰ REMINDER ALARM RINGING: ${cleanMsg}`, 'danger');
+          }
+        });
+      }
+
+      // 2. Check Tasks with Scheduled Reminders
+      if (tasks && tasks.length > 0) {
+        tasks.forEach((t: any) => {
+          if (!t.reminderDateTime || t.status === 'completed' || t.reminderAlarmArmed === false || stoppedIds.has(t._id)) return;
+
+          const targetTime = new Date(t.reminderDateTime).getTime();
+          if (isNaN(targetTime)) return;
+
+          const isSnoozed = snoozedAlarmMapRef.current.has(t._id) && now < snoozedAlarmMapRef.current.get(t._id)!;
+          const isAlreadyTriggered = triggeredAlarmIdsRef.current.has(t._id);
+
+          if (targetTime <= now && !isSnoozed && !isAlreadyTriggered && !activeAlarmReminder) {
+            // Ring Continuous Loud Alarm in MD Panel!
+            pcAlarmEngine.start();
+            const staffLabel = t.assignedTo?.name || 'All Office Staff';
+            
+            setActiveAlarmReminder({
+              id: t._id,
+              title: t.title,
+              targetDate: t.reminderDateTime,
+              staffName: staffLabel,
+              language: t.language,
+              isTask: true,
+              taskData: t
+            });
+
+            speakAlarmVoice(staffLabel, t.title, t.language, true);
+            triggerDesktopPushNotification('⏰ TASK REMINDER ALARM!', `${t.title} (Assigned to: ${staffLabel})`);
+            showToast(`⏰ TASK REMINDER ALARM: ${t.title}`, 'danger');
+          }
+        });
+      }
     };
 
     checkRemindersForAlarm();
     const interval = setInterval(checkRemindersForAlarm, 2500);
     return () => clearInterval(interval);
-  }, [token, user, reminders, activeAlarmReminder]);
+  }, [token, user, reminders, tasks, activeAlarmReminder]);
 
   // Poll reminders every 3.5 seconds in background so MD gets updated target dates from staff in real time
   useEffect(() => {
@@ -1906,7 +1942,7 @@ export default function App() {
               color: '#f87171',
               marginBottom: '8px'
             }}>
-              ⏰ REMINDER ALARM RINGING!
+              ⏰ {activeAlarmReminder.isTask ? 'TASK REMINDER ALARM RINGING!' : 'NOTICE REMINDER ALARM RINGING!'}
             </div>
 
             <h2 style={{ fontSize: '1.45rem', fontWeight: 800, margin: '0 0 12px 0', lineHeight: 1.3 }}>
@@ -1919,71 +1955,123 @@ export default function App() {
               </p>
             )}
 
-            <p style={{ fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '28px' }}>
-              Scheduled reminder time has arrived. Please review this notice.
+            <p style={{ fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '24px' }}>
+              Scheduled reminder time has arrived. Alarm is ringing on both MD & Staff screens.
             </p>
 
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <button
-                type="button"
-                onClick={() => {
-                  pcAlarmEngine.stop();
-                  snoozedAlarmMapRef.current.set(activeAlarmReminder.id, Date.now() + 5 * 60 * 1000);
-                  setActiveAlarmReminder(null);
-                  showToast('⏰ Alarm snoozed for 5 minutes', 'info');
-                }}
-                style={{
-                  flex: 1,
-                  padding: '14px 16px',
-                  borderRadius: '14px',
-                  background: 'rgba(255, 255, 255, 0.12)',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  color: '#ffffff',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px'
-                }}
-              >
-                <Clock size={16} /> Snooze 5 Min
-              </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    pcAlarmEngine.stop();
+                    snoozedAlarmMapRef.current.set(activeAlarmReminder.id, Date.now() + 5 * 60 * 1000);
+                    if (activeAlarmReminder.isTask) {
+                      try {
+                        await fetch(`${API_BASE}/tasks/${activeAlarmReminder.id}/snooze-alarm`, {
+                          method: 'POST',
+                          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ minutes: 5 })
+                        });
+                        fetchTasks();
+                      } catch (e) {}
+                    }
+                    setActiveAlarmReminder(null);
+                    showToast('⏰ Alarm snoozed for 5 minutes', 'info');
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '12px 16px',
+                    borderRadius: '14px',
+                    background: 'rgba(255, 255, 255, 0.12)',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    color: '#ffffff',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <Clock size={16} /> Snooze 5 Min
+                </button>
 
-              <button
-                type="button"
-                onClick={async () => {
-                  pcAlarmEngine.stop();
-                  triggeredAlarmIdsRef.current.add(activeAlarmReminder.id);
-                  markAlarmStoppedLocally(activeAlarmReminder.id);
-                  try {
-                    await fetch(`${API_BASE}/reminders/${activeAlarmReminder.id}/stop-alarm`, {
-                      method: 'POST',
-                      headers: { 'Authorization': `Bearer ${token}` }
-                    });
-                    fetchReminders();
-                  } catch (e) {}
-                  setActiveAlarmReminder(null);
-                  showToast('🔕 Alarm stopped & reminder completed', 'success');
-                }}
-                style={{
-                  flex: 1,
-                  padding: '14px 16px',
-                  borderRadius: '14px',
-                  background: 'linear-gradient(135deg, #ef4444, #dc2626)',
-                  border: 'none',
-                  color: '#ffffff',
-                  fontWeight: 800,
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 14px rgba(239, 68, 68, 0.4)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px'
-                }}
-              >
-                🔕 Stop Alarm
-              </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    pcAlarmEngine.stop();
+                    triggeredAlarmIdsRef.current.add(activeAlarmReminder.id);
+                    markAlarmStoppedLocally(activeAlarmReminder.id);
+                    if (activeAlarmReminder.isTask) {
+                      try {
+                        await fetch(`${API_BASE}/tasks/${activeAlarmReminder.id}/stop-alarm`, {
+                          method: 'POST',
+                          headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                        fetchTasks();
+                      } catch (e) {}
+                    } else {
+                      try {
+                        await fetch(`${API_BASE}/reminders/${activeAlarmReminder.id}/stop-alarm`, {
+                          method: 'POST',
+                          headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                        fetchReminders();
+                      } catch (e) {}
+                    }
+                    setActiveAlarmReminder(null);
+                    showToast('🔕 Alarm stopped', 'success');
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '12px 16px',
+                    borderRadius: '14px',
+                    background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                    border: 'none',
+                    color: '#ffffff',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 14px rgba(239, 68, 68, 0.4)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  🔕 Stop Alarm
+                </button>
+              </div>
+
+              {activeAlarmReminder.isTask && activeAlarmReminder.taskData && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    pcAlarmEngine.stop();
+                    triggeredAlarmIdsRef.current.add(activeAlarmReminder.id);
+                    markAlarmStoppedLocally(activeAlarmReminder.id);
+                    const tData = activeAlarmReminder.taskData;
+                    setActiveAlarmReminder(null);
+                    setSelectedTaskForComments(tData);
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '11px 16px',
+                    borderRadius: '14px',
+                    background: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)',
+                    border: 'none',
+                    color: '#ffffff',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  👁 View Task & Follow-up Details
+                </button>
+              )}
             </div>
           </div>
         </div>

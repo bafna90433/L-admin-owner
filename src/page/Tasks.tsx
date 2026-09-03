@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Loader, Edit3, Trash2, Eye, X, Sparkles, Volume2, FileSpreadsheet } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Loader, Edit3, Trash2, X, Sparkles, Volume2, FileSpreadsheet, Bell, ChevronDown, Users, Check } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import '../styles/Tasks.css';
 
@@ -33,6 +33,9 @@ interface Task {
   createdAt: string;
   seenByOwner?: boolean;
   seenAt?: string;
+  reminderDateTime?: string | null;
+  reminderAlarmArmed?: boolean;
+  reminderNote?: string;
 }
 
 interface TasksProps {
@@ -66,11 +69,47 @@ export default function Tasks({
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskType, setNewTaskType] = useState<'regular' | 'reminder-sir' | 'custom'>('custom');
   const [newTaskFreq, setNewTaskFreq] = useState<'daily' | 'weekly' | 'monthly' | 'one-time'>('one-time');
-  const [taskAssignedTo, setTaskAssignedTo] = useState('');
+  const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([]);
+  const [isStaffDropdownOpen, setIsStaffDropdownOpen] = useState(false);
+  const staffDropdownRef = useRef<HTMLDivElement>(null);
   const [taskSubmitting, setTaskSubmitting] = useState(false);
   
   // Form Voice Language State (Default English)
   const [taskVoiceLang, setTaskVoiceLang] = useState<'en' | 'hi' | 'ta'>('en');
+
+  // Form Reminder State
+  const [hasTaskReminder, setHasTaskReminder] = useState(false);
+  const [taskRemDate, setTaskRemDate] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
+  const [taskRemHour, setTaskRemHour] = useState('10');
+  const [taskRemMinute, setTaskRemMinute] = useState('00');
+  const [taskRemPeriod, setTaskRemPeriod] = useState<'AM' | 'PM'>('AM');
+
+  const buildIsoFromParts = (dateStr: string, hourStr: string, minStr: string, period: 'AM' | 'PM') => {
+    let h = parseInt(hourStr, 10) || 12;
+    const m = parseInt(minStr, 10) || 0;
+    if (period === 'PM' && h < 12) h += 12;
+    if (period === 'AM' && h === 12) h = 0;
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const target = new Date(year, month - 1, day, h, m, 0, 0);
+    return target.toISOString();
+  };
+
+  const applyFormPreset = (minutesFromNow: number) => {
+    const target = new Date(Date.now() + minutesFromNow * 60 * 1000);
+    let hours = target.getHours();
+    const period: 'AM' | 'PM' = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12 || 12;
+    const mins = target.getMinutes();
+    const ymd = `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, '0')}-${String(target.getDate()).padStart(2, '0')}`;
+    setTaskRemDate(ymd);
+    setTaskRemHour(String(hours).padStart(2, '0'));
+    setTaskRemMinute(String(mins).padStart(2, '0'));
+    setTaskRemPeriod(period);
+    setHasTaskReminder(true);
+  };
 
   // Edit task state
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -111,6 +150,19 @@ export default function Tasks({
       };
     }
   }, [targetTaskId, onClearTargetTaskId]);
+
+  // Outside click listener for multi-select staff dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (staffDropdownRef.current && !staffDropdownRef.current.contains(event.target as Node)) {
+        setIsStaffDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const sanitizeTitle = (text: string) => {
     return text.split('•')[0].split('\n')[0].replace(/^📌\s*Task:\s*/i, '').trim();
@@ -178,9 +230,25 @@ export default function Tasks({
     setNewTaskTitle(task.title);
     setNewTaskType(task.taskType);
     setNewTaskFreq(task.frequency);
-    setTaskAssignedTo(task.assignedTo?._id || '');
+    const assignedId = task.assignedTo?._id || (task.assignedTo as any)?.id || '';
+    setSelectedStaffIds(assignedId ? [assignedId] : []);
+    setIsStaffDropdownOpen(false);
     const langMatch = (task as any).description?.match(/\[lang:(en|hi|ta)\]/);
     setTaskVoiceLang((task as any).language || (langMatch ? langMatch[1] : 'en'));
+    
+    if (task.reminderDateTime) {
+      setHasTaskReminder(true);
+      const d = new Date(task.reminderDateTime);
+      let hours = d.getHours();
+      const period: 'AM' | 'PM' = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12 || 12;
+      setTaskRemDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+      setTaskRemHour(String(hours).padStart(2, '0'));
+      setTaskRemMinute(String(d.getMinutes()).padStart(2, '0'));
+      setTaskRemPeriod(period);
+    } else {
+      setHasTaskReminder(false);
+    }
   };
 
   const handleCancelEditTask = () => {
@@ -188,8 +256,10 @@ export default function Tasks({
     setNewTaskTitle('');
     setNewTaskType('custom');
     setNewTaskFreq('one-time');
-    setTaskAssignedTo('');
+    setSelectedStaffIds([]);
+    setIsStaffDropdownOpen(false);
     setTaskVoiceLang('en');
+    setHasTaskReminder(false);
   };
 
   const handleTaskSubmit = async (e: React.FormEvent) => {
@@ -199,6 +269,11 @@ export default function Tasks({
     try {
       // 100% Automatic Gemini AI Background Refinement before assigning!
       const finalTitle = await refineTitleWithAi(newTaskTitle);
+
+      let finalReminderDateTime: string | null = null;
+      if (hasTaskReminder && taskRemDate) {
+        finalReminderDateTime = buildIsoFromParts(taskRemDate, taskRemHour, taskRemMinute, taskRemPeriod);
+      }
 
       const url = editingTask 
         ? `${apiBase}/tasks/${editingTask._id}` 
@@ -214,10 +289,13 @@ export default function Tasks({
           title: finalTitle,
           taskType: newTaskType,
           frequency: newTaskFreq,
-          assignedTo: taskAssignedTo || null,
+          assignedTo: selectedStaffIds.length === 1 ? selectedStaffIds[0] : (selectedStaffIds.length === 0 ? null : selectedStaffIds[0]),
+          assignedToStaffIds: selectedStaffIds.length > 1 ? selectedStaffIds : (selectedStaffIds.length === 1 ? [selectedStaffIds[0]] : []),
           createdByRole: 'owner',
           language: taskVoiceLang,
-          description: `[lang:${taskVoiceLang}]`
+          description: `[lang:${taskVoiceLang}]`,
+          reminderDateTime: finalReminderDateTime,
+          reminderAlarmArmed: Boolean(finalReminderDateTime)
         })
       });
       if (res.ok) {
@@ -228,11 +306,13 @@ export default function Tasks({
         setNewTaskTitle('');
         setNewTaskType('custom');
         setNewTaskFreq('one-time');
-        setTaskAssignedTo('');
+        setSelectedStaffIds([]);
+        setIsStaffDropdownOpen(false);
         setTaskVoiceLang('en');
+        setHasTaskReminder(false);
         setEditingTask(null);
         fetchTasks();
-        showToast(editingTask ? 'Task updated successfully!' : '✨ Task auto-refined & assigned successfully!', 'success');
+        showToast(editingTask ? 'Task updated successfully!' : '✨ Task assigned successfully with Reminder Alarm!', 'success');
       } else {
         showToast(editingTask ? 'Failed to update task' : 'Failed to create task', 'danger');
       }
@@ -242,6 +322,30 @@ export default function Tasks({
     } finally {
       setTaskSubmitting(false);
     }
+  };
+
+  const handleCompleteTask = (id: string, title?: string) => {
+    setConfirmModal({
+      title: 'Finish & Complete Task',
+      message: `Are you sure you want to mark "${title || 'this task'}" as Finished & Completed?`,
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`${apiBase}/tasks/${id}/complete`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (res.ok) {
+            fetchTasks();
+            showToast('✅ Task marked as Finished & Completed by MD!', 'success');
+          } else {
+            showToast('Failed to complete task', 'danger');
+          }
+        } catch (err) {
+          console.error(err);
+          showToast('Error connecting to server', 'danger');
+        }
+      }
+    });
   };
 
   const handleResetTask = (id: string) => {
@@ -507,18 +611,332 @@ export default function Tasks({
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <div className="form-group">
-                <label className="form-label">Assign To Staff Member</label>
-                <select 
+              <div className="form-group" ref={staffDropdownRef} style={{ position: 'relative' }}>
+                <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <Users size={14} style={{ color: '#4f46e5' }} />
+                    Assign To Staff Member(s)
+                  </span>
+                  {selectedStaffIds.length > 0 && (
+                    <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#4f46e5' }}>
+                      {selectedStaffIds.length} Selected
+                    </span>
+                  )}
+                </label>
+                
+                {/* Trigger Box */}
+                <div 
+                  onClick={() => setIsStaffDropdownOpen(!isStaffDropdownOpen)}
                   className="form-input"
-                  value={taskAssignedTo}
-                  onChange={e => setTaskAssignedTo(e.target.value)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    cursor: 'pointer',
+                    userSelect: 'none',
+                    background: '#ffffff',
+                    border: isStaffDropdownOpen ? '1.5px solid #4f46e5' : '1.5px solid #cbd5e1',
+                    borderRadius: '10px',
+                    padding: '8px 12px',
+                    boxShadow: isStaffDropdownOpen ? '0 0 0 3.5px rgba(79, 70, 229, 0.15)' : 'none',
+                    transition: 'all 0.18s ease'
+                  }}
                 >
-                  <option value="">All Office Staff</option>
-                  {allStaff.map(s => (
-                    <option key={s.id || s._id} value={s.id || s._id}>{s.name}</option>
-                  ))}
-                </select>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                    <span style={{ 
+                      overflow: 'hidden', 
+                      textOverflow: 'ellipsis', 
+                      whiteSpace: 'nowrap',
+                      color: selectedStaffIds.length === 0 ? '#475569' : '#0f172a',
+                      fontWeight: selectedStaffIds.length > 0 ? 700 : 550,
+                      fontSize: '0.88rem'
+                    }}>
+                      {(() => {
+                        if (selectedStaffIds.length === 0) return '👥 All Office Staff';
+                        if (selectedStaffIds.length === 1) {
+                          const found = allStaff.find(s => (s.id || s._id) === selectedStaffIds[0]);
+                          return found ? found.name : '1 Staff Member';
+                        }
+                        if (selectedStaffIds.length === allStaff.length) {
+                          return 'All Office Staff (All Selected)';
+                        }
+                        const names = selectedStaffIds
+                          .map(id => allStaff.find(s => (s.id || s._id) === id)?.name)
+                          .filter(Boolean);
+                        return names.join(', ');
+                      })()}
+                    </span>
+
+                    {selectedStaffIds.length > 1 && (
+                      <span style={{
+                        background: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)',
+                        color: '#ffffff',
+                        fontSize: '0.68rem',
+                        fontWeight: 800,
+                        padding: '2px 7px',
+                        borderRadius: '12px',
+                        whiteSpace: 'nowrap',
+                        boxShadow: '0 2px 4px rgba(79, 70, 229, 0.25)'
+                      }}>
+                        +{selectedStaffIds.length} Staff
+                      </span>
+                    )}
+                  </div>
+
+                  <ChevronDown 
+                    size={16} 
+                    style={{ 
+                      color: isStaffDropdownOpen ? '#4f46e5' : '#64748b', 
+                      transform: isStaffDropdownOpen ? 'rotate(180deg)' : 'none', 
+                      transition: 'transform 0.2s ease', 
+                      flexShrink: 0 
+                    }} 
+                  />
+                </div>
+
+                {/* Dropdown Menu Panel */}
+                {isStaffDropdownOpen && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    marginTop: '6px',
+                    background: '#ffffff',
+                    border: '1px solid rgba(99, 102, 241, 0.25)',
+                    borderRadius: '14px',
+                    boxShadow: '0 15px 35px -5px rgba(15, 23, 42, 0.22), 0 5px 15px rgba(0, 0, 0, 0.08)',
+                    zIndex: 9999,
+                    overflow: 'hidden',
+                    animation: 'fadeInSlideDown 0.18s ease'
+                  }}>
+                    {/* Header with Quick Actions */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '10px 14px',
+                      background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+                      borderBottom: '1px solid #e2e8f0'
+                    }}>
+                      <span style={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#475569' }}>
+                        Select Assignees
+                      </span>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const allIds = allStaff.map(s => (s.id || s._id || '') as string).filter(Boolean);
+                            setSelectedStaffIds(allIds);
+                          }}
+                          style={{
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
+                            color: '#4f46e5',
+                            background: 'transparent',
+                            border: 'none',
+                            cursor: 'pointer',
+                            padding: '2px 4px'
+                          }}
+                        >
+                          Select All
+                        </button>
+                        <span style={{ color: '#cbd5e1' }}>•</span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedStaffIds([])}
+                          style={{
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
+                            color: '#dc2626',
+                            background: 'transparent',
+                            border: 'none',
+                            cursor: 'pointer',
+                            padding: '2px 4px'
+                          }}
+                        >
+                          Reset
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* All Office Staff Option Row */}
+                    <div style={{ padding: '6px 8px 4px 8px' }}>
+                      <div 
+                        onClick={() => setSelectedStaffIds([])}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '12px',
+                          padding: '8px 10px',
+                          borderRadius: '10px',
+                          background: selectedStaffIds.length === 0 ? 'rgba(79, 70, 229, 0.08)' : 'transparent',
+                          border: selectedStaffIds.length === 0 ? '1px solid rgba(79, 70, 229, 0.25)' : '1px solid transparent',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        {/* Custom Modern Checkbox */}
+                        <div style={{
+                          width: '18px',
+                          height: '18px',
+                          borderRadius: '5px',
+                          border: selectedStaffIds.length === 0 ? '1.5px solid #4f46e5' : '1.5px solid #94a3b8',
+                          background: selectedStaffIds.length === 0 ? '#4f46e5' : '#ffffff',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                          transition: 'all 0.15s ease'
+                        }}>
+                          {selectedStaffIds.length === 0 && <Check size={12} color="#ffffff" strokeWidth={3} />}
+                        </div>
+
+                        <div style={{
+                          width: '28px',
+                          height: '28px',
+                          borderRadius: '50%',
+                          background: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)',
+                          color: '#ffffff',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '0.85rem',
+                          boxShadow: '0 2px 6px rgba(79, 70, 229, 0.25)',
+                          flexShrink: 0
+                        }}>
+                          👥
+                        </div>
+
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '0.86rem', fontWeight: selectedStaffIds.length === 0 ? 800 : 600, color: selectedStaffIds.length === 0 ? '#4f46e5' : '#1e293b' }}>
+                            All Office Staff
+                          </div>
+                          <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                            Duty will be visible to everyone
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ height: '1px', background: '#f1f5f9', margin: '4px 8px' }} />
+
+                    {/* Staff List */}
+                    <div style={{ maxHeight: '220px', overflowY: 'auto', padding: '0 8px 6px 8px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                      {allStaff.map(s => {
+                        const sId = (s.id || s._id || '') as string;
+                        if (!sId) return null;
+                        const isChecked = selectedStaffIds.includes(sId);
+                        const sAvatar = s.imageUrl ? (s.imageUrl.startsWith('http') ? s.imageUrl : `${apiBase}${s.imageUrl}`) : null;
+
+                        return (
+                          <div 
+                            key={sId}
+                            onClick={() => {
+                              if (isChecked) {
+                                const next = selectedStaffIds.filter(id => id !== sId);
+                                setSelectedStaffIds(next);
+                              } else {
+                                setSelectedStaffIds([...selectedStaffIds, sId]);
+                              }
+                            }}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '12px',
+                              padding: '7px 10px',
+                              borderRadius: '10px',
+                              background: isChecked ? 'rgba(79, 70, 229, 0.08)' : 'transparent',
+                              border: isChecked ? '1px solid rgba(79, 70, 229, 0.22)' : '1px solid transparent',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            {/* Custom Modern Checkbox */}
+                            <div style={{
+                              width: '18px',
+                              height: '18px',
+                              borderRadius: '5px',
+                              border: isChecked ? '1.5px solid #4f46e5' : '1.5px solid #94a3b8',
+                              background: isChecked ? '#4f46e5' : '#ffffff',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              flexShrink: 0,
+                              transition: 'all 0.15s ease'
+                            }}>
+                              {isChecked && <Check size={12} color="#ffffff" strokeWidth={3} />}
+                            </div>
+
+                            {sAvatar ? (
+                              <img 
+                                src={sAvatar} 
+                                alt={s.name} 
+                                style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', border: '1.5px solid #e2e8f0', boxShadow: '0 2px 5px rgba(0,0,0,0.08)', flexShrink: 0 }} 
+                              />
+                            ) : (
+                              <div style={{ 
+                                width: '28px', 
+                                height: '28px', 
+                                borderRadius: '50%', 
+                                background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)', 
+                                color: '#ffffff', 
+                                fontSize: '0.78rem', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'center', 
+                                fontWeight: 700,
+                                flexShrink: 0 
+                              }}>
+                                {s.name.charAt(0).toUpperCase()}
+                              </div>
+                            )}
+
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: '0.86rem', fontWeight: isChecked ? 750 : 600, color: isChecked ? '#4f46e5' : '#1e293b' }}>
+                                {s.name}
+                              </div>
+                              <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                                {s.role === 'staff' ? 'Office Staff' : s.role}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Bottom Action Footer */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '8px 12px',
+                      background: '#f8fafc',
+                      borderTop: '1px solid #e2e8f0'
+                    }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 650, color: '#64748b' }}>
+                        {selectedStaffIds.length === 0 ? '👥 All staff will receive' : `✓ ${selectedStaffIds.length} staff selected`}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setIsStaffDropdownOpen(false)}
+                        style={{
+                          padding: '4px 12px',
+                          borderRadius: '8px',
+                          background: '#4f46e5',
+                          color: '#ffffff',
+                          border: 'none',
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          boxShadow: '0 2px 6px rgba(79, 70, 229, 0.3)'
+                        }}
+                      >
+                        Done
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="form-group">
@@ -537,6 +955,156 @@ export default function Tasks({
                   <option value="ta">🌴 Tamil (தமிழ்)</option>
                 </select>
               </div>
+            </div>
+
+            {/* Set Reminder Alarm Section */}
+            <div style={{
+              background: hasTaskReminder ? 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)' : '#f8fafc',
+              border: hasTaskReminder ? '1.5px solid #fcd34d' : '1.5px solid #e2e8f0',
+              borderRadius: '14px',
+              padding: '14px 16px',
+              transition: 'all 0.2s ease'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: hasTaskReminder ? '10px' : '0' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0, userSelect: 'none' }}>
+                  <input
+                    type="checkbox"
+                    checked={hasTaskReminder}
+                    onChange={e => setHasTaskReminder(e.target.checked)}
+                    style={{ width: '18px', height: '18px', accentColor: '#f59e0b', cursor: 'pointer' }}
+                  />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Bell size={16} style={{ color: hasTaskReminder ? '#d97706' : '#64748b' }} />
+                    <span style={{ fontSize: '0.88rem', fontWeight: 800, color: hasTaskReminder ? '#92400e' : '#334155' }}>
+                      Set Reminder Alarm (Date & Time AM/PM)
+                    </span>
+                  </div>
+                </label>
+
+                {hasTaskReminder && (
+                  <button
+                    type="button"
+                    onClick={() => setHasTaskReminder(false)}
+                    style={{
+                      padding: '3px 8px',
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      borderRadius: '6px',
+                      background: '#fee2e2',
+                      color: '#dc2626',
+                      border: '1px solid #fca5a5',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+
+              {hasTaskReminder && (
+                <div style={{ marginTop: '10px' }}>
+                  {/* Preset quick buttons */}
+                  <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '6px', marginBottom: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={() => applyFormPreset(15)}
+                      style={{ padding: '3px 8px', fontSize: '0.72rem', fontWeight: 700, borderRadius: '6px', background: '#ffffff', border: '1px solid #cbd5e1', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                    >
+                      ⚡ +15 Min
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => applyFormPreset(30)}
+                      style={{ padding: '3px 8px', fontSize: '0.72rem', fontWeight: 700, borderRadius: '6px', background: '#ffffff', border: '1px solid #cbd5e1', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                    >
+                      ⚡ +30 Min
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => applyFormPreset(60)}
+                      style={{ padding: '3px 8px', fontSize: '0.72rem', fontWeight: 700, borderRadius: '6px', background: '#ffffff', border: '1px solid #cbd5e1', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                    >
+                      ⚡ +1 Hour
+                    </button>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr 0.9fr', gap: '8px', alignItems: 'flex-end' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#475569', marginBottom: '3px' }}>📅 Date</label>
+                      <input
+                        type="date"
+                        className="form-input"
+                        value={taskRemDate}
+                        onChange={e => setTaskRemDate(e.target.value)}
+                        style={{ padding: '6px 8px', fontSize: '0.8rem', borderRadius: '8px' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#475569', marginBottom: '3px' }}>⏰ Hour (1-12)</label>
+                      <select
+                        className="form-input"
+                        value={taskRemHour}
+                        onChange={e => setTaskRemHour(e.target.value)}
+                        style={{ padding: '6px 8px', fontSize: '0.8rem', borderRadius: '8px', fontWeight: 700 }}
+                      >
+                        {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0')).map(h => (
+                          <option key={h} value={h}>{h}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#475569', marginBottom: '3px' }}>⏱ Minute</label>
+                      <select
+                        className="form-input"
+                        value={taskRemMinute}
+                        onChange={e => setTaskRemMinute(e.target.value)}
+                        style={{ padding: '6px 8px', fontSize: '0.8rem', borderRadius: '8px', fontWeight: 700 }}
+                      >
+                        {Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0')).map(m => (
+                          <option key={m} value={m}>{m}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, color: '#475569', marginBottom: '3px' }}>☀️/🌙 Period</label>
+                      <div style={{ display: 'flex', borderRadius: '8px', overflow: 'hidden', border: '1.5px solid #cbd5e1' }}>
+                        <button
+                          type="button"
+                          onClick={() => setTaskRemPeriod('AM')}
+                          style={{
+                            flex: 1,
+                            padding: '5px 2px',
+                            fontSize: '0.75rem',
+                            fontWeight: 800,
+                            background: taskRemPeriod === 'AM' ? '#4f46e5' : '#ffffff',
+                            color: taskRemPeriod === 'AM' ? '#ffffff' : '#64748b',
+                            border: 'none',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          AM
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setTaskRemPeriod('PM')}
+                          style={{
+                            flex: 1,
+                            padding: '5px 2px',
+                            fontSize: '0.75rem',
+                            fontWeight: 800,
+                            background: taskRemPeriod === 'PM' ? '#4f46e5' : '#ffffff',
+                            color: taskRemPeriod === 'PM' ? '#ffffff' : '#64748b',
+                            border: 'none',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          PM
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div style={{ display: 'flex', gap: '12px' }}>
@@ -684,13 +1252,6 @@ export default function Tasks({
                   }}
                 >
                   <div
-                    onClick={(e) => {
-                      if (avatarUrl) {
-                        e.stopPropagation();
-                        setPreviewPhoto({ name: staff.name, url: avatarUrl });
-                      }
-                    }}
-                    title={avatarUrl ? "Click to view full photo" : ""}
                     style={{
                       position: 'relative',
                       width: 70,
@@ -704,43 +1265,15 @@ export default function Tasks({
                       alignItems: 'center',
                       justifyContent: 'center',
                       transition: 'all 0.18s ease',
-                      cursor: avatarUrl ? 'pointer' : 'default'
+                      pointerEvents: 'none'
                     }}
                   >
                     {avatarUrl ? (
-                      <>
-                        <img 
-                          src={avatarUrl} 
-                          alt={staff.name} 
-                          style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} 
-                        />
-                        {/* Zoom Preview Badge */}
-                        <span 
-                          title="Click to view full photo"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setPreviewPhoto({ name: staff.name, url: avatarUrl });
-                          }}
-                          style={{
-                            position: 'absolute',
-                            bottom: '-2px',
-                            right: '-2px',
-                            background: '#6366f1',
-                            color: '#ffffff',
-                            borderRadius: '50%',
-                            width: '22px',
-                            height: '22px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            border: '2px solid #ffffff',
-                            boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          <Eye size={12} />
-                        </span>
-                      </>
+                      <img 
+                        src={avatarUrl} 
+                        alt={staff.name} 
+                        style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} 
+                      />
                     ) : (
                       <div 
                         style={{ 
@@ -842,6 +1375,23 @@ export default function Tasks({
                             {getDaysElapsed(t.createdAt)} {getDaysElapsed(t.createdAt) === 1 ? 'day' : 'days'}
                           </span>
                         )}
+                        {!isCompleted && t.reminderDateTime && (
+                          <span className="badge" style={{ 
+                            background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', 
+                            color: '#ffffff',
+                            fontWeight: 800,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            boxShadow: '0 2px 6px rgba(245, 158, 11, 0.35)'
+                          }}>
+                            <Bell size={11} />
+                            <span>
+                              {new Date(t.reminderDateTime).toLocaleDateString([], { month: 'short', day: 'numeric' })},{' '}
+                              {new Date(t.reminderDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
+                            </span>
+                          </span>
+                        )}
                         {!isCompleted && !t.seenByOwner && (
                           <span className="badge" style={{ 
                             background: 'rgba(239, 68, 68, 0.1)', 
@@ -915,7 +1465,39 @@ export default function Tasks({
                         )}
                       </div>
 
-                      <div style={{ display: 'flex', gap: '8px' }}>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        {!isCompleted ? (
+                          <button 
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); handleCompleteTask(t._id, t.title); }}
+                            className="btn btn-success" 
+                            style={{ 
+                              padding: '6px 14px', 
+                              fontSize: '0.8rem', 
+                              fontWeight: 750,
+                              display: 'inline-flex', 
+                              alignItems: 'center', 
+                              gap: '5px', 
+                              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                              boxShadow: '0 2px 6px rgba(16, 185, 129, 0.25)',
+                              borderRadius: '8px'
+                            }}
+                            title="Finish & Mark as Completed by MD"
+                          >
+                            <Check size={14} strokeWidth={2.5} /> Finish Work
+                          </button>
+                        ) : (
+                          <button 
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); handleResetTask(t._id); }}
+                            className="btn btn-secondary" 
+                            style={{ padding: '6px 12px', fontSize: '0.8rem', color: 'var(--color-warning)', fontWeight: 700 }}
+                            title="Reopen task to pending"
+                          >
+                            Reopen
+                          </button>
+                        )}
+
                         {!t.seenByOwner && !isCompleted && (
                           <button 
                             type="button"
@@ -926,6 +1508,7 @@ export default function Tasks({
                             👁️ Mark Seen
                           </button>
                         )}
+
                         <button 
                           type="button"
                           onClick={(e) => { e.stopPropagation(); setSelectedTaskForComments(t); }}
@@ -934,17 +1517,6 @@ export default function Tasks({
                         >
                           💬 View & Reply ({t.comments?.length || 0})
                         </button>
-                        
-                        {isCompleted && (
-                          <button 
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); handleResetTask(t._id); }}
-                            className="btn btn-secondary" 
-                            style={{ padding: '6px 12px', fontSize: '0.8rem', color: 'var(--color-warning)' }}
-                          >
-                            Reopen
-                          </button>
-                        )}
 
                         <button 
                           type="button"
