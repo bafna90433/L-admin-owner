@@ -324,7 +324,7 @@ export default function Tasks({
     }
   };
 
-  const handleCompleteTask = (id: string, title?: string) => {
+  const _handleCompleteTask = (id: string, title?: string) => {
     setConfirmModal({
       title: 'Finish & Complete Task',
       message: `Are you sure you want to mark "${title || 'this task'}" as Finished & Completed?`,
@@ -348,7 +348,7 @@ export default function Tasks({
     });
   };
 
-  const handleResetTask = (id: string) => {
+  const _handleResetTask = (id: string) => {
     setConfirmModal({
       title: 'Reset Task',
       message: 'Are you sure you want to reset this task back to pending?',
@@ -1347,7 +1347,7 @@ export default function Tasks({
 
               return displayTasks.map((t) => {
                 const isCompleted = t.status === 'completed';
-                const isPending = !isCompleted;
+                // isPending = !isCompleted (reserved for future use)
                 const isTargetHighlighted = highlightedTaskId === t._id;
                 const commentCount = t.comments?.length || 0;
                 const hasActiveCommunication = !isCompleted && commentCount > 0;
