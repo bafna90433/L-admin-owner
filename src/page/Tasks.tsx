@@ -324,53 +324,6 @@ export default function Tasks({
     }
   };
 
-  const _handleCompleteTask = (id: string, title?: string) => {
-    setConfirmModal({
-      title: 'Finish & Complete Task',
-      message: `Are you sure you want to mark "${title || 'this task'}" as Finished & Completed?`,
-      onConfirm: async () => {
-        try {
-          const res = await fetch(`${apiBase}/tasks/${id}/complete`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          if (res.ok) {
-            fetchTasks();
-            showToast('✅ Task marked as Finished & Completed by MD!', 'success');
-          } else {
-            showToast('Failed to complete task', 'danger');
-          }
-        } catch (err) {
-          console.error(err);
-          showToast('Error connecting to server', 'danger');
-        }
-      }
-    });
-  };
-
-  const _handleResetTask = (id: string) => {
-    setConfirmModal({
-      title: 'Reset Task',
-      message: 'Are you sure you want to reset this task back to pending?',
-      onConfirm: async () => {
-        try {
-          const res = await fetch(`${apiBase}/tasks/${id}/reset`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          if (res.ok) {
-            fetchTasks();
-            showToast('Task status reset to pending.', 'success');
-          } else {
-            showToast('Failed to reset task', 'danger');
-          }
-        } catch (err) {
-          console.error(err);
-          showToast('Error connecting to server', 'danger');
-        }
-      }
-    });
-  };
 
   const handleDeleteTask = (id: string) => {
     setConfirmModal({
