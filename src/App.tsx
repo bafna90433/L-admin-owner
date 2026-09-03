@@ -1725,108 +1725,109 @@ export default function App() {
         </div>
 
 
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: '8px', flexGrow: 1, marginTop: '16px' }}>
+        <nav style={{ display: 'flex', flexDirection: 'column', gap: '6px', flexGrow: 1, marginTop: '14px' }}>
           <button
             onClick={() => navigateTo('notifications')}
-            className={`nav-link btn-secondary ${activeTab === 'notifications' ? 'active' : ''}`}
-            style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
+            className={`nav-link ${activeTab === 'notifications' ? 'active' : ''}`}
           >
-            <Bell size={18} /> Notifications
+            <Bell size={18} />
+            <span>Notifications</span>
             {unreadNotificationCount > 0 && (
-              <span className="badge badge-danger" style={{ marginLeft: 'auto', padding: '2px 6px' }}>
+              <span className="badge badge-danger">
                 {unreadNotificationCount}
               </span>
             )}
           </button>
           <button
             onClick={() => navigateTo('reminders')}
-            className={`nav-link btn-secondary ${activeTab === 'reminders' ? 'active' : ''}`}
-            style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
+            className={`nav-link ${activeTab === 'reminders' ? 'active' : ''}`}
           >
-            <Bell size={18} /> Staff Reminders
+            <Bell size={18} />
+            <span>Staff Reminders</span>
           </button>
           <button
             onClick={() => navigateTo('tasks')}
-            className={`nav-link btn-secondary ${activeTab === 'tasks' ? 'active' : ''}`}
-            style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
+            className={`nav-link ${activeTab === 'tasks' ? 'active' : ''}`}
           >
-            <CheckCircle size={18} /> Task Manager
+            <CheckCircle size={18} />
+            <span>Task Manager</span>
             {tasks.filter(t => t.status === 'pending').length > 0 && (
-              <span className="badge badge-danger" style={{ marginLeft: 'auto', padding: '2px 6px' }}>
+              <span className="badge badge-danger">
                 {tasks.filter(t => t.status === 'pending').length}
               </span>
             )}
           </button>
           <button
             onClick={() => navigateTo('chat')}
-            className={`nav-link btn-secondary ${activeTab === 'chat' ? 'active' : ''}`}
-            style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
+            className={`nav-link ${activeTab === 'chat' ? 'active' : ''}`}
           >
-            <MessageSquare size={18} /> Chat Hub
+            <MessageSquare size={18} />
+            <span>Chat Hub</span>
             {totalUnreadMessages > 0 && (
-              <span className="badge badge-danger" style={{ marginLeft: 'auto', padding: '2px 6px' }}>
+              <span className="badge badge-danger">
                 {totalUnreadMessages}
               </span>
             )}
           </button>
-          <hr style={{ border: 'none', borderTop: '1px solid var(--glass-border)', margin: '8px 0' }} />
+          <hr style={{ border: 'none', borderTop: '1px solid var(--glass-border)', margin: '6px 0' }} />
 
           <button
             onClick={() => navigateTo('labourers')}
-            className={`nav-link btn-secondary ${activeTab === 'labourers' ? 'active' : ''}`}
-            style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
+            className={`nav-link ${activeTab === 'labourers' ? 'active' : ''}`}
           >
-            <Users size={18} /> Labour Directory
+            <Users size={18} />
+            <span>Labour Directory</span>
           </button>
           <button
             onClick={() => navigateTo('advances')}
-            className={`nav-link btn-secondary ${activeTab === 'advances' ? 'active' : ''}`}
-            style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
+            className={`nav-link ${activeTab === 'advances' ? 'active' : ''}`}
           >
-            <ArrowUpRight size={18} /> Advance Approvals
+            <ArrowUpRight size={18} />
+            <span>Advance Approvals</span>
             {advances.filter(a => a.status === 'pending').length > 0 && (
-              <span className="badge badge-danger" style={{ marginLeft: 'auto', padding: '2px 6px' }}>
+              <span className="badge badge-danger">
                 {advances.filter(a => a.status === 'pending').length}
               </span>
             )}
           </button>
           <button
             onClick={() => navigateTo('advance-history')}
-            className={`nav-link btn-secondary ${activeTab === 'advance-history' ? 'active' : ''}`}
-            style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
+            className={`nav-link ${activeTab === 'advance-history' ? 'active' : ''}`}
           >
-            <History size={18} /> Advance Ledger
+            <History size={18} />
+            <span>Advance Ledger</span>
           </button>
           <button
             onClick={() => navigateTo('dashboard')}
-            className={`nav-link btn-secondary ${activeTab === 'dashboard' ? 'active' : ''}`}
-            style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
+            className={`nav-link ${activeTab === 'dashboard' ? 'active' : ''}`}
           >
-            <TrendingUp size={18} /> Expenses Desk
+            <TrendingUp size={18} />
+            <span>Expenses Desk</span>
           </button>
           <button
             onClick={() => navigateTo('transaction-history')}
-            className={`nav-link btn-secondary ${activeTab === 'transaction-history' ? 'active' : ''}`}
-            style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
+            className={`nav-link ${activeTab === 'transaction-history' ? 'active' : ''}`}
           >
-            <Receipt size={18} /> Transaction History
+            <Receipt size={18} />
+            <span>Transaction History</span>
           </button>
           <button
             onClick={() => navigateTo('deleted-logs')}
-            className={`nav-link btn-secondary ${activeTab === 'deleted-logs' ? 'active' : ''}`}
-            style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}
+            className={`nav-link ${activeTab === 'deleted-logs' ? 'active' : ''}`}
           >
-            <Trash2 size={18} /> Deleted History
+            <Trash2 size={18} />
+            <span>Deleted History</span>
           </button>
         </nav>
 
         <div style={{ marginTop: 'auto' }}>
           <button
             onClick={() => navigateTo('settings')}
-            className={`nav-link btn-secondary ${activeTab === 'settings' ? 'active' : ''}`}
-            style={{ width: '100%', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left', marginBottom: '12px' }}
+            className={`nav-link ${activeTab === 'settings' ? 'active' : ''}`}
+            style={{ marginBottom: '10px' }}
           >
-            <SettingsIcon size={18} /> Settings
+            <SettingsIcon size={18} />
+            <span>Settings</span>
           </button>
           <div
             onClick={() => navigateTo('profile')}
