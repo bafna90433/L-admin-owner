@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Loader, Send, Lock, Bell, BellOff, CheckCircle2, Zap } from 'lucide-react';
+import { Loader, Send, Lock, Bell, BellOff, CheckCircle2, Zap, X, Layers, User, MessageSquare, Check, ShieldCheck, Clock3 } from 'lucide-react';
 import '../styles/Tasks.css';
 
 interface Task {
@@ -9,9 +9,28 @@ interface Task {
   frequency: 'daily' | 'weekly' | 'monthly' | 'one-time';
   status: 'pending' | 'completed';
   assignedTo?: {
+    _id?: string;
+    id?: string;
     name: string;
     username?: string;
+    imageUrl?: string;
   };
+  completedBy?: {
+    name: string;
+    imageUrl?: string;
+  };
+  completedAt?: string;
+  completionRequestedBy?: {
+    _id?: string;
+    id?: string;
+    name: string;
+    username?: string;
+    imageUrl?: string;
+  };
+  completionRequestedAt?: string;
+  description?: string;
+  remarks?: string;
+  nextFollowup?: string;
   comments?: any[];
   seenByOwner?: boolean;
   seenAt?: string;
@@ -253,7 +272,9 @@ export default function TaskDetailModal({
     }
   };
 
-  const [isCompleting, setIsCompleting] = useState(false);
+  const [isRejecting, setIsRejecting] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+  const [showRejectInput, setShowRejectInput] = useState(false);
 
   const handleCompleteTask = async () => {
     setIsCompleting(true);
@@ -274,6 +295,33 @@ export default function TaskDetailModal({
       showToast('Error connecting to server', 'danger');
     } finally {
       setIsCompleting(false);
+    }
+  };
+
+  const handleRejectCompletion = async () => {
+    setIsRejecting(true);
+    try {
+      const res = await fetch(`${apiBase}/tasks/${task._id}/reject-completion`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ reason: rejectReason.trim() })
+      });
+      if (res.ok) {
+        showToast('Finish request rejected. Work sent back for revision.', 'info');
+        onTaskUpdated();
+        setShowRejectInput(false);
+        setRejectReason('');
+      } else {
+        showToast('Failed to reject finish request', 'danger');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Error connecting to server', 'danger');
+    } finally {
+      setIsRejecting(false);
     }
   };
 
@@ -303,94 +351,81 @@ export default function TaskDetailModal({
     ? `${new Date(task.reminderDateTime).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })} at ${new Date(task.reminderDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}`
     : null;
 
+  const isCompleted = task.status === 'completed';
+  const isAwaitingApproval = !isCompleted && Boolean(task.completionRequestedAt);
+
   return (
-    <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-      background: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(8px)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999,
-      padding: '16px'
-    }}>
-      <div className="glass-panel animate-fade-in" style={{ 
-        width: '100%', 
-        maxWidth: '620px', 
-        padding: '24px 28px', 
-        display: 'flex', 
-        flexDirection: 'column', 
-        maxHeight: '92vh',
-        background: '#ffffff',
-        borderRadius: '24px',
-        boxShadow: '0 25px 50px -12px rgba(15, 23, 42, 0.35)',
-        border: '1.5px solid rgba(226, 232, 240, 0.95)',
-        overflowY: 'auto'
-      }}>
-        {/* Header */}
-        <div className="flex-between" style={{ marginBottom: '10px' }}>
+    <div className="task-modal-overlay" onClick={onClose}>
+      <div className="task-modal-window" onClick={e => e.stopPropagation()}>
+        
+        {/* Top Executive Header Bar: Status, MD Authority, Finish Work Button & Close Button */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          paddingBottom: '16px',
+          marginBottom: '16px',
+          borderBottom: '1.5px solid #f1f5f9',
+          flexWrap: 'wrap',
+          gap: '12px'
+        }}>
+          {/* Left: Status & MD Authority info */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <span className={`badge ${task.status === 'completed' ? 'badge-status-completed' : 'badge-status-pending'}`} style={{ textTransform: 'uppercase' }}>
-              {task.status !== 'completed' && <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ffffff', display: 'inline-block', marginRight: 4 }} />}
-              {task.status}
-            </span>
+            {isCompleted ? (
+              <span className="badge badge-status-completed" style={{ textTransform: 'uppercase', padding: '6px 12px', fontSize: '0.76rem' }}>
+                <CheckCircle2 size={13} style={{ marginRight: 3 }} />
+                COMPLETED
+              </span>
+            ) : isAwaitingApproval ? (
+              <span className="task-approval-status-pill" style={{ padding: '6px 14px', fontSize: '0.76rem' }}>
+                <ShieldCheck size={14} /> MD APPROVAL PENDING
+              </span>
+            ) : (
+              <span className="badge badge-status-pending" style={{ textTransform: 'uppercase', padding: '6px 12px', fontSize: '0.76rem' }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ffffff', display: 'inline-block', marginRight: 4 }} />
+                IN-PROGRESS / PENDING
+              </span>
+            )}
+
             {task.taskType === 'reminder-sir' && (
-              <span className="badge badge-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              <span className="task-tag-chip" style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #f59e0b', fontWeight: 800 }}>
                 <Lock size={12} /> MD Directive
               </span>
             )}
+
             {hasActiveReminder && (
-              <span className="badge" style={{ 
-                background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', 
-                color: '#ffffff',
-                fontWeight: 800,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px',
-                boxShadow: '0 2px 8px rgba(245, 158, 11, 0.35)'
-              }}>
+              <span className="task-tag-chip task-tag-reminder" style={{ fontWeight: 800 }}>
                 <Bell size={12} /> Alarm Armed
               </span>
             )}
-          </div>
-          <button 
-            type="button" 
-            onClick={onClose} 
-            className="btn btn-secondary"
-            style={{ padding: '6px 10px', borderRadius: '50%', fontSize: '0.85rem' }}
-          >
-            ✕
-          </button>
-        </div>
 
-        <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#0f172a', margin: '0 0 6px 0', lineHeight: 1.3 }}>
-          {task.title}
-        </h3>
-        
-        <p style={{ fontSize: '0.84rem', color: '#64748b', margin: '0 0 14px 0', paddingBottom: '10px', borderBottom: '1px solid rgba(226, 232, 240, 0.8)' }}>
-          Category: <span style={{ fontWeight: 700, textTransform: 'capitalize', color: '#0f172a' }}>{task.taskType} ({task.frequency})</span> • Assigned to: <span style={{ fontWeight: 700, color: '#4f46e5' }}>{task.assignedTo?.name || 'All Staff'}</span>
-        </p>
-
-        {/* MD Authority Action Bar (Finish Work / Reopen) */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '12px 16px',
-          borderRadius: '14px',
-          background: task.status === 'completed' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(79, 70, 229, 0.06)',
-          border: task.status === 'completed' ? '1.5px solid rgba(16, 185, 129, 0.3)' : '1.5px solid rgba(79, 70, 229, 0.18)',
-          marginBottom: '16px',
-          flexWrap: 'wrap',
-          gap: '10px'
-        }}>
-          <div>
-            <div style={{ fontSize: '0.88rem', fontWeight: 800, color: task.status === 'completed' ? '#065f46' : '#1e293b' }}>
-              {task.status === 'completed' ? '✅ Work Completed & Approved' : '⏳ Status: In-Progress / Pending'}
-            </div>
-            <div style={{ fontSize: '0.74rem', color: '#64748b' }}>
-              {task.status === 'completed' ? 'This task has been completed and verified.' : 'Only MD has authority to mark this task as finished.'}
-            </div>
+            <span style={{ fontSize: '0.76rem', color: '#64748b', fontWeight: 550, marginLeft: '4px' }}>
+              {isCompleted ? '• Verified by MD' : isAwaitingApproval ? '• Staff has requested finish approval' : '• Only MD has authority to approve & finish'}
+            </span>
           </div>
 
-          <div>
-            {task.status !== 'completed' ? (
+          {/* Right: Finish Work Action & Close Button */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {isCompleted ? (
+              <button
+                type="button"
+                onClick={handleResetTask}
+                disabled={isCompleting}
+                style={{
+                  padding: '7px 16px',
+                  fontWeight: 750,
+                  fontSize: '0.8rem',
+                  color: '#d97706',
+                  background: '#fef3c7',
+                  border: '1px solid #fcd34d',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  transition: 'all 0.18s ease'
+                }}
+              >
+                {isCompleting ? <Loader className="spinner" size={14} /> : '↺ Reopen Task'}
+              </button>
+            ) : isAwaitingApproval ? (
               <button
                 type="button"
                 onClick={handleCompleteTask}
@@ -404,56 +439,223 @@ export default function TaskDetailModal({
                   alignItems: 'center',
                   gap: '6px',
                   background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                  boxShadow: '0 3px 8px rgba(16, 185, 129, 0.3)',
-                  borderRadius: '10px'
+                  boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
+                  borderRadius: '12px',
+                  border: 'none',
+                  color: '#ffffff',
+                  cursor: 'pointer'
                 }}
+                title="Approve staff finish request and mark task completed"
               >
-                {isCompleting ? <Loader className="spinner" size={14} /> : <CheckCircle2 size={16} />}
-                Finish Work
+                {isCompleting ? <Loader className="spinner" size={14} /> : <ShieldCheck size={16} strokeWidth={2.5} />}
+                <span>Approve Finish</span>
               </button>
             ) : (
               <button
                 type="button"
-                onClick={handleResetTask}
+                onClick={handleCompleteTask}
                 disabled={isCompleting}
-                className="btn btn-secondary"
+                className="btn btn-success"
                 style={{
-                  padding: '6px 14px',
-                  fontWeight: 700,
-                  fontSize: '0.8rem',
-                  color: 'var(--color-warning)'
+                  padding: '8px 18px',
+                  fontWeight: 800,
+                  fontSize: '0.84rem',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                  boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
+                  borderRadius: '12px',
+                  border: 'none',
+                  color: '#ffffff',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
                 }}
+                title="Mark this task as finished"
               >
-                {isCompleting ? <Loader className="spinner" size={14} /> : 'Reopen Task'}
+                {isCompleting ? <Loader className="spinner" size={14} /> : <Check size={16} strokeWidth={3} />}
+                <span>Finish Work</span>
               </button>
             )}
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="task-modal-close-btn"
+              title="Close modal"
+            >
+              <X size={18} />
+            </button>
           </div>
         </div>
 
-        {/* SET REMINDER ALARM SECTION (Highlighted for MD) */}
-        <div style={{
-          background: hasActiveReminder 
-            ? 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)' 
-            : '#f8fafc',
-          border: hasActiveReminder 
-            ? '1.5px solid #fcd34d' 
-            : '1.5px solid #e2e8f0',
-          borderRadius: '16px',
-          padding: '16px 18px',
-          marginBottom: '16px',
-          boxShadow: hasActiveReminder ? '0 4px 12px rgba(245, 158, 11, 0.12)' : 'none'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        {/* Task Title */}
+        <h2 className="task-modal-title" style={{ marginTop: 0 }}>
+          {task.title}
+        </h2>
+
+        {/* Metadata Strip */}
+        <div className="task-modal-meta-bar" style={{ marginBottom: '18px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ color: '#64748b', fontWeight: 600 }}>Category:</span>
+            <span className="task-tag-chip task-tag-category" style={{ textTransform: 'capitalize' }}>
+              <Layers size={11} />
+              {task.taskType === 'regular' ? 'Regular Work' : 'Custom Task'} ({task.frequency})
+            </span>
+          </div>
+
+          <span style={{ color: '#cbd5e1' }}>•</span>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ color: '#64748b', fontWeight: 600 }}>Assigned to:</span>
+            <span style={{
+              background: 'rgba(99, 102, 241, 0.08)',
+              color: '#4f46e5',
+              padding: '3px 10px 3px 8px',
+              borderRadius: '12px',
+              fontWeight: 750,
+              fontSize: '0.8rem',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px'
+            }}>
+              <User size={12} />
+              {task.assignedTo?.name || '👥 All Staff'}
+            </span>
+          </div>
+
+          {isCompleted && task.completedBy && (
+            <>
+              <span style={{ color: '#cbd5e1' }}>•</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ color: '#64748b', fontWeight: 600 }}>Completed by:</span>
+                <span style={{
+                  background: 'rgba(16, 185, 129, 0.12)',
+                  color: '#059669',
+                  padding: '3px 10px 3px 8px',
+                  borderRadius: '12px',
+                  fontWeight: 750,
+                  fontSize: '0.8rem',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px'
+                }}>
+                  <CheckCircle2 size={12} />
+                  {task.completedBy.name} {task.completedAt ? `on ${new Date(task.completedAt).toLocaleDateString('en-GB')}` : ''}
+                </span>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* MD APPROVAL REQUEST CALLOUT BANNER */}
+        {isAwaitingApproval && (
+          <div style={{
+            padding: '16px 20px',
+            borderRadius: '16px',
+            background: 'linear-gradient(135deg, #eef2ff 0%, #ecfeff 100%)',
+            border: '1.5px solid rgba(99, 102, 241, 0.35)',
+            boxShadow: '0 4px 16px rgba(79, 70, 229, 0.12)',
+            marginBottom: '20px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ width: 38, height: 38, borderRadius: 10, background: 'linear-gradient(135deg, #4f46e5, #7c3aed)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <ShieldCheck size={22} />
+                </div>
+                <div>
+                  <div style={{ fontWeight: 850, fontSize: '0.95rem', color: '#1e1b4b' }}>
+                    🛡️ Finish Approval Requested by {task.completionRequestedBy?.name || task.assignedTo?.name || 'Staff'}
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: '#4338ca' }}>
+                    Requested on {new Date(task.completionRequestedAt || '').toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })} • Review work and approve to mark completed.
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <button
+                  type="button"
+                  onClick={handleCompleteTask}
+                  disabled={isCompleting}
+                  className="btn btn-success"
+                  style={{
+                    padding: '8px 18px',
+                    fontWeight: 800,
+                    fontSize: '0.84rem',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
+                    borderRadius: '12px',
+                    border: 'none',
+                    color: '#ffffff',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {isCompleting ? <Loader className="spinner" size={14} /> : <Check size={16} strokeWidth={3} />}
+                  <span>Approve & Complete</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowRejectInput(!showRejectInput)}
+                  style={{
+                    padding: '8px 14px',
+                    fontWeight: 750,
+                    fontSize: '0.82rem',
+                    color: '#dc2626',
+                    background: '#fef2f2',
+                    border: '1.5px solid rgba(239, 68, 68, 0.3)',
+                    borderRadius: '12px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {showRejectInput ? 'Cancel' : 'Reject / Revise'}
+                </button>
+              </div>
+            </div>
+            {showRejectInput && (
+              <div style={{ display: 'flex', gap: '8px', marginTop: '4px', paddingTop: '10px', borderTop: '1px solid rgba(99, 102, 241, 0.15)' }}>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Explain what needs revision or correction (optional)..."
+                  value={rejectReason}
+                  onChange={e => setRejectReason(e.target.value)}
+                  style={{ flexGrow: 1, fontSize: '0.85rem' }}
+                />
+                <button
+                  type="button"
+                  onClick={handleRejectCompletion}
+                  disabled={isRejecting}
+                  className="btn btn-danger"
+                  style={{ padding: '8px 16px', fontSize: '0.82rem', fontWeight: 800, whiteSpace: 'nowrap' }}
+                >
+                  {isRejecting ? <Loader className="spinner" size={14} /> : 'Send Back'}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* SET REMINDER ALARM SECTION */}
+        <div className={`task-modal-alarm-box ${hasActiveReminder ? 'alarm-active' : 'alarm-idle'}`}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <div style={{
-                width: '32px',
-                height: '32px',
+                width: '36px',
+                height: '36px',
                 borderRadius: '10px',
-                background: hasActiveReminder ? '#f59e0b' : '#4f46e5',
+                background: hasActiveReminder ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' : 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)',
                 color: '#ffffff',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                boxShadow: hasActiveReminder ? '0 3px 8px rgba(245, 158, 11, 0.3)' : '0 3px 8px rgba(79, 70, 229, 0.25)',
+                flexShrink: 0
               }}>
                 <Bell size={18} />
               </div>
@@ -461,8 +663,8 @@ export default function TaskDetailModal({
                 <h4 style={{ margin: 0, fontSize: '0.96rem', fontWeight: 800, color: '#0f172a' }}>
                   Set Reminder Alarm (MD & Staff)
                 </h4>
-                <p style={{ margin: 0, fontSize: '0.74rem', color: '#64748b' }}>
-                  At scheduled time, continuous alarm will ring simultaneously on MD & Staff screens
+                <p style={{ margin: 0, fontSize: '0.74rem', color: '#64748b', marginTop: '2px' }}>
+                  Continuous alarm will ring simultaneously on MD & Staff devices
                 </p>
               </div>
             </div>
@@ -472,14 +674,15 @@ export default function TaskDetailModal({
                 type="button"
                 onClick={() => setShowReminderSettings(true)}
                 style={{
-                  padding: '6px 12px',
-                  fontSize: '0.78rem',
-                  fontWeight: 700,
-                  borderRadius: '8px',
-                  background: '#4f46e5',
+                  padding: '7px 14px',
+                  fontSize: '0.8rem',
+                  fontWeight: 750,
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)',
                   color: '#ffffff',
                   border: 'none',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  boxShadow: '0 3px 8px rgba(79, 70, 229, 0.25)'
                 }}
               >
                 + Configure Alarm
@@ -487,28 +690,29 @@ export default function TaskDetailModal({
             )}
           </div>
 
-          {/* Active Reminder Status Banner */}
+          {/* Active Reminder Status Strip */}
           {hasActiveReminder && (
             <div style={{
               background: '#ffffff',
-              padding: '10px 14px',
+              padding: '12px 16px',
               borderRadius: '12px',
-              border: '1px solid #fde68a',
+              border: '1.5px solid #fde68a',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              marginBottom: showReminderSettings ? '12px' : '0',
+              marginBottom: showReminderSettings ? '14px' : '0',
               flexWrap: 'wrap',
-              gap: '8px'
+              gap: '10px',
+              boxShadow: '0 2px 8px rgba(245, 158, 11, 0.08)'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <CheckCircle2 size={18} style={{ color: '#d97706' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <CheckCircle2 size={20} style={{ color: '#d97706', flexShrink: 0 }} />
                 <div>
-                  <span style={{ fontSize: '0.84rem', fontWeight: 800, color: '#92400e' }}>
+                  <div style={{ fontSize: '0.86rem', fontWeight: 800, color: '#92400e' }}>
                     ⏰ Scheduled: {formattedActiveReminder}
-                  </span>
-                  <div style={{ fontSize: '0.72rem', color: '#b45309' }}>
-                    Alarm active for both Managing Director and Staff ({task.assignedTo?.name || 'All Staff'})
+                  </div>
+                  <div style={{ fontSize: '0.73rem', color: '#b45309', marginTop: '1px' }}>
+                    Alarm active for MD & Assigned Staff ({task.assignedTo?.name || 'All Staff'})
                   </div>
                 </div>
               </div>
@@ -518,9 +722,9 @@ export default function TaskDetailModal({
                 onClick={handleClearReminder}
                 disabled={isSavingReminder}
                 style={{
-                  padding: '5px 10px',
-                  fontSize: '0.74rem',
-                  fontWeight: 700,
+                  padding: '6px 12px',
+                  fontSize: '0.76rem',
+                  fontWeight: 750,
                   borderRadius: '8px',
                   background: '#fee2e2',
                   color: '#dc2626',
@@ -528,110 +732,52 @@ export default function TaskDetailModal({
                   cursor: 'pointer',
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '4px'
+                  gap: '5px'
                 }}
               >
-                <BellOff size={13} /> Remove Alarm
+                <BellOff size={13} />
+                <span>Remove Alarm</span>
               </button>
             </div>
           )}
 
           {/* Date, Time AM/PM Picker and Controls */}
           {showReminderSettings && (
-            <div style={{ marginTop: '8px' }}>
+            <div style={{ marginTop: '10px' }}>
               {/* Quick Preset Buttons */}
               <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '8px', marginBottom: '10px' }}>
                 <button
                   type="button"
                   onClick={() => applyPreset(15)}
-                  style={{
-                    padding: '4px 8px',
-                    fontSize: '0.72rem',
-                    fontWeight: 700,
-                    borderRadius: '8px',
-                    background: '#ffffff',
-                    border: '1px solid #cbd5e1',
-                    color: '#334155',
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}
+                  className="task-preset-btn"
                 >
                   <Zap size={11} style={{ color: '#f59e0b' }} /> +15 Min
                 </button>
                 <button
                   type="button"
                   onClick={() => applyPreset(30)}
-                  style={{
-                    padding: '4px 8px',
-                    fontSize: '0.72rem',
-                    fontWeight: 700,
-                    borderRadius: '8px',
-                    background: '#ffffff',
-                    border: '1px solid #cbd5e1',
-                    color: '#334155',
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}
+                  className="task-preset-btn"
                 >
                   <Zap size={11} style={{ color: '#f59e0b' }} /> +30 Min
                 </button>
                 <button
                   type="button"
                   onClick={() => applyPreset(60)}
-                  style={{
-                    padding: '4px 8px',
-                    fontSize: '0.72rem',
-                    fontWeight: 700,
-                    borderRadius: '8px',
-                    background: '#ffffff',
-                    border: '1px solid #cbd5e1',
-                    color: '#334155',
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}
+                  className="task-preset-btn"
                 >
                   <Zap size={11} style={{ color: '#f59e0b' }} /> +1 Hour
                 </button>
                 <button
                   type="button"
                   onClick={applyTodayEvening}
-                  style={{
-                    padding: '4px 8px',
-                    fontSize: '0.72rem',
-                    fontWeight: 700,
-                    borderRadius: '8px',
-                    background: '#ffffff',
-                    border: '1px solid #cbd5e1',
-                    color: '#334155',
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap'
-                  }}
+                  className="task-preset-btn"
                 >
                   🌆 Today 5:00 PM
                 </button>
                 <button
                   type="button"
                   onClick={applyTomorrowMorning}
-                  style={{
-                    padding: '4px 8px',
-                    fontSize: '0.72rem',
-                    fontWeight: 700,
-                    borderRadius: '8px',
-                    background: '#ffffff',
-                    border: '1px solid #cbd5e1',
-                    color: '#334155',
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap'
-                  }}
+                  className="task-preset-btn"
                 >
                   🌅 Tomorrow 10:00 AM
                 </button>
@@ -639,14 +785,13 @@ export default function TaskDetailModal({
 
               {/* Date & Time AM/PM Pickers Grid */}
               <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr 0.9fr', gap: '8px', alignItems: 'flex-end', marginBottom: '12px' }}>
-                {/* Date Input */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
+                  <label style={{ display: 'block', fontSize: '0.73rem', fontWeight: 750, color: '#475569', marginBottom: '4px' }}>
                     📅 Date
                   </label>
                   <input
                     type="date"
-                    className="form-input"
+                    className="task-form-input"
                     value={remDate}
                     onChange={e => setRemDate(e.target.value)}
                     min={formatDateToYMD(new Date())}
@@ -654,16 +799,15 @@ export default function TaskDetailModal({
                   />
                 </div>
 
-                {/* Hour Select (1-12) */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
+                  <label style={{ display: 'block', fontSize: '0.73rem', fontWeight: 750, color: '#475569', marginBottom: '4px' }}>
                     ⏰ Hour (1-12)
                   </label>
                   <select
-                    className="form-input"
+                    className="task-form-input"
                     value={remHour}
                     onChange={e => setRemHour(e.target.value)}
-                    style={{ padding: '7px 10px', fontSize: '0.82rem', borderRadius: '10px', fontWeight: 700 }}
+                    style={{ padding: '7px 10px', fontSize: '0.82rem', borderRadius: '10px', fontWeight: 750 }}
                   >
                     {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0')).map(h => (
                       <option key={h} value={h}>{h}</option>
@@ -671,16 +815,15 @@ export default function TaskDetailModal({
                   </select>
                 </div>
 
-                {/* Minute Select (00-55) */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
+                  <label style={{ display: 'block', fontSize: '0.73rem', fontWeight: 750, color: '#475569', marginBottom: '4px' }}>
                     ⏱ Minute
                   </label>
                   <select
-                    className="form-input"
+                    className="task-form-input"
                     value={remMinute}
                     onChange={e => setRemMinute(e.target.value)}
-                    style={{ padding: '7px 10px', fontSize: '0.82rem', borderRadius: '10px', fontWeight: 700 }}
+                    style={{ padding: '7px 10px', fontSize: '0.82rem', borderRadius: '10px', fontWeight: 750 }}
                   >
                     {Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0')).map(m => (
                       <option key={m} value={m}>{m}</option>
@@ -688,10 +831,9 @@ export default function TaskDetailModal({
                   </select>
                 </div>
 
-                {/* AM / PM Toggle */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.74rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
-                    ☀️ / 🌙 Period
+                  <label style={{ display: 'block', fontSize: '0.73rem', fontWeight: 750, color: '#475569', marginBottom: '4px' }}>
+                    ☀️/🌙 Period
                   </label>
                   <div style={{ display: 'flex', borderRadius: '10px', overflow: 'hidden', border: '1.5px solid #cbd5e1' }}>
                     <button
@@ -732,7 +874,7 @@ export default function TaskDetailModal({
                 </div>
               </div>
 
-              {/* Action Button */}
+              {/* Action Buttons */}
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button
                   type="button"
@@ -740,22 +882,22 @@ export default function TaskDetailModal({
                   disabled={isSavingReminder}
                   style={{
                     flexGrow: 1,
-                    padding: '9px 16px',
-                    borderRadius: '10px',
-                    fontSize: '0.84rem',
-                    fontWeight: 700,
+                    padding: '10px 18px',
+                    borderRadius: '12px',
+                    fontSize: '0.86rem',
+                    fontWeight: 800,
                     background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
                     color: '#ffffff',
                     border: 'none',
-                    boxShadow: '0 3px 10px rgba(245, 158, 11, 0.3)',
+                    boxShadow: '0 4px 14px rgba(245, 158, 11, 0.35)',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '6px'
+                    gap: '7px'
                   }}
                 >
-                  {isSavingReminder ? <Loader className="spinner" size={15} /> : <Bell size={15} />}
+                  {isSavingReminder ? <Loader className="spinner" size={15} /> : <Bell size={16} />}
                   <span>{hasActiveReminder ? 'Update & Arm Reminder Alarm' : 'Set & Arm Reminder Alarm'}</span>
                 </button>
 
@@ -765,10 +907,10 @@ export default function TaskDetailModal({
                     onClick={handleClearReminder}
                     disabled={isSavingReminder}
                     style={{
-                      padding: '9px 14px',
-                      borderRadius: '10px',
+                      padding: '10px 16px',
+                      borderRadius: '12px',
                       fontSize: '0.84rem',
-                      fontWeight: 700,
+                      fontWeight: 750,
                       background: '#f1f5f9',
                       color: '#64748b',
                       border: '1px solid #cbd5e1',
@@ -783,80 +925,69 @@ export default function TaskDetailModal({
           )}
         </div>
 
-        {/* Discussion / Follow-up Notes (Chat View) Header */}
+        {/* Discussion / Follow-up Notes Section */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-          <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-            💬 Follow-up Discussion Notes
-          </span>
-          <span style={{ fontSize: '0.74rem', color: '#94a3b8' }}>
-            {task.comments?.length || 0} messages
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <MessageSquare size={15} style={{ color: '#4f46e5' }} />
+            <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Follow-Up Discussion Notes
+            </span>
+          </div>
+          <span style={{
+            background: 'rgba(99, 102, 241, 0.1)',
+            color: '#4f46e5',
+            fontSize: '0.72rem',
+            fontWeight: 800,
+            padding: '2px 8px',
+            borderRadius: '10px'
+          }}>
+            {task.comments?.length || 0} {task.comments?.length === 1 ? 'message' : 'messages'}
           </span>
         </div>
 
-        {/* Discussion / Follow-up Notes (Chat View) */}
-        <div style={{ 
-          display: 'flex', 
-          flexDirection: 'column', 
-          gap: '10px', 
-          maxHeight: '260px', 
-          overflowY: 'auto', 
-          padding: '14px', 
-          background: '#f8fafc', 
-          border: '1.5px solid rgba(226, 232, 240, 0.95)',
-          borderRadius: '16px', 
-          marginBottom: '14px' 
-        }}>
+        {/* Discussion Feed */}
+        <div className="task-modal-chat-feed">
           {task.comments && task.comments.length > 0 ? (
             task.comments.map((c: any, index: number) => {
-              const isMD = c.authorRole === 'owner' || 
-                           c.authorRole === 'admin' || 
+              const isMD = c.authorRole === 'owner' ||
+                           c.authorRole === 'admin' ||
                            (c.authorName && (
-                             c.authorName.toLowerCase().includes('owner') || 
-                             c.authorName.toLowerCase().includes('director') || 
-                             c.authorName.toLowerCase().includes('sir') || 
+                             c.authorName.toLowerCase().includes('owner') ||
+                             c.authorName.toLowerCase().includes('director') ||
+                             c.authorName.toLowerCase().includes('sir') ||
                              c.authorName.toLowerCase().includes('md')
                            ));
 
               return (
-                <div 
+                <div
                   key={index}
-                  style={{
-                    padding: '10px 14px',
-                    maxWidth: '84%',
-                    alignSelf: isMD ? 'flex-end' : 'flex-start',
-                    background: isMD 
-                      ? 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)' 
-                      : '#ffffff',
-                    color: isMD ? '#ffffff' : '#0f172a',
-                    borderRadius: isMD ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                    border: isMD ? 'none' : '1.5px solid rgba(226, 232, 240, 0.95)',
-                    boxShadow: isMD 
-                      ? '0 4px 14px rgba(79, 70, 229, 0.25)' 
-                      : '0 2px 6px rgba(15, 23, 42, 0.03)'
-                  }}
+                  className={isMD ? 'task-bubble-md' : 'task-bubble-staff'}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '14px', marginBottom: '3px' }}>
-                    <span style={{ 
-                      fontWeight: 800, 
-                      fontSize: '0.74rem', 
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '14px', marginBottom: '4px' }}>
+                    <span style={{
+                      fontWeight: 850,
+                      fontSize: '0.74rem',
                       color: isMD ? '#e0e7ff' : '#4f46e5',
-                      letterSpacing: '0.02em'
+                      letterSpacing: '0.02em',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px'
                     }}>
                       {isMD ? '👑 You (MD / Owner)' : `👤 ${c.authorName || 'Staff'} (Staff)`}
                     </span>
-                    <span style={{ 
-                      fontSize: '0.66rem', 
-                      color: isMD ? 'rgba(255, 255, 255, 0.75)' : '#94a3b8' 
+                    <span style={{
+                      fontSize: '0.68rem',
+                      color: isMD ? 'rgba(255, 255, 255, 0.75)' : '#94a3b8'
                     }}>
                       {c.createdAt ? new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently'}
                     </span>
                   </div>
-                  <p style={{ 
-                    fontSize: '0.88rem', 
-                    color: isMD ? '#ffffff' : '#1e293b', 
-                    margin: 0, 
+                  <p style={{
+                    fontSize: '0.9rem',
+                    color: isMD ? '#ffffff' : '#1e293b',
+                    margin: 0,
                     whiteSpace: 'pre-wrap',
-                    lineHeight: 1.4 
+                    lineHeight: 1.45
                   }}>
                     {c.text}
                   </p>
@@ -864,45 +995,34 @@ export default function TaskDetailModal({
               );
             })
           ) : (
-            <div style={{ textAlign: 'center', color: '#94a3b8', padding: '24px 14px', fontSize: '0.84rem' }}>
-              💬 No discussion notes yet. Write a message below to give instructions or ask staff for an update.
+            <div style={{ textAlign: 'center', color: '#94a3b8', padding: '28px 16px', fontSize: '0.86rem' }}>
+              <div style={{ fontSize: '1.8rem', marginBottom: '6px' }}>💬</div>
+              <div style={{ fontWeight: 650, color: '#64748b' }}>No discussion notes yet.</div>
+              <div style={{ fontSize: '0.78rem', marginTop: '2px' }}>Write a message below to give instructions or ask staff for an update.</div>
             </div>
           )}
         </div>
 
-        {/* Comment Form */}
-        <form onSubmit={handlePostComment} style={{ display: 'flex', gap: '8px' }}>
-          <input 
-            type="text" 
-            className="form-input" 
+        {/* Comment Input Form */}
+        <form onSubmit={handlePostComment} className="task-modal-input-bar">
+          <input
+            type="text"
+            className="task-modal-input"
             placeholder="Ask for update, give instructions or reply..."
             value={newCommentText}
             onChange={e => setNewCommentText(e.target.value)}
             required
-            style={{ 
-              flexGrow: 1, 
-              padding: '10px 14px', 
-              fontSize: '0.88rem', 
-              borderRadius: '12px',
-              border: '1.5px solid rgba(226, 232, 240, 0.95)'
-            }}
           />
-          <button 
-            type="submit" 
-            className="btn btn-primary" 
-            disabled={commentSubmitting} 
-            style={{ 
-              padding: '10px 18px', 
-              borderRadius: '12px',
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '6px',
-              background: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)' 
-            }}
+          <button
+            type="submit"
+            className="task-modal-send-btn"
+            disabled={commentSubmitting}
+            title="Send note"
           >
             {commentSubmitting ? <Loader className="spinner" size={16} /> : <Send size={16} />}
           </button>
         </form>
+
       </div>
     </div>
   );

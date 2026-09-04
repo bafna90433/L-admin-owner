@@ -487,7 +487,28 @@ export default function App() {
         });
       }
 
-      // Event B: Task completed by staff
+      // Event B: Staff has finished the work and is waiting for MD approval
+      if (t.status !== 'completed' && t.completionRequestedAt) {
+        const requesterName = t.completionRequestedBy?.name || staffName;
+        const requesterImage = getAvatarUrl(t.completionRequestedBy, requesterName) || staffImage;
+        list.push({
+          id: `notif_task_approval_${taskId}`,
+          type: 'completion_requested',
+          title: `🛡️ Finish Approval: ${t.title}`,
+          description: `${requesterName} marked this work finished. Review and approve to complete it.`,
+          timestamp: t.completionRequestedAt,
+          taskId: taskId,
+          staffName: requesterName,
+          staffImage: requesterImage,
+          badge: 'MD Approval',
+          badgeColor: 'primary',
+          targetTab: 'tasks',
+          action: 'open_task',
+          isRead: readNotifIds.has(`notif_task_approval_${taskId}`) || !!t.seenByOwner
+        });
+      }
+
+      // Event C: Task completed after MD approval
       if (t.status === 'completed') {
         const compByName = t.completedBy?.name || staffName;
         const compImage = getAvatarUrl(t.completedBy, compByName) || staffImage;
@@ -508,7 +529,7 @@ export default function App() {
         });
       }
 
-      // Event C: Comments & discussion notes (ONLY from staff, exclude MD/Owner comments)
+      // Event D: Comments & discussion notes (ONLY from staff, exclude MD/Owner comments)
       if (Array.isArray(t.comments) && t.comments.length > 0) {
         t.comments.forEach((c: any, cIdx: number) => {
           const isMDComment = c.authorRole === 'owner' || 
@@ -1116,25 +1137,28 @@ export default function App() {
   }, [token]);
 
   const getOwnerAnnouncementText = (
-    type: 'new_task' | 'task_completed' | 'task_updated' | 'task_comment',
+    type: 'new_task' | 'completion_requested' | 'task_completed' | 'task_updated' | 'task_comment',
     params: { staffName: string; title: string; commentText?: string },
     lang: 'en' | 'hi' | 'ta' = 'en'
   ) => {
     const { staffName } = params;
     if (lang === 'hi') {
       if (type === 'new_task') return `Notification: ${staffName} ji ne naya task add kiya hai.`;
+      if (type === 'completion_requested') return `Notification: ${staffName} ji ne kaam finish kiya hai. Approval pending hai.`;
       if (type === 'task_completed') return `Notification: ${staffName} ji ne kaam complete kiya.`;
       if (type === 'task_comment') return `Notification: ${staffName} ji ka naya message.`;
       return `Notification: ${staffName} ji ka follow-up update.`;
     }
     if (lang === 'ta') {
       if (type === 'new_task') return `Notification: ${staffName} pudhiya task.`;
+      if (type === 'completion_requested') return `Notification: ${staffName} completion approval requested.`;
       if (type === 'task_completed') return `Notification: ${staffName} velai mudithaar.`;
       if (type === 'task_comment') return `Notification from ${staffName}.`;
       return `Notification: ${staffName} follow-up update.`;
     }
     // Default English - Short, Crisp Notification for MD
     if (type === 'new_task') return `Notification: New task from ${staffName}.`;
+    if (type === 'completion_requested') return `Notification: ${staffName} requested finish approval.`;
     if (type === 'task_completed') return `Notification: Task completed by ${staffName}.`;
     if (type === 'task_comment') return `Notification from ${staffName}.`;
     return `Notification: Update from ${staffName}.`;
@@ -1147,6 +1171,7 @@ export default function App() {
     nextFollowup: string;
     description: string;
     commentsCount: number;
+    completionRequestedAt?: string;
   }>>(new Map());
   const mdCreatedTaskIdsRef = useRef<Set<string>>(new Set());
 
@@ -1170,7 +1195,8 @@ export default function App() {
               remarks: String(t.remarks || '').trim(),
               nextFollowup: String(t.nextFollowup || '').trim(),
               description: String(t.description || '').trim(),
-              commentsCount: Array.isArray(t.comments) ? t.comments.length : 0
+              commentsCount: Array.isArray(t.comments) ? t.comments.length : 0,
+              completionRequestedAt: String(t.completionRequestedAt || '')
             });
           });
           isInitialOwnerTaskFetchRef.current = false;
@@ -1186,6 +1212,7 @@ export default function App() {
             const currentRemarks = String(t.remarks || '').trim();
             const currentNextFollowup = String(t.nextFollowup || '').trim();
             const currentDescription = String(t.description || '').trim();
+            const currentCompletionRequestedAt = String(t.completionRequestedAt || '');
 
             const currentOwnerId = user?._id || user?.id || '';
             const isCreatedByMD = mdCreatedTaskIdsRef.current.has(taskId) ||
@@ -1206,7 +1233,8 @@ export default function App() {
                 remarks: currentRemarks,
                 nextFollowup: currentNextFollowup,
                 description: currentDescription,
-                commentsCount: currentCommentsCount
+                commentsCount: currentCommentsCount,
+                completionRequestedAt: currentCompletionRequestedAt
               });
 
               // If MD created it -> SILENT. If Staff created it -> Announce to MD!
@@ -1228,7 +1256,8 @@ export default function App() {
                   remarks: currentRemarks,
                   nextFollowup: currentNextFollowup,
                   description: currentDescription,
-                  commentsCount: currentCommentsCount
+                  commentsCount: currentCommentsCount,
+                  completionRequestedAt: currentCompletionRequestedAt
                 });
                 const completedByName = t.completedBy?.name || staffName;
                 if (!chimePlayedInBatch) {
@@ -1240,14 +1269,35 @@ export default function App() {
                 const announceText = getOwnerAnnouncementText('task_completed', { staffName: completedByName, title: t.title }, taskLang);
                 pendingAnnouncements.push({ text: announceText, lang: taskLang });
               }
-              // Event 3: Staff posted a new comment / discussion note
+              // Event 3: Staff requested MD approval to finish work
+              else if (!prev.completionRequestedAt && currentCompletionRequestedAt && t.status !== 'completed') {
+                knownTaskMapRef.current.set(taskId, {
+                  status: t.status,
+                  remarks: currentRemarks,
+                  nextFollowup: currentNextFollowup,
+                  description: currentDescription,
+                  commentsCount: currentCommentsCount,
+                  completionRequestedAt: currentCompletionRequestedAt
+                });
+                const requesterName = t.completionRequestedBy?.name || staffName;
+                if (!chimePlayedInBatch) {
+                  playLoudNotificationSound();
+                  chimePlayedInBatch = true;
+                }
+                showToast(`🛡️ Finish approval requested by ${requesterName}: "${t.title}"`, 'info');
+                triggerDesktopPushNotification(`🛡️ MD Approval Required`, `${requesterName}: ${t.title}`);
+                const announceText = getOwnerAnnouncementText('completion_requested', { staffName: requesterName, title: t.title }, taskLang);
+                pendingAnnouncements.push({ text: announceText, lang: taskLang });
+              }
+              // Event 4: Staff posted a new comment / discussion note
               else if (currentCommentsCount > prev.commentsCount) {
                 knownTaskMapRef.current.set(taskId, {
                   status: t.status,
                   remarks: currentRemarks,
                   nextFollowup: currentNextFollowup,
                   description: currentDescription,
-                  commentsCount: currentCommentsCount
+                  commentsCount: currentCommentsCount,
+                  completionRequestedAt: currentCompletionRequestedAt
                 });
 
                 // Check who sent the new comment(s) - EXCLUDE MD/Owner comments from announcing back to MD!
@@ -1288,7 +1338,8 @@ export default function App() {
                   remarks: currentRemarks,
                   nextFollowup: currentNextFollowup,
                   description: currentDescription,
-                  commentsCount: currentCommentsCount
+                  commentsCount: currentCommentsCount,
+                  completionRequestedAt: currentCompletionRequestedAt
                 });
                 if (!chimePlayedInBatch) {
                   playLoudNotificationSound();
@@ -1719,16 +1770,22 @@ export default function App() {
     <div className="dashboard-layout animate-fade-in">
       {/* Sidebar */}
       <aside className="sidebar">
-        <div>
-          <h2 className="gradient-text" style={{ fontSize: '1.8rem', fontWeight: 800, marginBottom: '4px' }}>OFFICE PRO</h2>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Owner Dashboard</p>
+        <div className="sidebar-brand">
+          <div className="sidebar-brand-mark" aria-hidden="true">
+            <span>OP</span>
+          </div>
+          <div className="sidebar-brand-copy">
+            <h2 className="gradient-text">OFFICE PRO</h2>
+            <p>Executive workspace</p>
+          </div>
         </div>
 
-
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: '6px', flexGrow: 1, marginTop: '14px' }}>
+        <nav className="sidebar-nav" aria-label="Owner dashboard navigation">
+          <p className="sidebar-section-label">Workspace</p>
           <button
             onClick={() => navigateTo('notifications')}
             className={`nav-link ${activeTab === 'notifications' ? 'active' : ''}`}
+            aria-current={activeTab === 'notifications' ? 'page' : undefined}
           >
             <Bell size={18} />
             <span>Notifications</span>
@@ -1741,6 +1798,7 @@ export default function App() {
           <button
             onClick={() => navigateTo('reminders')}
             className={`nav-link ${activeTab === 'reminders' ? 'active' : ''}`}
+            aria-current={activeTab === 'reminders' ? 'page' : undefined}
           >
             <Bell size={18} />
             <span>Staff Reminders</span>
@@ -1748,6 +1806,7 @@ export default function App() {
           <button
             onClick={() => navigateTo('tasks')}
             className={`nav-link ${activeTab === 'tasks' ? 'active' : ''}`}
+            aria-current={activeTab === 'tasks' ? 'page' : undefined}
           >
             <CheckCircle size={18} />
             <span>Task Manager</span>
@@ -1760,6 +1819,7 @@ export default function App() {
           <button
             onClick={() => navigateTo('chat')}
             className={`nav-link ${activeTab === 'chat' ? 'active' : ''}`}
+            aria-current={activeTab === 'chat' ? 'page' : undefined}
           >
             <MessageSquare size={18} />
             <span>Chat Hub</span>
@@ -1769,11 +1829,13 @@ export default function App() {
               </span>
             )}
           </button>
-          <hr style={{ border: 'none', borderTop: '1px solid var(--glass-border)', margin: '6px 0' }} />
+          <div className="sidebar-rule" aria-hidden="true" />
+          <p className="sidebar-section-label">Operations</p>
 
           <button
             onClick={() => navigateTo('labourers')}
             className={`nav-link ${activeTab === 'labourers' ? 'active' : ''}`}
+            aria-current={activeTab === 'labourers' ? 'page' : undefined}
           >
             <Users size={18} />
             <span>Labour Directory</span>
@@ -1781,6 +1843,7 @@ export default function App() {
           <button
             onClick={() => navigateTo('advances')}
             className={`nav-link ${activeTab === 'advances' ? 'active' : ''}`}
+            aria-current={activeTab === 'advances' ? 'page' : undefined}
           >
             <ArrowUpRight size={18} />
             <span>Advance Approvals</span>
@@ -1793,6 +1856,7 @@ export default function App() {
           <button
             onClick={() => navigateTo('advance-history')}
             className={`nav-link ${activeTab === 'advance-history' ? 'active' : ''}`}
+            aria-current={activeTab === 'advance-history' ? 'page' : undefined}
           >
             <History size={18} />
             <span>Advance Ledger</span>
@@ -1800,6 +1864,7 @@ export default function App() {
           <button
             onClick={() => navigateTo('dashboard')}
             className={`nav-link ${activeTab === 'dashboard' ? 'active' : ''}`}
+            aria-current={activeTab === 'dashboard' ? 'page' : undefined}
           >
             <TrendingUp size={18} />
             <span>Expenses Desk</span>
@@ -1807,6 +1872,7 @@ export default function App() {
           <button
             onClick={() => navigateTo('transaction-history')}
             className={`nav-link ${activeTab === 'transaction-history' ? 'active' : ''}`}
+            aria-current={activeTab === 'transaction-history' ? 'page' : undefined}
           >
             <Receipt size={18} />
             <span>Transaction History</span>
@@ -1814,17 +1880,18 @@ export default function App() {
           <button
             onClick={() => navigateTo('deleted-logs')}
             className={`nav-link ${activeTab === 'deleted-logs' ? 'active' : ''}`}
+            aria-current={activeTab === 'deleted-logs' ? 'page' : undefined}
           >
             <Trash2 size={18} />
             <span>Deleted History</span>
           </button>
         </nav>
 
-        <div style={{ marginTop: 'auto' }}>
+        <div className="sidebar-footer">
           <button
             onClick={() => navigateTo('settings')}
             className={`nav-link ${activeTab === 'settings' ? 'active' : ''}`}
-            style={{ marginBottom: '10px' }}
+            aria-current={activeTab === 'settings' ? 'page' : undefined}
           >
             <SettingsIcon size={18} />
             <span>Settings</span>
@@ -1832,35 +1899,34 @@ export default function App() {
           <div
             onClick={() => navigateTo('profile')}
             className={`profile-bottom-btn ${activeTab === 'profile' ? 'active' : ''}`}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              marginBottom: '16px',
-              cursor: 'pointer',
-              padding: '8px',
-              borderRadius: '8px',
-              transition: 'background 0.2s',
-              background: activeTab === 'profile' ? 'rgba(0,0,0,0.05)' : 'transparent'
+            role="button"
+            tabIndex={0}
+            aria-current={activeTab === 'profile' ? 'page' : undefined}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                navigateTo('profile');
+              }
             }}
           >
             {user?.imageUrl ? (
               <img
                 src={user.imageUrl}
                 alt={user.name}
-                style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--glass-border)' }}
+                className="profile-bottom-avatar"
               />
             ) : (
-              <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
+              <div className="profile-bottom-avatar profile-bottom-avatar-fallback">
                 MD
               </div>
             )}
-            <div>
-              <p style={{ fontWeight: 600, fontSize: '0.9rem' }}>{user?.name === 'Owner Admin' ? 'MD' : (user?.name || 'MD')}</p>
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Managing Director</p>
+            <div className="profile-bottom-copy">
+              <p>{user?.name === 'Owner Admin' ? 'MD' : (user?.name || 'MD')}</p>
+              <span>Managing Director</span>
             </div>
+            <span className="profile-bottom-status" aria-label="Online" />
           </div>
-          <button onClick={handleLogout} className="btn btn-danger" style={{ width: '100%', padding: '10px' }}>
+          <button onClick={handleLogout} className="btn btn-danger logout-btn">
             <LogOut size={16} /> Logout
           </button>
         </div>

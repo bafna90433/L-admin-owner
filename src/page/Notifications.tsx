@@ -8,13 +8,16 @@ import {
   Trash2,
   Sparkles,
   ListTodo,
-  Zap
+  Zap,
+  MessageSquare,
+  UserRound,
+  ExternalLink
 } from 'lucide-react';
 import '../styles/Notifications.css';
 
 export interface NotificationItem {
   id: string;
-  type: 'new_task' | 'task_completed' | 'task_comment' | 'task_update' | 'advance_request' | 'reminder';
+  type: 'new_task' | 'completion_requested' | 'task_completed' | 'task_comment' | 'task_update' | 'advance_request' | 'reminder';
   title: string;
   description: string;
   timestamp: string | Date;
@@ -113,7 +116,7 @@ export default function Notifications({
   };
 
   return (
-    <div className="notifications-container animate-fade-in">
+    <div className="notifications-container">
       
       {/* =========================================================================
           EXECUTIVE CONTROL DECK HEADER
@@ -134,11 +137,11 @@ export default function Notifications({
                 </span>
                 {unreadCount > 0 ? (
                   <span className="pill-tag blinking-tag">
-                    🔴 {unreadCount} New Alerts
+                    <Bell size={11} aria-hidden="true" /> {unreadCount} New Alerts
                   </span>
                 ) : (
-                  <span className="pill-tag" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>
-                    ✅ All Caught Up
+                  <span className="pill-tag caught-up-tag">
+                    <CheckCircle2 size={12} aria-hidden="true" /> All Caught Up
                   </span>
                 )}
               </div>
@@ -177,9 +180,11 @@ export default function Notifications({
 
         {/* Tier 2: Interactive KPI Metric Pills (Clickable) */}
         <div className="deck-metrics-grid">
-          <div 
+          <button
+            type="button"
             className={`deck-metric-card total ${filterType === 'all' ? 'active-metric' : ''}`}
             onClick={() => setFilterType('all')}
+            aria-pressed={filterType === 'all'}
           >
             <div className="metric-icon-box">
               <Bell size={17} />
@@ -188,11 +193,13 @@ export default function Notifications({
               <span className="metric-label">Active Alerts</span>
               <span className="metric-value">{unreadCount}</span>
             </div>
-          </div>
+          </button>
 
-          <div 
+          <button
+            type="button"
             className={`deck-metric-card new-tasks ${filterType === 'new_task' ? 'active-metric' : ''}`}
             onClick={() => setFilterType('new_task')}
+            aria-pressed={filterType === 'new_task'}
           >
             <div className="metric-icon-box">
               <ListTodo size={17} />
@@ -201,11 +208,13 @@ export default function Notifications({
               <span className="metric-label">New Tasks</span>
               <span className="metric-value">{newTasksCount}</span>
             </div>
-          </div>
+          </button>
 
-          <div 
+          <button
+            type="button"
             className={`deck-metric-card done ${filterType === 'task_completed' ? 'active-metric' : ''}`}
             onClick={() => setFilterType('task_completed')}
+            aria-pressed={filterType === 'task_completed'}
           >
             <div className="metric-icon-box">
               <CheckCircle2 size={17} />
@@ -214,11 +223,13 @@ export default function Notifications({
               <span className="metric-label">Done</span>
               <span className="metric-value">{completedTasksCount}</span>
             </div>
-          </div>
+          </button>
 
-          <div 
+          <button
+            type="button"
             className={`deck-metric-card advances ${filterType === 'advance_request' ? 'active-metric' : ''}`}
             onClick={() => setFilterType('advance_request')}
+            aria-pressed={filterType === 'advance_request'}
           >
             <div className="metric-icon-box">
               <ArrowUpRight size={17} />
@@ -227,11 +238,13 @@ export default function Notifications({
               <span className="metric-label">Advances</span>
               <span className="metric-value">{advancesCount}</span>
             </div>
-          </div>
+          </button>
 
-          <div 
+          <button
+            type="button"
             className={`deck-metric-card unread ${filterType === 'read_history' ? 'active-metric' : ''}`}
             onClick={() => setFilterType('read_history')}
+            aria-pressed={filterType === 'read_history'}
           >
             <div className="metric-icon-box">
               <Clock size={17} />
@@ -240,7 +253,7 @@ export default function Notifications({
               <span className="metric-label">Viewed / Read</span>
               <span className="metric-value">{readHistoryCount}</span>
             </div>
-          </div>
+          </button>
         </div>
 
         {/* Tier 3: Segmented Filters + Modern Search */}
@@ -251,42 +264,42 @@ export default function Notifications({
               className={`deck-filter-tab ${filterType === 'all' ? 'active' : ''}`}
               onClick={() => setFilterType('all')}
             >
-              ⚡ Active Alerts <span className="deck-tab-count">{unreadCount}</span>
+              <Zap size={13} aria-hidden="true" /> Active Alerts <span className="deck-tab-count">{unreadCount}</span>
             </button>
             <button
               type="button"
               className={`deck-filter-tab ${filterType === 'new_task' ? 'active' : ''}`}
               onClick={() => setFilterType('new_task')}
             >
-              📌 New Tasks <span className="deck-tab-count">{newTasksCount}</span>
+              <ListTodo size={13} aria-hidden="true" /> New Tasks <span className="deck-tab-count">{newTasksCount}</span>
             </button>
             <button
               type="button"
               className={`deck-filter-tab ${filterType === 'task_completed' ? 'active' : ''}`}
               onClick={() => setFilterType('task_completed')}
             >
-              ✅ Done <span className="deck-tab-count">{completedTasksCount}</span>
+              <CheckCircle2 size={13} aria-hidden="true" /> Done <span className="deck-tab-count">{completedTasksCount}</span>
             </button>
             <button
               type="button"
               className={`deck-filter-tab ${filterType === 'task_comment' ? 'active' : ''}`}
               onClick={() => setFilterType('task_comment')}
             >
-              💬 Notes <span className="deck-tab-count">{commentsCount}</span>
+              <MessageSquare size={13} aria-hidden="true" /> Notes <span className="deck-tab-count">{commentsCount}</span>
             </button>
             <button
               type="button"
               className={`deck-filter-tab ${filterType === 'advance_request' ? 'active' : ''}`}
               onClick={() => setFilterType('advance_request')}
             >
-              💸 Advances <span className="deck-tab-count">{advancesCount}</span>
+              <ArrowUpRight size={13} aria-hidden="true" /> Advances <span className="deck-tab-count">{advancesCount}</span>
             </button>
             <button
               type="button"
               className={`deck-filter-tab ${filterType === 'read_history' ? 'active' : ''}`}
               onClick={() => setFilterType('read_history')}
             >
-              📁 Viewed / Read <span className="deck-tab-count">{readHistoryCount}</span>
+              <Clock size={13} aria-hidden="true" /> Viewed / Read <span className="deck-tab-count">{readHistoryCount}</span>
             </button>
           </div>
 
@@ -325,6 +338,7 @@ export default function Notifications({
           filteredNotifications.map(notif => {
             const isUnread = !notif.isRead;
             const isCompleted = notif.type === 'task_completed';
+            const isApproval = notif.type === 'completion_requested';
             const isComment = notif.type === 'task_comment';
             const isAdvance = notif.type === 'advance_request';
             const staffInitial = (notif.staffName || 'S').charAt(0).toUpperCase();
@@ -335,6 +349,14 @@ export default function Notifications({
                 className={`notif-task-row ${isUnread ? 'unread' : ''}`}
                 onClick={() => onNotificationClick(notif)}
                 title="Click to open in Active Task List"
+                role="button"
+                tabIndex={0}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    onNotificationClick(notif);
+                  }
+                }}
               >
                 {/* Left: Large Staff Profile Image */}
                 <div className="notif-side-avatar-wrap">
@@ -357,7 +379,7 @@ export default function Notifications({
                     {staffInitial}
                   </div>
                   <span className="notif-avatar-role-badge">
-                    {isAdvance ? '💸' : isComment ? '💬' : isCompleted ? '✅' : '👤'}
+                    {isAdvance ? <ArrowUpRight size={11} /> : isComment ? <MessageSquare size={11} /> : isCompleted ? <CheckCircle2 size={11} /> : isApproval ? <Zap size={11} /> : <UserRound size={11} />}
                   </span>
                 </div>
 
@@ -368,6 +390,7 @@ export default function Notifications({
                     <div className="notif-row-tags">
                       <span className={`badge ${
                         notif.type === 'new_task' ? 'badge-info' : 
+                        notif.type === 'completion_requested' ? 'badge-info' :
                         notif.type === 'task_completed' ? 'badge-success' : 
                         notif.type === 'advance_request' ? 'badge-warning' : 
                         'badge-secondary'
@@ -378,12 +401,8 @@ export default function Notifications({
                         {formatTimeAgo(notif.timestamp)}
                       </span>
                       {isUnread && (
-                        <span className="badge" style={{ 
-                          background: 'rgba(239, 68, 68, 0.1)', 
-                          color: '#ef4444',
-                          fontWeight: 700
-                        }}>
-                          🔴 New / Unseen
+                        <span className="badge notif-unread-badge">
+                          <span className="notif-unread-dot" aria-hidden="true" /> New / Unseen
                         </span>
                       )}
                     </div>
@@ -406,20 +425,10 @@ export default function Notifications({
 
                   {/* Footer Row */}
                   <div className="notif-row-footer">
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
-                        <span>👤 Activity by:</span>
-                        <span style={{ 
-                          background: 'rgba(79, 70, 229, 0.1)', 
-                          color: 'var(--accent-primary)', 
-                          padding: '2px 10px 2px 6px', 
-                          borderRadius: '14px', 
-                          fontWeight: 700,
-                          fontSize: '0.75rem',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px'
-                        }}>
+                    <div className="activity-by">
+                      <div>
+                        <span><UserRound size={13} aria-hidden="true" /> Activity by:</span>
+                        <span className="activity-identity">
                           {notif.staffImage ? (
                             <img src={notif.staffImage} alt="" style={{ width: 18, height: 18, borderRadius: '50%', objectFit: 'cover' }} />
                           ) : null}
@@ -428,17 +437,16 @@ export default function Notifications({
                       </div>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <div className="notification-actions">
                       <button 
                         type="button"
                         onClick={(e) => { 
                           e.stopPropagation(); 
                           onNotificationClick(notif); 
                         }}
-                        className="btn btn-secondary" 
-                        style={{ padding: '6px 12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                        className="btn btn-secondary notif-open-btn"
                       >
-                        💬 View & Open ({notif.targetTab === 'tasks' ? 'Task' : notif.targetTab === 'advances' ? 'Ledger' : 'Notice'})
+                        <ExternalLink size={13} aria-hidden="true" /> View & Open ({notif.targetTab === 'tasks' ? 'Task' : notif.targetTab === 'advances' ? 'Ledger' : 'Notice'})
                       </button>
 
                       <button 
@@ -447,8 +455,7 @@ export default function Notifications({
                           e.stopPropagation(); 
                           onToggleRead(notif.id); 
                         }}
-                        className="btn btn-secondary" 
-                        style={{ padding: '6px 10px', fontSize: '0.76rem', color: isUnread ? 'var(--accent-primary)' : 'var(--text-secondary)' }}
+                        className={`btn btn-secondary notif-read-btn ${isUnread ? 'is-unread' : ''}`}
                       >
                         {isUnread ? 'Mark Read' : 'Mark Unread'}
                       </button>
