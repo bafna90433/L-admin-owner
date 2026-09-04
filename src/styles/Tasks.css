@@ -15,6 +15,7 @@
     opacity: 0;
     transform: translateY(6px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -219,7 +220,8 @@
   box-shadow: 0 10px 30px -5px rgba(99, 102, 241, 0.09), 0 4px 12px rgba(0, 0, 0, 0.02) !important;
   backdrop-filter: blur(20px);
   position: relative;
-  overflow: visible !important; /* CRITICAL: Must be visible so staff dropdown is never cut off */
+  overflow: visible !important;
+  /* CRITICAL: Must be visible so staff dropdown is never cut off */
   z-index: 20;
 }
 
@@ -281,7 +283,9 @@
   0% {
     transform: translateX(-100%) rotate(30deg);
   }
-  20%, 100% {
+
+  20%,
+  100% {
     transform: translateX(100%) rotate(30deg);
   }
 }
@@ -356,6 +360,7 @@
     opacity: 0;
     transform: translateY(-8px) scale(0.98);
   }
+
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
@@ -378,6 +383,7 @@
     opacity: 0;
     transform: translateY(-6px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -896,6 +902,7 @@
     backdrop-filter: blur(0px);
     -webkit-backdrop-filter: blur(0px);
   }
+
   to {
     opacity: 1;
     backdrop-filter: blur(10px);
@@ -926,10 +933,12 @@
     opacity: 0;
     transform: scale(0.92) translateY(20px);
   }
+
   70% {
     opacity: 1;
     transform: scale(1.01) translateY(-2px);
   }
+
   100% {
     opacity: 1;
     transform: scale(1) translateY(0);
@@ -1290,14 +1299,16 @@
 }
 
 .task-chat-feed {
-  background: #f8fafc;
+  background-color: #efeae2;
+  background-image: radial-gradient(rgba(17, 27, 33, 0.08) 0.75px, transparent 0.75px);
+  background-size: 24px 24px;
   padding: 20px 22px 14px 22px;
   min-height: 340px;
   max-height: 460px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
 }
 
 .task-chat-feed::-webkit-scrollbar {
@@ -1319,11 +1330,12 @@
 .task-chat-date-divider span {
   font-size: 0.7rem;
   font-weight: 700;
-  color: #94a3b8;
+  color: #667781;
   background: #ffffff;
-  padding: 3px 12px;
+  padding: 4px 14px;
   border-radius: 12px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid rgba(11, 20, 26, 0.08);
+  box-shadow: 0 1px 3px rgba(11, 20, 26, 0.05);
   letter-spacing: 0.02em;
 }
 
@@ -1347,7 +1359,7 @@
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  background: #f1f5f9;
+  background: #e2e8f0;
   color: #475569;
   display: flex;
   align-items: center;
@@ -1356,7 +1368,8 @@
   font-weight: 800;
   flex-shrink: 0;
   overflow: hidden;
-  border: 1.5px solid #e2e8f0;
+  border: 1.5px solid #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .chat-bubble-avatar img {
@@ -1365,31 +1378,32 @@
   object-fit: cover;
 }
 
-/* Executive Dark Slate MD Bubble */
+/* WhatsApp Light Green Bubble for Sender (Owner/MD) */
 .task-chat-bubble-owner {
-  background: #0f172a;
-  color: #f8fafc;
-  border-radius: 18px 18px 4px 18px;
-  padding: 10px 15px;
-  max-width: 70%;
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12);
+  background: #d9fdd3;
+  color: #111b21;
+  border-radius: 14px 14px 2px 14px;
+  padding: 8px 12px 6px 14px;
+  max-width: 72%;
+  box-shadow: 0 1px 2px rgba(11, 20, 26, 0.12);
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
+  border: 1px solid rgba(0, 0, 0, 0.03);
 }
 
-/* Crisp Clean Staff Bubble */
+/* WhatsApp Crisp White Bubble for Staff */
 .task-chat-bubble-staff {
   background: #ffffff;
-  color: #0f172a;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 18px 18px 18px 4px;
-  padding: 10px 15px;
-  max-width: 70%;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
+  color: #111b21;
+  border: 1px solid rgba(11, 20, 26, 0.08);
+  border-radius: 14px 14px 14px 2px;
+  padding: 8px 12px 6px 14px;
+  max-width: 72%;
+  box-shadow: 0 1px 2px rgba(11, 20, 26, 0.1);
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 .bubble-meta-header {
@@ -1399,26 +1413,27 @@
 }
 
 .task-chat-bubble-staff .bubble-author-name {
-  font-size: 0.72rem;
+  font-size: 0.73rem;
   font-weight: 750;
-  color: #475569;
+  color: #008069;
   letter-spacing: 0.02em;
 }
 
 .bubble-text {
-  font-size: 0.92rem;
-  line-height: 1.48;
+  font-size: 0.93rem;
+  line-height: 1.45;
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
+  color: #111b21;
 }
 
 .task-chat-bubble-owner .bubble-text {
-  color: #f8fafc;
+  color: #111b21;
 }
 
 .task-chat-bubble-staff .bubble-text {
-  color: #0f172a;
+  color: #111b21;
 }
 
 .bubble-meta-footer {
@@ -1431,18 +1446,18 @@
 
 .task-chat-bubble-owner .bubble-timestamp {
   font-size: 0.68rem;
-  color: #94a3b8;
+  color: #667781;
   font-weight: 500;
 }
 
 .task-chat-bubble-staff .bubble-timestamp {
   font-size: 0.68rem;
-  color: #94a3b8;
+  color: #667781;
   font-weight: 500;
 }
 
 .bubble-ticks {
-  color: #60a5fa;
+  color: #53bdeb; /* WhatsApp Blue Double Ticks */
   display: inline-flex;
   align-items: center;
 }
@@ -1502,19 +1517,19 @@
   align-self: flex-start;
 }
 
-/* Sleek Minimalist Dock */
+/* Sleek WhatsApp Style Dock */
 .task-chat-dock {
-  background: #ffffff;
-  padding: 14px 20px 18px 20px;
-  border-top: 1.5px solid #f1f5f9;
+  background: #f0f2f5;
+  padding: 12px 18px 14px 18px;
+  border-top: 1px solid #e2e8f0;
 }
 
 .chat-input-wrapper {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: #f8fafc;
-  border: 1.5px solid #cbd5e1;
+  background: #ffffff;
+  border: 1.5px solid #d1d7db;
   border-radius: 16px;
   padding: 4px 6px 4px 16px;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
@@ -1522,8 +1537,8 @@
 
 .chat-input-wrapper:focus-within {
   background: #ffffff;
-  border-color: #0f172a;
-  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08);
+  border-color: #00a884;
+  box-shadow: 0 0 0 3px rgba(0, 168, 132, 0.15);
 }
 
 .task-chat-input {
@@ -1533,7 +1548,7 @@
   padding: 8px 4px !important;
   font-size: 0.92rem !important;
   font-family: inherit !important;
-  color: #0f172a !important;
+  color: #111b21 !important;
   outline: none !important;
   box-shadow: none !important;
 }
@@ -1545,20 +1560,20 @@
   padding: 8px 16px;
   border-radius: 12px;
   border: none;
-  background: #0f172a;
+  background: #00a884;
   color: #ffffff;
   font-weight: 750;
   font-size: 0.84rem;
   cursor: pointer;
-  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.2);
+  box-shadow: 0 2px 6px rgba(0, 168, 132, 0.25);
   transition: all 0.18s ease;
   flex-shrink: 0;
 }
 
 .task-chat-send-btn:hover:not(:disabled) {
-  background: #1e293b;
+  background: #008f6f;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.3);
+  box-shadow: 0 4px 10px rgba(0, 168, 132, 0.35);
 }
 
 .task-chat-send-btn:disabled {
@@ -1640,9 +1655,11 @@
   0% {
     box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.7);
   }
+
   70% {
     box-shadow: 0 0 0 6px rgba(52, 211, 153, 0);
   }
+
   100% {
     box-shadow: 0 0 0 0 rgba(52, 211, 153, 0);
   }
@@ -2222,5 +2239,3 @@
   gap: 3px;
   white-space: nowrap;
 }
-
-
