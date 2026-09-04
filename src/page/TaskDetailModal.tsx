@@ -354,6 +354,7 @@ export default function TaskDetailModal({
 
   const isCompleted = task.status === 'completed';
   const isAwaitingApproval = !isCompleted && Boolean(task.completionRequestedAt);
+  const cleanDescription = (task.description || '').replace(/\[lang:(en|hi|ta)\]\s*/g, '').trim();
 
   return (
     <div className="task-modal-overlay" onClick={onClose}>
@@ -460,13 +461,13 @@ export default function TaskDetailModal({
           </h2>
         </div>
 
-        {/* Task Details Overview Banner (if description, remarks or followup exist) */}
-        {(task.description || task.remarks || task.nextFollowup) && (
+        {/* Task Details Overview Banner (only if real text exists) */}
+        {(cleanDescription || task.remarks || task.nextFollowup) && (
           <div className="task-overview-banner">
-            {task.description && (
+            {cleanDescription && (
               <div className="overview-item">
                 <span className="overview-label">Overview:</span>
-                <span className="overview-text">{task.description.replace(/\[lang:(en|hi|ta)\]\s*/g, '').trim()}</span>
+                <span className="overview-text">{cleanDescription}</span>
               </div>
             )}
             {task.remarks && (
@@ -695,6 +696,23 @@ export default function TaskDetailModal({
 
                 const isRevisionNotice = c.text && c.text.includes('Work sent back for revision');
 
+                if (isRevisionNotice) {
+                  return (
+                    <div key={index} className="task-chat-system-notice animate-fade-in">
+                      <div className="system-notice-card">
+                        <AlertTriangle size={15} className="notice-icon" />
+                        <div className="notice-content">
+                          <span className="notice-title">Revision Feedback (Sent to Staff)</span>
+                          <span className="notice-body">{c.text}</span>
+                        </div>
+                        <span className="notice-time">
+                          {c.createdAt ? new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                }
+
                 return (
                   <div
                     key={index}
@@ -720,17 +738,9 @@ export default function TaskDetailModal({
                         </div>
                       )}
 
-                      {/* Message Content */}
-                      {isRevisionNotice ? (
-                        <div className="bubble-revision-alert">
-                          <AlertTriangle size={15} style={{ color: '#f59e0b', flexShrink: 0, marginTop: 2 }} />
-                          <div>{c.text}</div>
-                        </div>
-                      ) : (
-                        <p className="bubble-text">
-                          {c.text}
-                        </p>
-                      )}
+                      <p className="bubble-text">
+                        {c.text}
+                      </p>
 
                       {/* Bubble Time & Status */}
                       <div className="bubble-meta-footer">
@@ -779,6 +789,7 @@ export default function TaskDetailModal({
             </div>
           </form>
         </div>
+
 
 
       </div>
