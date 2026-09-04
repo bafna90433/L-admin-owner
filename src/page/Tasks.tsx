@@ -1690,17 +1690,7 @@ export default function Tasks({
                             </button>
                           </>
                         )}
-                        {!isCompleted && !isAwaitingApproval && (
-                          <button
-                            type="button"
-                            className="btn btn-secondary"
-                            style={{ padding: '4px 10px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', color: '#059669', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.76rem', fontWeight: 750 }}
-                            onClick={(e) => { e.stopPropagation(); handleApproveCompletion(t); }}
-                            title="Directly mark task as finished by MD"
-                          >
-                            <Check size={13} strokeWidth={2.5} /> Finish
-                          </button>
-                        )}
+
                         {commentCount > 0 && (
                           <button
                             type="button"
