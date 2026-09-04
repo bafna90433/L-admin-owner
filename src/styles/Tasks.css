@@ -961,41 +961,17 @@
 }
 
 /* --------------------------------------------------------------------------
-   Top Executive Header Row (Title, Assignee chip, Direct Action Buttons)
+   Top Executive Header & Control Bar (2-Level Spacious Architecture)
    -------------------------------------------------------------------------- */
-.task-modal-top-header {
+.task-modal-top-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding-bottom: 16px;
-  margin-bottom: 14px;
+  padding-bottom: 14px;
+  margin-bottom: 12px;
   border-bottom: 1.5px solid #f1f5f9;
-}
-
-@media (max-width: 768px) {
-  .task-modal-top-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-}
-
-.task-top-left-info {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  flex: 1;
-  min-width: 220px;
-}
-
-.task-top-title {
-  font-size: 1.55rem;
-  font-weight: 850;
-  color: #0f172a;
-  margin: 0;
-  line-height: 1.25;
-  letter-spacing: -0.025em;
-  word-break: break-word;
+  flex-wrap: wrap;
 }
 
 .task-top-meta-strip {
@@ -1005,11 +981,25 @@
   flex-wrap: wrap;
 }
 
+.task-meta-type-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 750;
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+  letter-spacing: 0.01em;
+}
+
 .task-meta-user-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 11px 4px 6px;
+  padding: 4px 12px 4px 6px;
   border-radius: 20px;
   font-size: 0.82rem;
   font-weight: 750;
@@ -1019,8 +1009,8 @@
 }
 
 .task-meta-user-chip img {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   object-fit: cover;
 }
@@ -1031,27 +1021,28 @@
   border-color: rgba(16, 185, 129, 0.25);
 }
 
-.task-meta-type-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 0.76rem;
-  font-weight: 700;
-  background: #f8fafc;
-  color: #64748b;
-  border: 1px solid #e2e8f0;
-  text-transform: capitalize;
-}
-
 .task-top-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
+  gap: 8px;
   flex-wrap: wrap;
 }
+
+.task-modal-title-row {
+  margin-bottom: 14px;
+  padding: 2px 0 4px 0;
+}
+
+.task-modal-main-title {
+  font-size: 1.52rem;
+  font-weight: 850;
+  color: #0f172a;
+  margin: 0;
+  line-height: 1.35;
+  letter-spacing: -0.025em;
+  word-break: break-word;
+}
+
 
 .btn-top {
   padding: 8px 16px !important;
@@ -1536,57 +1527,14 @@
 }
 
 /* --------------------------------------------------------------------------
-   Chat Quick Suggestion Bar & Messenger Dock
+   Messenger Dock
    -------------------------------------------------------------------------- */
-.task-chat-quick-bar {
-  background: #ffffff;
-  padding: 10px 18px;
-  border-top: 1px solid #f1f5f9;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.task-chat-quick-bar::-webkit-scrollbar {
-  display: none;
-}
-
-.quick-chip-label {
-  font-size: 0.72rem;
-  font-weight: 800;
-  color: #94a3b8;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-}
-
-.task-quick-prompt-btn {
-  font-size: 0.76rem;
-  font-weight: 700;
-  color: #475569;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 20px;
-  padding: 5px 12px;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.task-quick-prompt-btn:hover {
-  background: #eef2ff;
-  border-color: #c7d2fe;
-  color: #4f46e5;
-  transform: translateY(-1px);
-}
-
 .task-chat-dock {
   background: #ffffff;
-  padding: 12px 18px 16px 18px;
+  padding: 14px 20px 18px 20px;
   border-top: 1.5px solid #e2e8f0;
 }
+
 
 .chat-input-wrapper {
   display: flex;

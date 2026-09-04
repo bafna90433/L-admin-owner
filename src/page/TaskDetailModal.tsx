@@ -359,37 +359,30 @@ export default function TaskDetailModal({
     <div className="task-modal-overlay" onClick={onClose}>
       <div className="task-modal-window" onClick={e => e.stopPropagation()}>
         
-        {/* Top Header Row with Title, Assignee & Direct Action Buttons */}
-        <div className="task-modal-top-header">
-          {/* Left: Task Title & Assignee */}
-          <div className="task-top-left-info">
-            <h2 className="task-top-title">
-              {task.title}
-            </h2>
-            <div className="task-top-meta-strip">
-              <span className="task-meta-user-chip">
-                {task.assignedTo?.imageUrl ? (
-                  <img src={task.assignedTo.imageUrl.startsWith('http') ? task.assignedTo.imageUrl : `${apiBase}${task.assignedTo.imageUrl}`} alt="" />
-                ) : (
-                  <User size={13} />
-                )}
-                <span>{task.assignedTo?.name || '👥 All Staff'}</span>
-              </span>
+        {/* Top Control Bar (Meta Chips on Left, Action Buttons on Right) */}
+        <div className="task-modal-top-bar">
+          <div className="task-top-meta-strip">
+            <span className="task-meta-type-chip">
+              {task.taskType === 'reminder-sir' ? '⏰ Reminder Sir' : task.taskType === 'custom' ? '⚡ Custom Task' : '📋 Regular Task'} • {task.frequency}
+            </span>
 
-              <span className="task-meta-type-chip">
-                {task.taskType === 'reminder-sir' ? '⏰ Reminder Sir' : task.taskType === 'custom' ? '⚡ Custom Task' : '📋 Regular Task'} • {task.frequency}
-              </span>
-
-              {isCompleted && task.completedBy && (
-                <span className="task-meta-user-chip chip-completed">
-                  <CheckCircle2 size={13} />
-                  <span>Completed by {task.completedBy.name}</span>
-                </span>
+            <span className="task-meta-user-chip">
+              {task.assignedTo?.imageUrl ? (
+                <img src={task.assignedTo.imageUrl.startsWith('http') ? task.assignedTo.imageUrl : `${apiBase}${task.assignedTo.imageUrl}`} alt="" />
+              ) : (
+                <User size={13} />
               )}
-            </div>
+              <span>{task.assignedTo?.name || '👥 All Staff'}</span>
+            </span>
+
+            {isCompleted && task.completedBy && (
+              <span className="task-meta-user-chip chip-completed">
+                <CheckCircle2 size={13} />
+                <span>Completed by {task.completedBy.name}</span>
+              </span>
+            )}
           </div>
 
-          {/* Right: Direct Actions (Approve, Reject, Set Reminder, Close) */}
           <div className="task-top-actions">
             {isAwaitingApproval && (
               <>
@@ -458,6 +451,13 @@ export default function TaskDetailModal({
               <X size={18} />
             </button>
           </div>
+        </div>
+
+        {/* Full-Width Prominent Task Title */}
+        <div className="task-modal-title-row">
+          <h2 className="task-modal-main-title">
+            {task.title}
+          </h2>
         </div>
 
         {/* Task Details Overview Banner (if description, remarks or followup exist) */}
@@ -679,7 +679,7 @@ export default function TaskDetailModal({
           <div className="task-chat-feed">
             {/* Timeline date chip */}
             <div className="task-chat-date-divider">
-              <span>Today • Discussion History</span>
+              <span>Discussion History</span>
             </div>
 
             {task.comments && task.comments.length > 0 ? (
@@ -711,17 +711,19 @@ export default function TaskDetailModal({
                     )}
 
                     <div className={isMD ? 'task-chat-bubble-owner' : 'task-chat-bubble-staff'}>
-                      {/* Bubble Sender Label */}
-                      <div className="bubble-meta-header">
-                        <span className="bubble-author-name">
-                          {isMD ? '👑 You (MD / Owner)' : `👤 ${c.authorName || 'Staff'}`}
-                        </span>
-                      </div>
+                      {/* Author label only on staff side */}
+                      {!isMD && (
+                        <div className="bubble-meta-header">
+                          <span className="bubble-author-name">
+                            {c.authorName || task.assignedTo?.name || 'Staff'}
+                          </span>
+                        </div>
+                      )}
 
                       {/* Message Content */}
                       {isRevisionNotice ? (
                         <div className="bubble-revision-alert">
-                          <AlertTriangle size={15} style={{ color: '#f59e0b', flexShrink: 0 }} />
+                          <AlertTriangle size={15} style={{ color: '#f59e0b', flexShrink: 0, marginTop: 2 }} />
                           <div>{c.text}</div>
                         </div>
                       ) : (
@@ -737,7 +739,7 @@ export default function TaskDetailModal({
                         </span>
                         {isMD && (
                           <span className="bubble-ticks" title="Sent & Delivered">
-                            <CheckCheck size={13} />
+                            <CheckCheck size={14} />
                           </span>
                         )}
                       </div>
@@ -754,46 +756,13 @@ export default function TaskDetailModal({
             )}
           </div>
 
-          {/* Quick Suggestion Chips */}
-          <div className="task-chat-quick-bar">
-            <span className="quick-chip-label">Quick Prompts:</span>
-            <button
-              type="button"
-              className="task-quick-prompt-btn"
-              onClick={() => setNewCommentText('Please provide a quick status update on this task.')}
-            >
-              ⚡ Status Update?
-            </button>
-            <button
-              type="button"
-              className="task-quick-prompt-btn"
-              onClick={() => setNewCommentText('Please upload / share the final bill copy.')}
-            >
-              ⚡ Share Bill Copy
-            </button>
-            <button
-              type="button"
-              className="task-quick-prompt-btn"
-              onClick={() => setNewCommentText('Please confirm once customer confirmation is received.')}
-            >
-              ⚡ Customer Confirmation
-            </button>
-            <button
-              type="button"
-              className="task-quick-prompt-btn"
-              onClick={() => setNewCommentText('Work approved! Please proceed with next steps.')}
-            >
-              ⚡ Approved, Proceed!
-            </button>
-          </div>
-
           {/* Comment Input Dock */}
           <form onSubmit={handlePostComment} className="task-chat-dock">
             <div className="chat-input-wrapper">
               <input
                 type="text"
                 className="task-chat-input"
-                placeholder="Type a message or instruction... (Press Enter to send)"
+                placeholder={`Type a message to ${task.assignedTo?.name || 'staff'}... (Press Enter to send)`}
                 value={newCommentText}
                 onChange={e => setNewCommentText(e.target.value)}
                 required
@@ -810,6 +779,7 @@ export default function TaskDetailModal({
             </div>
           </form>
         </div>
+
 
       </div>
     </div>
