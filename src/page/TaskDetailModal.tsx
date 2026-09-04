@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Loader, Send, Lock, Bell, BellOff, CheckCircle2, Zap, X, Layers, User, MessageSquare, Check, ShieldCheck } from 'lucide-react';
+import { Loader, Send, Bell, BellOff, CheckCircle2, Zap, X, Layers, User, MessageSquare, Check, ShieldCheck, Clock, RotateCcw, AlertTriangle } from 'lucide-react';
 import '../styles/Tasks.css';
 
 interface Task {
@@ -359,72 +359,46 @@ export default function TaskDetailModal({
     <div className="task-modal-overlay" onClick={onClose}>
       <div className="task-modal-window" onClick={e => e.stopPropagation()}>
         
-        {/* Top Executive Header Bar: Status, MD Authority, Finish Work Button & Close Button */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          paddingBottom: '16px',
-          marginBottom: '16px',
-          borderBottom: '1.5px solid #f1f5f9',
-          flexWrap: 'wrap',
-          gap: '12px'
-        }}>
-          {/* Left: Status & MD Authority info */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+        {/* Top Header Bar */}
+        <div className="task-modal-header-row">
+          <div className="task-modal-badges">
             {isCompleted ? (
-              <span className="badge badge-status-completed" style={{ textTransform: 'uppercase', padding: '6px 12px', fontSize: '0.76rem' }}>
-                <CheckCircle2 size={13} style={{ marginRight: 3 }} />
-                COMPLETED
+              <span className="task-status-badge badge-completed">
+                <CheckCircle2 size={13} strokeWidth={2.5} /> Completed
               </span>
             ) : isAwaitingApproval ? (
-              <span className="task-approval-status-pill" style={{ padding: '6px 14px', fontSize: '0.76rem' }}>
-                <ShieldCheck size={14} /> MD APPROVAL PENDING
+              <span className="task-status-badge badge-approval-pending">
+                <span className="pulsing-dot" />
+                <ShieldCheck size={13} /> MD Approval Pending
               </span>
             ) : (
-              <span className="badge badge-status-pending" style={{ textTransform: 'uppercase', padding: '6px 12px', fontSize: '0.76rem' }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ffffff', display: 'inline-block', marginRight: 4 }} />
-                IN-PROGRESS / PENDING
+              <span className="task-status-badge badge-pending">
+                <span className="status-dot" /> Pending
               </span>
             )}
 
-            {task.taskType === 'reminder-sir' && (
-              <span className="task-tag-chip" style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #f59e0b', fontWeight: 800 }}>
-                <Lock size={12} /> MD Directive
-              </span>
-            )}
+            <span className="task-type-badge">
+              <Layers size={11} />
+              {task.taskType === 'regular' ? 'Regular Work' : task.taskType === 'reminder-sir' ? 'Sir Reminder' : 'Custom Task'} ({task.frequency})
+            </span>
 
             {hasActiveReminder && (
-              <span className="task-tag-chip task-tag-reminder" style={{ fontWeight: 800 }}>
-                <Bell size={12} /> Alarm Armed
+              <span className="task-reminder-badge">
+                <Bell size={11} /> Alarm Active
               </span>
             )}
-
-            <span style={{ fontSize: '0.76rem', color: '#64748b', fontWeight: 550, marginLeft: '4px' }}>
-              {isCompleted ? '• Verified by MD' : isAwaitingApproval ? '• Staff has requested finish approval' : '• Only MD has authority to approve & finish'}
-            </span>
           </div>
 
-          {/* Right: Close Button & Reopen if completed */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {/* Right Header Actions */}
+          <div className="task-modal-header-actions">
             {isCompleted && (
               <button
                 type="button"
                 onClick={handleResetTask}
                 disabled={isCompleting}
-                style={{
-                  padding: '7px 16px',
-                  fontWeight: 750,
-                  fontSize: '0.8rem',
-                  color: '#d97706',
-                  background: '#fef3c7',
-                  border: '1px solid #fcd34d',
-                  borderRadius: '10px',
-                  cursor: 'pointer',
-                  transition: 'all 0.18s ease'
-                }}
+                className="task-header-reopen-btn"
               >
-                {isCompleting ? <Loader className="spinner" size={14} /> : '↺ Reopen Task'}
+                {isCompleting ? <Loader className="spinner" size={13} /> : '↺ Reopen Task'}
               </button>
             )}
 
@@ -433,26 +407,11 @@ export default function TaskDetailModal({
                 type="button"
                 onClick={handleCompleteTask}
                 disabled={isCompleting}
-                className="btn btn-success"
-                style={{
-                  padding: '7px 16px',
-                  fontWeight: 800,
-                  fontSize: '0.82rem',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                  boxShadow: '0 4px 14px rgba(16, 185, 129, 0.3)',
-                  borderRadius: '10px',
-                  border: 'none',
-                  color: '#ffffff',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease'
-                }}
-                title="Mark this task as finished"
+                className="task-header-finish-btn"
+                title="Directly complete task"
               >
-                {isCompleting ? <Loader className="spinner" size={14} /> : <Check size={15} strokeWidth={3} />}
-                <span>Finish Work</span>
+                {isCompleting ? <Loader className="spinner" size={13} /> : <Check size={14} strokeWidth={3} />}
+                <span>Finish</span>
               </button>
             )}
 
@@ -467,153 +426,124 @@ export default function TaskDetailModal({
           </div>
         </div>
 
-        {/* Task Title */}
-        <h2 className="task-modal-title" style={{ marginTop: 0 }}>
-          {task.title}
-        </h2>
+        {/* Task Title & Meta Card */}
+        <div className="task-modal-title-card">
+          <h2 className="task-modal-main-title">
+            {task.title}
+          </h2>
 
-        {/* Metadata Strip */}
-        <div className="task-modal-meta-bar" style={{ marginBottom: '18px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ color: '#64748b', fontWeight: 600 }}>Category:</span>
-            <span className="task-tag-chip task-tag-category" style={{ textTransform: 'capitalize' }}>
-              <Layers size={11} />
-              {task.taskType === 'regular' ? 'Regular Work' : 'Custom Task'} ({task.frequency})
-            </span>
-          </div>
+          <div className="task-modal-meta-strip">
+            <div className="task-meta-item">
+              <span className="task-meta-label">Assigned to:</span>
+              <span className="task-meta-user-chip">
+                {task.assignedTo?.imageUrl ? (
+                  <img src={task.assignedTo.imageUrl.startsWith('http') ? task.assignedTo.imageUrl : `${apiBase}${task.assignedTo.imageUrl}`} alt="" />
+                ) : (
+                  <User size={13} />
+                )}
+                <span>{task.assignedTo?.name || '👥 All Staff'}</span>
+              </span>
+            </div>
 
-          <span style={{ color: '#cbd5e1' }}>•</span>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ color: '#64748b', fontWeight: 600 }}>Assigned to:</span>
-            <span style={{
-              background: 'rgba(99, 102, 241, 0.08)',
-              color: '#4f46e5',
-              padding: '3px 10px 3px 8px',
-              borderRadius: '12px',
-              fontWeight: 750,
-              fontSize: '0.8rem',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '5px'
-            }}>
-              <User size={12} />
-              {task.assignedTo?.name || '👥 All Staff'}
-            </span>
-          </div>
-
-          {isCompleted && task.completedBy && (
-            <>
-              <span style={{ color: '#cbd5e1' }}>•</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ color: '#64748b', fontWeight: 600 }}>Completed by:</span>
-                <span style={{
-                  background: 'rgba(16, 185, 129, 0.12)',
-                  color: '#059669',
-                  padding: '3px 10px 3px 8px',
-                  borderRadius: '12px',
-                  fontWeight: 750,
-                  fontSize: '0.8rem',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '5px'
-                }}>
-                  <CheckCircle2 size={12} />
-                  {task.completedBy.name} {task.completedAt ? `on ${new Date(task.completedAt).toLocaleDateString('en-GB')}` : ''}
+            {isCompleted && task.completedBy && (
+              <div className="task-meta-item">
+                <span className="task-meta-label">Completed by:</span>
+                <span className="task-meta-user-chip chip-completed">
+                  <CheckCircle2 size={13} />
+                  <span>{task.completedBy.name} {task.completedAt ? `on ${new Date(task.completedAt).toLocaleDateString('en-GB')}` : ''}</span>
                 </span>
               </div>
-            </>
-          )}
+            )}
+          </div>
         </div>
 
-        {/* MD APPROVAL REQUEST CALLOUT BANNER */}
+        {/* EXECUTIVE APPROVAL CALLOUT CARD */}
         {isAwaitingApproval && (
-          <div style={{
-            padding: '16px 20px',
-            borderRadius: '16px',
-            background: 'linear-gradient(135deg, #eef2ff 0%, #ecfeff 100%)',
-            border: '1.5px solid rgba(99, 102, 241, 0.35)',
-            boxShadow: '0 4px 16px rgba(79, 70, 229, 0.12)',
-            marginBottom: '20px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '12px'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{ width: 38, height: 38, borderRadius: 10, background: 'linear-gradient(135deg, #4f46e5, #7c3aed)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <ShieldCheck size={22} />
+          <div className="task-modal-approval-hero animate-fade-in">
+            <div className="approval-hero-header">
+              <div className="approval-hero-requester">
+                <div className="approval-hero-avatar">
+                  {task.completionRequestedBy?.imageUrl ? (
+                    <img
+                      src={task.completionRequestedBy.imageUrl.startsWith('http') ? task.completionRequestedBy.imageUrl : `${apiBase}${task.completionRequestedBy.imageUrl}`}
+                      alt=""
+                    />
+                  ) : (
+                    <div className="approval-avatar-fallback">
+                      {(task.completionRequestedBy?.name || task.assignedTo?.name || 'S').charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <span className="approval-avatar-badge" title="Pending MD Approval">
+                    <ShieldCheck size={11} />
+                  </span>
                 </div>
-                <div>
-                  <div style={{ fontWeight: 850, fontSize: '0.95rem', color: '#1e1b4b' }}>
-                    🛡️ Finish Approval Requested by {task.completionRequestedBy?.name || task.assignedTo?.name || 'Staff'}
+                <div className="approval-hero-meta">
+                  <div className="approval-hero-title">
+                    <span>Finish Approval Requested</span>
+                    <span className="approval-tag-staff">by {task.completionRequestedBy?.name || task.assignedTo?.name || 'Staff'}</span>
                   </div>
-                  <div style={{ fontSize: '0.78rem', color: '#4338ca' }}>
-                    Requested on {new Date(task.completionRequestedAt || '').toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })} • Review work and approve to mark completed.
+                  <div className="approval-hero-time">
+                    <Clock size={12} />
+                    <span>Requested on {new Date(task.completionRequestedAt || '').toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</span>
                   </div>
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+
+              {/* Action Buttons */}
+              <div className="approval-hero-actions">
                 <button
                   type="button"
                   onClick={handleCompleteTask}
                   disabled={isCompleting}
-                  className="btn btn-success"
-                  style={{
-                    padding: '8px 18px',
-                    fontWeight: 800,
-                    fontSize: '0.84rem',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                    boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
-                    borderRadius: '12px',
-                    border: 'none',
-                    color: '#ffffff',
-                    cursor: 'pointer'
-                  }}
+                  className="btn-approve-primary"
+                  title="Approve work and officially mark task completed"
                 >
-                  {isCompleting ? <Loader className="spinner" size={14} /> : <Check size={16} strokeWidth={3} />}
-                  <span>Approve & Complete</span>
+                  {isCompleting ? <Loader className="spinner" size={14} /> : <Check size={16} strokeWidth={2.8} />}
+                  <span>{isCompleting ? 'Completing...' : 'Approve & Complete'}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowRejectInput(!showRejectInput)}
-                  style={{
-                    padding: '8px 14px',
-                    fontWeight: 750,
-                    fontSize: '0.82rem',
-                    color: '#dc2626',
-                    background: '#fef2f2',
-                    border: '1.5px solid rgba(239, 68, 68, 0.3)',
-                    borderRadius: '12px',
-                    cursor: 'pointer'
-                  }}
+                  className={`btn-reject-secondary ${showRejectInput ? 'active' : ''}`}
+                  title="Send work back for revision"
                 >
-                  {showRejectInput ? 'Cancel' : 'Reject / Revise'}
+                  <RotateCcw size={13} />
+                  <span>{showRejectInput ? 'Cancel' : 'Reject / Revise'}</span>
                 </button>
               </div>
             </div>
+
+            {/* Slide-out Revision Note Box */}
             {showRejectInput && (
-              <div style={{ display: 'flex', gap: '8px', marginTop: '4px', paddingTop: '10px', borderTop: '1px solid rgba(99, 102, 241, 0.15)' }}>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="Explain what needs revision or correction (optional)..."
-                  value={rejectReason}
-                  onChange={e => setRejectReason(e.target.value)}
-                  style={{ flexGrow: 1, fontSize: '0.85rem' }}
-                />
-                <button
-                  type="button"
-                  onClick={handleRejectCompletion}
-                  disabled={isRejecting}
-                  className="btn btn-danger"
-                  style={{ padding: '8px 16px', fontSize: '0.82rem', fontWeight: 800, whiteSpace: 'nowrap' }}
-                >
-                  {isRejecting ? <Loader className="spinner" size={14} /> : 'Send Back'}
-                </button>
+              <div className="approval-revision-box animate-fade-in">
+                <div className="revision-box-header">
+                  <AlertTriangle size={14} style={{ color: '#e11d48' }} />
+                  <span>Send task back to staff with revision feedback:</span>
+                </div>
+                <div className="revision-box-input-row">
+                  <input
+                    type="text"
+                    className="form-input revision-input"
+                    placeholder="e.g. Please verify bill calculation / check customer details..."
+                    value={rejectReason}
+                    onChange={e => setRejectReason(e.target.value)}
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={handleRejectCompletion}
+                    disabled={isRejecting}
+                    className="btn-send-revision"
+                  >
+                    {isRejecting ? <Loader className="spinner" size={13} /> : <Send size={13} />}
+                    <span>{isRejecting ? 'Sending...' : 'Send Revision'}</span>
+                  </button>
+                </div>
+                <div className="revision-quick-tags">
+                  <span onClick={() => setRejectReason('Please recheck and verify all bill details.')}>⚡ Verify bill details</span>
+                  <span onClick={() => setRejectReason('Pending confirmation from customer.')}>⚡ Customer confirmation pending</span>
+                  <span onClick={() => setRejectReason('Work is incomplete, please update remarks.')}>⚡ Incomplete work</span>
+                </div>
               </div>
             )}
           </div>
