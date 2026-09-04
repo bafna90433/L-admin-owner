@@ -2144,42 +2144,6 @@ export default function App() {
                   type="button"
                   onClick={async () => {
                     pcAlarmEngine.stop();
-                    snoozedAlarmMapRef.current.set(activeAlarmReminder.id, Date.now() + 5 * 60 * 1000);
-                    if (activeAlarmReminder.isTask) {
-                      try {
-                        await fetch(`${API_BASE}/tasks/${activeAlarmReminder.id}/snooze-alarm`, {
-                          method: 'POST',
-                          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ minutes: 5 })
-                        });
-                        fetchTasks();
-                      } catch (e) {}
-                    }
-                    setActiveAlarmReminder(null);
-                    showToast('⏰ Alarm snoozed for 5 minutes', 'info');
-                  }}
-                  style={{
-                    flex: 1,
-                    padding: '12px 16px',
-                    borderRadius: '14px',
-                    background: 'rgba(255, 255, 255, 0.12)',
-                    border: '1px solid rgba(255, 255, 255, 0.2)',
-                    color: '#ffffff',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px'
-                  }}
-                >
-                  <Clock size={16} /> Snooze 5 Min
-                </button>
-
-                <button
-                  type="button"
-                  onClick={async () => {
-                    pcAlarmEngine.stop();
                     const key = activeAlarmReminder.alarmKey || activeAlarmReminder.id;
                     snoozedAlarmMapRef.current.set(key, Date.now() + 5 * 60 * 1000);
                     if (activeAlarmReminder.isTask) {

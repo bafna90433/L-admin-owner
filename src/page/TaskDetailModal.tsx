@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Loader, Send, Lock, Bell, BellOff, CheckCircle2, Zap, X, Layers, User, MessageSquare, Check, ShieldCheck, Clock3 } from 'lucide-react';
+import { Loader, Send, Lock, Bell, BellOff, CheckCircle2, Zap, X, Layers, User, MessageSquare, Check, ShieldCheck } from 'lucide-react';
 import '../styles/Tasks.css';
 
 interface Task {
@@ -272,6 +272,7 @@ export default function TaskDetailModal({
     }
   };
 
+  const [isCompleting, setIsCompleting] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectInput, setShowRejectInput] = useState(false);
