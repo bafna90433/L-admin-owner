@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Loader, Send, Bell, BellOff, CheckCircle2, Zap, X, Layers, User, MessageSquare, Check, ShieldCheck, Clock, RotateCcw, AlertTriangle } from 'lucide-react';
+import { Loader, Send, Bell, BellOff, CheckCircle2, Zap, X, Layers, User, Check, ShieldCheck, Clock, RotateCcw, AlertTriangle, CheckCheck } from 'lucide-react';
 import '../styles/Tasks.css';
 
 interface Task {
@@ -833,103 +833,174 @@ export default function TaskDetailModal({
           )}
         </div>
 
-        {/* Discussion / Follow-up Notes Section */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <MessageSquare size={15} style={{ color: '#4f46e5' }} />
-            <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Follow-Up Discussion Notes
+        {/* PREMIUM TASK MESSENGER / CHAT SECTION */}
+        <div className="task-chat-card">
+          {/* Chat Header Bar */}
+          <div className="task-chat-header">
+            <div className="task-chat-header-info">
+              <div className="task-chat-avatar-stack">
+                <div className="chat-avatar-pill avatar-md" title="Managing Director (You)">
+                  👑
+                </div>
+                <div className="chat-avatar-pill avatar-staff" title={task.assignedTo?.name || 'Staff'}>
+                  {task.assignedTo?.imageUrl ? (
+                    <img src={task.assignedTo.imageUrl.startsWith('http') ? task.assignedTo.imageUrl : `${apiBase}${task.assignedTo.imageUrl}`} alt="" />
+                  ) : (
+                    (task.assignedTo?.name || 'S').charAt(0).toUpperCase()
+                  )}
+                </div>
+              </div>
+              <div>
+                <div className="task-chat-title">
+                  <span>Task Discussion & Activity</span>
+                  <span className="task-chat-live-pulse" />
+                </div>
+                <div className="task-chat-subtitle">
+                  Direct line with {task.assignedTo?.name || 'Assigned Staff'}
+                </div>
+              </div>
+            </div>
+
+            <span className="task-chat-counter-pill">
+              {task.comments?.length || 0} {task.comments?.length === 1 ? 'message' : 'messages'}
             </span>
           </div>
-          <span style={{
-            background: 'rgba(99, 102, 241, 0.1)',
-            color: '#4f46e5',
-            fontSize: '0.72rem',
-            fontWeight: 800,
-            padding: '2px 8px',
-            borderRadius: '10px'
-          }}>
-            {task.comments?.length || 0} {task.comments?.length === 1 ? 'message' : 'messages'}
-          </span>
-        </div>
 
-        {/* Discussion Feed */}
-        <div className="task-modal-chat-feed">
-          {task.comments && task.comments.length > 0 ? (
-            task.comments.map((c: any, index: number) => {
-              const isMD = c.authorRole === 'owner' ||
-                           c.authorRole === 'admin' ||
-                           (c.authorName && (
-                             c.authorName.toLowerCase().includes('owner') ||
-                             c.authorName.toLowerCase().includes('director') ||
-                             c.authorName.toLowerCase().includes('sir') ||
-                             c.authorName.toLowerCase().includes('md')
-                           ));
-
-              return (
-                <div
-                  key={index}
-                  className={isMD ? 'task-bubble-md' : 'task-bubble-staff'}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '14px', marginBottom: '4px' }}>
-                    <span style={{
-                      fontWeight: 850,
-                      fontSize: '0.74rem',
-                      color: isMD ? '#e0e7ff' : '#4f46e5',
-                      letterSpacing: '0.02em',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}>
-                      {isMD ? '👑 You (MD / Owner)' : `👤 ${c.authorName || 'Staff'} (Staff)`}
-                    </span>
-                    <span style={{
-                      fontSize: '0.68rem',
-                      color: isMD ? 'rgba(255, 255, 255, 0.75)' : '#94a3b8'
-                    }}>
-                      {c.createdAt ? new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently'}
-                    </span>
-                  </div>
-                  <p style={{
-                    fontSize: '0.9rem',
-                    color: isMD ? '#ffffff' : '#1e293b',
-                    margin: 0,
-                    whiteSpace: 'pre-wrap',
-                    lineHeight: 1.45
-                  }}>
-                    {c.text}
-                  </p>
-                </div>
-              );
-            })
-          ) : (
-            <div style={{ textAlign: 'center', color: '#94a3b8', padding: '28px 16px', fontSize: '0.86rem' }}>
-              <div style={{ fontSize: '1.8rem', marginBottom: '6px' }}>💬</div>
-              <div style={{ fontWeight: 650, color: '#64748b' }}>No discussion notes yet.</div>
-              <div style={{ fontSize: '0.78rem', marginTop: '2px' }}>Write a message below to give instructions or ask staff for an update.</div>
+          {/* Chat Feed Canvas */}
+          <div className="task-chat-feed">
+            {/* Timeline date chip */}
+            <div className="task-chat-date-divider">
+              <span>Today • Discussion History</span>
             </div>
-          )}
-        </div>
 
-        {/* Comment Input Form */}
-        <form onSubmit={handlePostComment} className="task-modal-input-bar">
-          <input
-            type="text"
-            className="task-modal-input"
-            placeholder="Ask for update, give instructions or reply..."
-            value={newCommentText}
-            onChange={e => setNewCommentText(e.target.value)}
-            required
-          />
-          <button
-            type="submit"
-            className="task-modal-send-btn"
-            disabled={commentSubmitting}
-            title="Send note"
-          >
-            {commentSubmitting ? <Loader className="spinner" size={16} /> : <Send size={16} />}
-          </button>
-        </form>
+            {task.comments && task.comments.length > 0 ? (
+              task.comments.map((c: any, index: number) => {
+                const isMD = c.authorRole === 'owner' ||
+                             c.authorRole === 'admin' ||
+                             (c.authorName && (
+                               c.authorName.toLowerCase().includes('owner') ||
+                               c.authorName.toLowerCase().includes('director') ||
+                               c.authorName.toLowerCase().includes('sir') ||
+                               c.authorName.toLowerCase().includes('md')
+                             ));
+
+                const isRevisionNotice = c.text && c.text.includes('Work sent back for revision');
+
+                return (
+                  <div
+                    key={index}
+                    className={`task-chat-row ${isMD ? 'row-owner' : 'row-staff'}`}
+                  >
+                    {!isMD && (
+                      <div className="chat-bubble-avatar">
+                        {task.assignedTo?.imageUrl ? (
+                          <img src={task.assignedTo.imageUrl.startsWith('http') ? task.assignedTo.imageUrl : `${apiBase}${task.assignedTo.imageUrl}`} alt="" />
+                        ) : (
+                          <span>{(c.authorName || task.assignedTo?.name || 'S').charAt(0).toUpperCase()}</span>
+                        )}
+                      </div>
+                    )}
+
+                    <div className={isMD ? 'task-chat-bubble-owner' : 'task-chat-bubble-staff'}>
+                      {/* Bubble Sender Label */}
+                      <div className="bubble-meta-header">
+                        <span className="bubble-author-name">
+                          {isMD ? '👑 You (MD / Owner)' : `👤 ${c.authorName || 'Staff'}`}
+                        </span>
+                      </div>
+
+                      {/* Message Content */}
+                      {isRevisionNotice ? (
+                        <div className="bubble-revision-alert">
+                          <AlertTriangle size={15} style={{ color: '#f59e0b', flexShrink: 0 }} />
+                          <div>{c.text}</div>
+                        </div>
+                      ) : (
+                        <p className="bubble-text">
+                          {c.text}
+                        </p>
+                      )}
+
+                      {/* Bubble Time & Status */}
+                      <div className="bubble-meta-footer">
+                        <span className="bubble-timestamp">
+                          {c.createdAt ? new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently'}
+                        </span>
+                        {isMD && (
+                          <span className="bubble-ticks" title="Sent & Delivered">
+                            <CheckCheck size={13} />
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="task-chat-empty-state">
+                <div className="chat-empty-icon">💬</div>
+                <div className="chat-empty-title">No discussion notes yet</div>
+                <div className="chat-empty-desc">Send a message below to give instructions, check status, or guide staff.</div>
+              </div>
+            )}
+          </div>
+
+          {/* Quick Suggestion Chips */}
+          <div className="task-chat-quick-bar">
+            <span className="quick-chip-label">Quick Prompts:</span>
+            <button
+              type="button"
+              className="task-quick-prompt-btn"
+              onClick={() => setNewCommentText('Please provide a quick status update on this task.')}
+            >
+              ⚡ Status Update?
+            </button>
+            <button
+              type="button"
+              className="task-quick-prompt-btn"
+              onClick={() => setNewCommentText('Please upload / share the final bill copy.')}
+            >
+              ⚡ Share Bill Copy
+            </button>
+            <button
+              type="button"
+              className="task-quick-prompt-btn"
+              onClick={() => setNewCommentText('Please confirm once customer confirmation is received.')}
+            >
+              ⚡ Customer Confirmation
+            </button>
+            <button
+              type="button"
+              className="task-quick-prompt-btn"
+              onClick={() => setNewCommentText('Work approved! Please proceed with next steps.')}
+            >
+              ⚡ Approved, Proceed!
+            </button>
+          </div>
+
+          {/* Comment Input Dock */}
+          <form onSubmit={handlePostComment} className="task-chat-dock">
+            <div className="chat-input-wrapper">
+              <input
+                type="text"
+                className="task-chat-input"
+                placeholder="Type a message or instruction... (Press Enter to send)"
+                value={newCommentText}
+                onChange={e => setNewCommentText(e.target.value)}
+                required
+              />
+              <button
+                type="submit"
+                className="task-chat-send-btn"
+                disabled={commentSubmitting || !newCommentText.trim()}
+                title="Send message"
+              >
+                {commentSubmitting ? <Loader className="spinner" size={15} /> : <Send size={15} />}
+                <span>Send</span>
+              </button>
+            </div>
+          </form>
+        </div>
 
       </div>
     </div>
