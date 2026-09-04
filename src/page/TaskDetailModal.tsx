@@ -405,9 +405,9 @@ export default function TaskDetailModal({
             </span>
           </div>
 
-          {/* Right: Finish Work Action & Close Button */}
+          {/* Right: Close Button & Reopen if completed */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {isCompleted ? (
+            {isCompleted && (
               <button
                 type="button"
                 onClick={handleResetTask}
@@ -426,47 +426,24 @@ export default function TaskDetailModal({
               >
                 {isCompleting ? <Loader className="spinner" size={14} /> : '↺ Reopen Task'}
               </button>
-            ) : isAwaitingApproval ? (
+            )}
+
+            {!isCompleted && !isAwaitingApproval && (
               <button
                 type="button"
                 onClick={handleCompleteTask}
                 disabled={isCompleting}
                 className="btn btn-success"
                 style={{
-                  padding: '8px 18px',
+                  padding: '7px 16px',
                   fontWeight: 800,
-                  fontSize: '0.84rem',
+                  fontSize: '0.82rem',
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '6px',
                   background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                  boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
-                  borderRadius: '12px',
-                  border: 'none',
-                  color: '#ffffff',
-                  cursor: 'pointer'
-                }}
-                title="Approve staff finish request and mark task completed"
-              >
-                {isCompleting ? <Loader className="spinner" size={14} /> : <ShieldCheck size={16} strokeWidth={2.5} />}
-                <span>Approve Finish</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleCompleteTask}
-                disabled={isCompleting}
-                className="btn btn-success"
-                style={{
-                  padding: '8px 18px',
-                  fontWeight: 800,
-                  fontSize: '0.84rem',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                  boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
-                  borderRadius: '12px',
+                  boxShadow: '0 4px 14px rgba(16, 185, 129, 0.3)',
+                  borderRadius: '10px',
                   border: 'none',
                   color: '#ffffff',
                   cursor: 'pointer',
@@ -474,7 +451,7 @@ export default function TaskDetailModal({
                 }}
                 title="Mark this task as finished"
               >
-                {isCompleting ? <Loader className="spinner" size={14} /> : <Check size={16} strokeWidth={3} />}
+                {isCompleting ? <Loader className="spinner" size={14} /> : <Check size={15} strokeWidth={3} />}
                 <span>Finish Work</span>
               </button>
             )}
