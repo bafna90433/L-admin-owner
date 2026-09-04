@@ -960,69 +960,92 @@
   transform: rotate(90deg) scale(1.05);
 }
 
-.task-modal-title {
-  font-size: 1.42rem;
+/* --------------------------------------------------------------------------
+   Top Executive Header Row (Title, Assignee chip, Direct Action Buttons)
+   -------------------------------------------------------------------------- */
+.task-modal-top-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+  border-bottom: 1.5px solid #f1f5f9;
+  flex-wrap: wrap;
+}
+
+.task-top-left-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 200px;
+}
+
+.task-top-title {
+  font-size: 1.35rem;
   font-weight: 850;
   color: #0f172a;
-  margin: 6px 0 8px 0;
-  line-height: 1.35;
+  margin: 0;
+  line-height: 1.3;
   letter-spacing: -0.02em;
   word-break: break-word;
 }
 
-.task-modal-meta-bar {
+.task-top-meta-strip {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
-  font-size: 0.84rem;
-  color: #64748b;
-  padding-bottom: 14px;
-  border-bottom: 1.5px solid #f1f5f9;
-  margin-bottom: 16px;
 }
 
-.task-modal-status-card {
+.task-top-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 14px 18px;
-  border-radius: 16px;
-  margin-bottom: 16px;
+  gap: 8px;
   flex-wrap: wrap;
-  gap: 12px;
-  transition: all 0.2s ease;
 }
 
-.task-modal-status-card.status-pending-card {
-  background: linear-gradient(135deg, rgba(238, 242, 255, 0.8) 0%, rgba(245, 247, 255, 0.95) 100%);
-  border: 1.5px solid rgba(99, 102, 241, 0.25);
-  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.05);
+.btn-top {
+  padding: 7px 13px !important;
+  font-size: 0.8rem !important;
+  border-radius: 10px !important;
 }
 
-.task-modal-status-card.status-completed-card {
-  background: linear-gradient(135deg, rgba(236, 253, 245, 0.85) 0%, rgba(240, 253, 250, 0.95) 100%);
-  border: 1.5px solid rgba(16, 185, 129, 0.3);
-  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.05);
+.task-header-alarm-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 12px;
+  border-radius: 10px;
+  font-size: 0.78rem;
+  font-weight: 750;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  cursor: pointer;
+  transition: all 0.18s ease;
 }
 
-.task-modal-alarm-box {
-  border-radius: 16px;
-  padding: 16px 18px;
-  margin-bottom: 18px;
-  transition: all 0.25s ease;
+.task-header-alarm-btn:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+  transform: translateY(-1px);
 }
 
-.task-modal-alarm-box.alarm-active {
-  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
-  border: 1.5px solid #fcd34d;
-  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.12);
+.task-header-alarm-btn.alarm-active {
+  background: #fffbeb;
+  color: #d97706;
+  border-color: #fcd34d;
+  box-shadow: 0 2px 6px rgba(245, 158, 11, 0.15);
 }
 
-.task-modal-alarm-box.alarm-idle {
-  background: #f8fafc;
-  border: 1.5px solid #e2e8f0;
+.task-header-alarm-btn.active {
+  background: #eef2ff;
+  color: #4f46e5;
+  border-color: #c7d2fe;
 }
+
 
 /* --------------------------------------------------------------------------
    Ultra-Premium Task Messenger / Chat Box Component

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Loader, Send, Bell, BellOff, CheckCircle2, X, Layers, User, Check, ShieldCheck, Clock, RotateCcw, AlertTriangle, CheckCheck } from 'lucide-react';
+import { Loader, Send, Bell, CheckCircle2, X, User, Check, RotateCcw, AlertTriangle, CheckCheck } from 'lucide-react';
 import '../styles/Tasks.css';
 
 interface Task {
@@ -359,47 +359,56 @@ export default function TaskDetailModal({
     <div className="task-modal-overlay" onClick={onClose}>
       <div className="task-modal-window" onClick={e => e.stopPropagation()}>
         
-        {/* Top Header Bar */}
-        <div className="task-modal-header-row">
-          <div className="task-modal-badges">
-            {isCompleted ? (
-              <span className="task-status-badge badge-completed">
-                <CheckCircle2 size={13} strokeWidth={2.5} /> Completed
+        {/* Top Header Row with Title, Assignee & Direct Action Buttons */}
+        <div className="task-modal-top-header">
+          {/* Left: Task Title & Assignee */}
+          <div className="task-top-left-info">
+            <h2 className="task-top-title">
+              {task.title}
+            </h2>
+            <div className="task-top-meta-strip">
+              <span className="task-meta-user-chip">
+                {task.assignedTo?.imageUrl ? (
+                  <img src={task.assignedTo.imageUrl.startsWith('http') ? task.assignedTo.imageUrl : `${apiBase}${task.assignedTo.imageUrl}`} alt="" />
+                ) : (
+                  <User size={13} />
+                )}
+                <span>{task.assignedTo?.name || '👥 All Staff'}</span>
               </span>
-            ) : isAwaitingApproval ? (
-              <span className="task-status-badge badge-approval-pending">
-                <span className="pulsing-dot" />
-                <ShieldCheck size={13} /> MD Approval Pending
-              </span>
-            ) : (
-              <span className="task-status-badge badge-pending">
-                <span className="status-dot" /> Pending
-              </span>
-            )}
 
-            <span className="task-type-badge">
-              <Layers size={11} />
-              {task.taskType === 'regular' ? 'Regular Work' : task.taskType === 'reminder-sir' ? 'Sir Reminder' : 'Custom Task'} ({task.frequency})
-            </span>
-
-            {hasActiveReminder && (
-              <span className="task-reminder-badge">
-                <Bell size={11} /> Alarm Active
-              </span>
-            )}
+              {isCompleted && task.completedBy && (
+                <span className="task-meta-user-chip chip-completed">
+                  <CheckCircle2 size={13} />
+                  <span>Completed by {task.completedBy.name}</span>
+                </span>
+              )}
+            </div>
           </div>
 
-          {/* Right Header Actions */}
-          <div className="task-modal-header-actions">
-            {isCompleted && (
-              <button
-                type="button"
-                onClick={handleResetTask}
-                disabled={isCompleting}
-                className="task-header-reopen-btn"
-              >
-                {isCompleting ? <Loader className="spinner" size={13} /> : '↺ Reopen Task'}
-              </button>
+          {/* Right: Direct Actions (Approve, Reject, Set Reminder, Close) */}
+          <div className="task-top-actions">
+            {isAwaitingApproval && (
+              <>
+                <button
+                  type="button"
+                  onClick={handleCompleteTask}
+                  disabled={isCompleting}
+                  className="btn-approve-primary btn-top"
+                  title="Approve work and mark task completed"
+                >
+                  {isCompleting ? <Loader className="spinner" size={13} /> : <Check size={14} strokeWidth={2.8} />}
+                  <span>{isCompleting ? 'Approving...' : 'Approve & Complete'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowRejectInput(!showRejectInput)}
+                  className={`btn-reject-secondary btn-top ${showRejectInput ? 'active' : ''}`}
+                  title="Send work back for revision"
+                >
+                  <RotateCcw size={12} />
+                  <span>{showRejectInput ? 'Cancel' : 'Reject / Revise'}</span>
+                </button>
+              </>
             )}
 
             {!isCompleted && !isAwaitingApproval && (
@@ -407,13 +416,34 @@ export default function TaskDetailModal({
                 type="button"
                 onClick={handleCompleteTask}
                 disabled={isCompleting}
-                className="task-header-finish-btn"
+                className="btn-approve-primary btn-top"
                 title="Directly complete task"
               >
                 {isCompleting ? <Loader className="spinner" size={13} /> : <Check size={14} strokeWidth={3} />}
                 <span>Finish</span>
               </button>
             )}
+
+            {isCompleted && (
+              <button
+                type="button"
+                onClick={handleResetTask}
+                disabled={isCompleting}
+                className="task-header-reopen-btn"
+              >
+                {isCompleting ? <Loader className="spinner" size={13} /> : '↺ Reopen'}
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setShowReminderSettings(!showReminderSettings)}
+              className={`task-header-alarm-btn ${hasActiveReminder ? 'alarm-active' : ''} ${showReminderSettings ? 'active' : ''}`}
+              title={hasActiveReminder ? `Alarm: ${formattedActiveReminder}` : 'Configure Reminder Alarm'}
+            >
+              <Bell size={13} />
+              <span>{hasActiveReminder ? 'Alarm Set' : 'Set Reminder'}</span>
+            </button>
 
             <button
               type="button"
@@ -426,133 +456,47 @@ export default function TaskDetailModal({
           </div>
         </div>
 
-        {/* Task Title & Meta Card */}
-        <div className="task-modal-title-card">
-          <h2 className="task-modal-main-title">
-            {task.title}
-          </h2>
-
-          <div className="task-modal-meta-strip">
-            <div className="task-meta-item">
-              <span className="task-meta-label">Assigned to:</span>
-              <span className="task-meta-user-chip">
-                {task.assignedTo?.imageUrl ? (
-                  <img src={task.assignedTo.imageUrl.startsWith('http') ? task.assignedTo.imageUrl : `${apiBase}${task.assignedTo.imageUrl}`} alt="" />
-                ) : (
-                  <User size={13} />
-                )}
-                <span>{task.assignedTo?.name || '👥 All Staff'}</span>
-              </span>
+        {/* Slide-out Revision Note Box (Directly below header) */}
+        {showRejectInput && (
+          <div className="approval-revision-box animate-fade-in" style={{ marginBottom: '14px' }}>
+            <div className="revision-box-header">
+              <AlertTriangle size={13} style={{ color: '#e11d48' }} />
+              <span>Send task back to staff with revision feedback:</span>
             </div>
-
-            {isCompleted && task.completedBy && (
-              <div className="task-meta-item">
-                <span className="task-meta-label">Completed by:</span>
-                <span className="task-meta-user-chip chip-completed">
-                  <CheckCircle2 size={13} />
-                  <span>{task.completedBy.name} {task.completedAt ? `on ${new Date(task.completedAt).toLocaleDateString('en-GB')}` : ''}</span>
-                </span>
-              </div>
-            )}
+            <div className="revision-box-input-row">
+              <input
+                type="text"
+                className="form-input revision-input"
+                placeholder="e.g. Please verify bill calculation / check customer details..."
+                value={rejectReason}
+                onChange={e => setRejectReason(e.target.value)}
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={handleRejectCompletion}
+                disabled={isRejecting}
+                className="btn-send-revision"
+              >
+                {isRejecting ? <Loader className="spinner" size={12} /> : <Send size={12} />}
+                <span>Send</span>
+              </button>
+            </div>
+            <div className="revision-quick-tags">
+              <span onClick={() => setRejectReason('Please recheck and verify all bill details.')}>⚡ Verify bill</span>
+              <span onClick={() => setRejectReason('Pending confirmation from customer.')}>⚡ Customer pending</span>
+              <span onClick={() => setRejectReason('Work is incomplete, please update remarks.')}>⚡ Incomplete work</span>
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* 2-COLUMN ACTION GRID: APPROVAL & REMINDER */}
-        <div className={`task-modal-action-grid ${isAwaitingApproval ? 'has-approval' : 'single-col'}`}>
-          
-          {/* COLUMN 1: FINISH APPROVAL CARD */}
-          {isAwaitingApproval && (
-            <div className="task-approval-compact-card animate-fade-in">
-              <div className="compact-card-header">
-                <div className="compact-requester-info">
-                  <div className="compact-avatar">
-                    {task.completionRequestedBy?.imageUrl ? (
-                      <img
-                        src={task.completionRequestedBy.imageUrl.startsWith('http') ? task.completionRequestedBy.imageUrl : `${apiBase}${task.completionRequestedBy.imageUrl}`}
-                        alt=""
-                      />
-                    ) : (
-                      <span>{(task.completionRequestedBy?.name || task.assignedTo?.name || 'S').charAt(0).toUpperCase()}</span>
-                    )}
-                  </div>
-                  <div>
-                    <div className="compact-card-title">
-                      <span>Finish Approval</span>
-                      <span className="compact-staff-tag">by {task.completionRequestedBy?.name || task.assignedTo?.name || 'Staff'}</span>
-                    </div>
-                    <div className="compact-card-time">
-                      <Clock size={11} />
-                      <span>{new Date(task.completionRequestedAt || '').toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {new Date(task.completionRequestedAt || '').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Buttons Row */}
-              <div className="compact-action-buttons">
-                <button
-                  type="button"
-                  onClick={handleCompleteTask}
-                  disabled={isCompleting}
-                  className="btn-approve-primary btn-compact"
-                  title="Approve work and mark task completed"
-                >
-                  {isCompleting ? <Loader className="spinner" size={13} /> : <Check size={14} strokeWidth={2.8} />}
-                  <span>{isCompleting ? 'Approving...' : 'Approve & Complete'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowRejectInput(!showRejectInput)}
-                  className={`btn-reject-secondary btn-compact ${showRejectInput ? 'active' : ''}`}
-                  title="Send work back for revision"
-                >
-                  <RotateCcw size={12} />
-                  <span>{showRejectInput ? 'Cancel' : 'Reject / Revise'}</span>
-                </button>
-              </div>
-
-              {/* Slide-out Revision Note Box */}
-              {showRejectInput && (
-                <div className="approval-revision-box animate-fade-in">
-                  <div className="revision-box-header">
-                    <AlertTriangle size={13} style={{ color: '#e11d48' }} />
-                    <span>Revision Feedback:</span>
-                  </div>
-                  <div className="revision-box-input-row">
-                    <input
-                      type="text"
-                      className="form-input revision-input"
-                      placeholder="e.g. Verify calculation..."
-                      value={rejectReason}
-                      onChange={e => setRejectReason(e.target.value)}
-                      autoFocus
-                    />
-                    <button
-                      type="button"
-                      onClick={handleRejectCompletion}
-                      disabled={isRejecting}
-                      className="btn-send-revision"
-                    >
-                      {isRejecting ? <Loader className="spinner" size={12} /> : <Send size={12} />}
-                      <span>Send</span>
-                    </button>
-                  </div>
-                  <div className="revision-quick-tags">
-                    <span onClick={() => setRejectReason('Please verify bill details.')}>⚡ Verify bill</span>
-                    <span onClick={() => setRejectReason('Customer confirmation pending.')}>⚡ Customer pending</span>
-                    <span onClick={() => setRejectReason('Incomplete work.')}>⚡ Incomplete</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* COLUMN 2: SET REMINDER ALARM */}
-          <div className={`task-reminder-compact-card ${hasActiveReminder ? 'reminder-armed' : ''}`}>
+        {/* Slide-out Reminder Alarm Drawer (Directly below header) */}
+        {showReminderSettings && (
+          <div className="task-reminder-compact-card animate-fade-in" style={{ marginBottom: '14px' }}>
             <div className="compact-card-header">
               <div className="compact-requester-info">
                 <div className={`compact-alarm-icon ${hasActiveReminder ? 'alarm-icon-active' : ''}`}>
-                  <Bell size={16} />
+                  <Bell size={15} />
                 </div>
                 <div>
                   <div className="compact-card-title">
@@ -561,141 +505,114 @@ export default function TaskDetailModal({
                   </div>
                   <div className="compact-card-time">
                     {hasActiveReminder ? (
-                      <span>⏰ {formattedActiveReminder}</span>
+                      <span>⏰ Scheduled: {formattedActiveReminder}</span>
                     ) : (
-                      <span>Set alarm for MD & Staff</span>
+                      <span>Schedule alarm for MD & Staff</span>
                     )}
                   </div>
                 </div>
               </div>
-
-              {!showReminderSettings && (
-                <button
-                  type="button"
-                  onClick={() => setShowReminderSettings(true)}
-                  className="btn-configure-alarm"
-                >
-                  {hasActiveReminder ? 'Edit Alarm' : '+ Set Alarm'}
-                </button>
-              )}
             </div>
 
-            {hasActiveReminder && !showReminderSettings && (
-              <div className="compact-alarm-active-row">
-                <button
-                  type="button"
-                  onClick={handleClearReminder}
-                  disabled={isSavingReminder}
-                  className="btn-remove-alarm-compact"
-                >
-                  <BellOff size={12} />
-                  <span>Remove Alarm</span>
-                </button>
+            <div className="compact-reminder-settings">
+              {/* Quick Presets */}
+              <div className="compact-presets-row">
+                <button type="button" onClick={() => applyPreset(15)} className="task-preset-btn">+15m</button>
+                <button type="button" onClick={() => applyPreset(30)} className="task-preset-btn">+30m</button>
+                <button type="button" onClick={() => applyPreset(60)} className="task-preset-btn">+1h</button>
+                <button type="button" onClick={applyTodayEvening} className="task-preset-btn">5 PM</button>
+                <button type="button" onClick={applyTomorrowMorning} className="task-preset-btn">10 AM</button>
               </div>
-            )}
 
-            {/* Expanded Reminder Configuration */}
-            {showReminderSettings && (
-              <div className="compact-reminder-settings animate-fade-in">
-                {/* Quick Presets */}
-                <div className="compact-presets-row">
-                  <button type="button" onClick={() => applyPreset(15)} className="task-preset-btn">+15m</button>
-                  <button type="button" onClick={() => applyPreset(30)} className="task-preset-btn">+30m</button>
-                  <button type="button" onClick={() => applyPreset(60)} className="task-preset-btn">+1h</button>
-                  <button type="button" onClick={applyTodayEvening} className="task-preset-btn">5 PM</button>
-                  <button type="button" onClick={applyTomorrowMorning} className="task-preset-btn">10 AM</button>
+              {/* Date & Time Pickers */}
+              <div className="compact-time-grid">
+                <div>
+                  <label>Date</label>
+                  <input
+                    type="date"
+                    className="task-form-input compact-form-input"
+                    value={remDate}
+                    onChange={e => setRemDate(e.target.value)}
+                    min={formatDateToYMD(new Date())}
+                  />
                 </div>
-
-                {/* Date & Time Pickers */}
-                <div className="compact-time-grid">
-                  <div>
-                    <label>Date</label>
-                    <input
-                      type="date"
-                      className="task-form-input compact-form-input"
-                      value={remDate}
-                      onChange={e => setRemDate(e.target.value)}
-                      min={formatDateToYMD(new Date())}
-                    />
-                  </div>
-                  <div>
-                    <label>Hour</label>
-                    <select
-                      className="task-form-input compact-form-input"
-                      value={remHour}
-                      onChange={e => setRemHour(e.target.value)}
-                    >
-                      {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0')).map(h => (
-                        <option key={h} value={h}>{h}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label>Min</label>
-                    <select
-                      className="task-form-input compact-form-input"
-                      value={remMinute}
-                      onChange={e => setRemMinute(e.target.value)}
-                    >
-                      {Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0')).map(m => (
-                        <option key={m} value={m}>{m}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label>AM/PM</label>
-                    <div className="compact-period-toggle">
-                      <button
-                        type="button"
-                        onClick={() => setRemPeriod('AM')}
-                        className={remPeriod === 'AM' ? 'active' : ''}
-                      >
-                        AM
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setRemPeriod('PM')}
-                        className={remPeriod === 'PM' ? 'active' : ''}
-                      >
-                        PM
-                      </button>
-                    </div>
-                  </div>
+                <div>
+                  <label>Hour</label>
+                  <select
+                    className="task-form-input compact-form-input"
+                    value={remHour}
+                    onChange={e => setRemHour(e.target.value)}
+                  >
+                    {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0')).map(h => (
+                      <option key={h} value={h}>{h}</option>
+                    ))}
+                  </select>
                 </div>
-
-                {/* Action Buttons */}
-                <div className="compact-alarm-actions">
-                  <button
-                    type="button"
-                    onClick={handleSaveReminder}
-                    disabled={isSavingReminder}
-                    className="btn-save-alarm-compact"
+                <div>
+                  <label>Min</label>
+                  <select
+                    className="task-form-input compact-form-input"
+                    value={remMinute}
+                    onChange={e => setRemMinute(e.target.value)}
                   >
-                    {isSavingReminder ? <Loader className="spinner" size={13} /> : <Bell size={13} />}
-                    <span>{hasActiveReminder ? 'Update Alarm' : 'Set Alarm'}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowReminderSettings(false)}
-                    className="btn-close-alarm-compact"
-                  >
-                    Close
-                  </button>
-                  {hasActiveReminder && (
+                    {Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0')).map(m => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label>AM/PM</label>
+                  <div className="compact-period-toggle">
                     <button
                       type="button"
-                      onClick={handleClearReminder}
-                      disabled={isSavingReminder}
-                      className="btn-remove-alarm-compact"
+                      onClick={() => setRemPeriod('AM')}
+                      className={remPeriod === 'AM' ? 'active' : ''}
                     >
-                      Clear
+                      AM
                     </button>
-                  )}
+                    <button
+                      type="button"
+                      onClick={() => setRemPeriod('PM')}
+                      className={remPeriod === 'PM' ? 'active' : ''}
+                    >
+                      PM
+                    </button>
+                  </div>
                 </div>
               </div>
-            )}
+
+              {/* Action Buttons */}
+              <div className="compact-alarm-actions">
+                <button
+                  type="button"
+                  onClick={handleSaveReminder}
+                  disabled={isSavingReminder}
+                  className="btn-save-alarm-compact"
+                >
+                  {isSavingReminder ? <Loader className="spinner" size={13} /> : <Bell size={13} />}
+                  <span>{hasActiveReminder ? 'Update Alarm' : 'Set Alarm'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowReminderSettings(false)}
+                  className="btn-close-alarm-compact"
+                >
+                  Close
+                </button>
+                {hasActiveReminder && (
+                  <button
+                    type="button"
+                    onClick={handleClearReminder}
+                    disabled={isSavingReminder}
+                    className="btn-remove-alarm-compact"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* PREMIUM TASK MESSENGER / CHAT SECTION */}
         <div className="task-chat-card">
