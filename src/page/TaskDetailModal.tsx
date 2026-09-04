@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Loader, Send, Bell, BellOff, CheckCircle2, Zap, X, Layers, User, Check, ShieldCheck, Clock, RotateCcw, AlertTriangle, CheckCheck } from 'lucide-react';
+import { Loader, Send, Bell, BellOff, CheckCircle2, X, Layers, User, Check, ShieldCheck, Clock, RotateCcw, AlertTriangle, CheckCheck } from 'lucide-react';
 import '../styles/Tasks.css';
 
 interface Task {
@@ -457,380 +457,244 @@ export default function TaskDetailModal({
           </div>
         </div>
 
-        {/* EXECUTIVE APPROVAL CALLOUT CARD */}
-        {isAwaitingApproval && (
-          <div className="task-modal-approval-hero animate-fade-in">
-            <div className="approval-hero-header">
-              <div className="approval-hero-requester">
-                <div className="approval-hero-avatar">
-                  {task.completionRequestedBy?.imageUrl ? (
-                    <img
-                      src={task.completionRequestedBy.imageUrl.startsWith('http') ? task.completionRequestedBy.imageUrl : `${apiBase}${task.completionRequestedBy.imageUrl}`}
-                      alt=""
-                    />
-                  ) : (
-                    <div className="approval-avatar-fallback">
-                      {(task.completionRequestedBy?.name || task.assignedTo?.name || 'S').charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                  <span className="approval-avatar-badge" title="Pending MD Approval">
-                    <ShieldCheck size={11} />
-                  </span>
-                </div>
-                <div className="approval-hero-meta">
-                  <div className="approval-hero-title">
-                    <span>Finish Approval Requested</span>
-                    <span className="approval-tag-staff">by {task.completionRequestedBy?.name || task.assignedTo?.name || 'Staff'}</span>
+        {/* 2-COLUMN ACTION GRID: APPROVAL & REMINDER */}
+        <div className={`task-modal-action-grid ${isAwaitingApproval ? 'has-approval' : 'single-col'}`}>
+          
+          {/* COLUMN 1: FINISH APPROVAL CARD */}
+          {isAwaitingApproval && (
+            <div className="task-approval-compact-card animate-fade-in">
+              <div className="compact-card-header">
+                <div className="compact-requester-info">
+                  <div className="compact-avatar">
+                    {task.completionRequestedBy?.imageUrl ? (
+                      <img
+                        src={task.completionRequestedBy.imageUrl.startsWith('http') ? task.completionRequestedBy.imageUrl : `${apiBase}${task.completionRequestedBy.imageUrl}`}
+                        alt=""
+                      />
+                    ) : (
+                      <span>{(task.completionRequestedBy?.name || task.assignedTo?.name || 'S').charAt(0).toUpperCase()}</span>
+                    )}
                   </div>
-                  <div className="approval-hero-time">
-                    <Clock size={12} />
-                    <span>Requested on {new Date(task.completionRequestedAt || '').toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</span>
+                  <div>
+                    <div className="compact-card-title">
+                      <span>Finish Approval</span>
+                      <span className="compact-staff-tag">by {task.completionRequestedBy?.name || task.assignedTo?.name || 'Staff'}</span>
+                    </div>
+                    <div className="compact-card-time">
+                      <Clock size={11} />
+                      <span>{new Date(task.completionRequestedAt || '').toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {new Date(task.completionRequestedAt || '').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="approval-hero-actions">
+              {/* Action Buttons Row */}
+              <div className="compact-action-buttons">
                 <button
                   type="button"
                   onClick={handleCompleteTask}
                   disabled={isCompleting}
-                  className="btn-approve-primary"
-                  title="Approve work and officially mark task completed"
+                  className="btn-approve-primary btn-compact"
+                  title="Approve work and mark task completed"
                 >
-                  {isCompleting ? <Loader className="spinner" size={14} /> : <Check size={16} strokeWidth={2.8} />}
-                  <span>{isCompleting ? 'Completing...' : 'Approve & Complete'}</span>
+                  {isCompleting ? <Loader className="spinner" size={13} /> : <Check size={14} strokeWidth={2.8} />}
+                  <span>{isCompleting ? 'Approving...' : 'Approve & Complete'}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowRejectInput(!showRejectInput)}
-                  className={`btn-reject-secondary ${showRejectInput ? 'active' : ''}`}
+                  className={`btn-reject-secondary btn-compact ${showRejectInput ? 'active' : ''}`}
                   title="Send work back for revision"
                 >
-                  <RotateCcw size={13} />
+                  <RotateCcw size={12} />
                   <span>{showRejectInput ? 'Cancel' : 'Reject / Revise'}</span>
                 </button>
               </div>
-            </div>
 
-            {/* Slide-out Revision Note Box */}
-            {showRejectInput && (
-              <div className="approval-revision-box animate-fade-in">
-                <div className="revision-box-header">
-                  <AlertTriangle size={14} style={{ color: '#e11d48' }} />
-                  <span>Send task back to staff with revision feedback:</span>
-                </div>
-                <div className="revision-box-input-row">
-                  <input
-                    type="text"
-                    className="form-input revision-input"
-                    placeholder="e.g. Please verify bill calculation / check customer details..."
-                    value={rejectReason}
-                    onChange={e => setRejectReason(e.target.value)}
-                    autoFocus
-                  />
-                  <button
-                    type="button"
-                    onClick={handleRejectCompletion}
-                    disabled={isRejecting}
-                    className="btn-send-revision"
-                  >
-                    {isRejecting ? <Loader className="spinner" size={13} /> : <Send size={13} />}
-                    <span>{isRejecting ? 'Sending...' : 'Send Revision'}</span>
-                  </button>
-                </div>
-                <div className="revision-quick-tags">
-                  <span onClick={() => setRejectReason('Please recheck and verify all bill details.')}>⚡ Verify bill details</span>
-                  <span onClick={() => setRejectReason('Pending confirmation from customer.')}>⚡ Customer confirmation pending</span>
-                  <span onClick={() => setRejectReason('Work is incomplete, please update remarks.')}>⚡ Incomplete work</span>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* SET REMINDER ALARM SECTION */}
-        <div className={`task-modal-alarm-box ${hasActiveReminder ? 'alarm-active' : 'alarm-idle'}`}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '10px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '10px',
-                background: hasActiveReminder ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' : 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)',
-                color: '#ffffff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: hasActiveReminder ? '0 3px 8px rgba(245, 158, 11, 0.3)' : '0 3px 8px rgba(79, 70, 229, 0.25)',
-                flexShrink: 0
-              }}>
-                <Bell size={18} />
-              </div>
-              <div>
-                <h4 style={{ margin: 0, fontSize: '0.96rem', fontWeight: 800, color: '#0f172a' }}>
-                  Set Reminder Alarm (MD & Staff)
-                </h4>
-                <p style={{ margin: 0, fontSize: '0.74rem', color: '#64748b', marginTop: '2px' }}>
-                  Continuous alarm will ring simultaneously on MD & Staff devices
-                </p>
-              </div>
-            </div>
-
-            {!showReminderSettings && (
-              <button
-                type="button"
-                onClick={() => setShowReminderSettings(true)}
-                style={{
-                  padding: '7px 14px',
-                  fontSize: '0.8rem',
-                  fontWeight: 750,
-                  borderRadius: '10px',
-                  background: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)',
-                  color: '#ffffff',
-                  border: 'none',
-                  cursor: 'pointer',
-                  boxShadow: '0 3px 8px rgba(79, 70, 229, 0.25)'
-                }}
-              >
-                + Configure Alarm
-              </button>
-            )}
-          </div>
-
-          {/* Active Reminder Status Strip */}
-          {hasActiveReminder && (
-            <div style={{
-              background: '#ffffff',
-              padding: '12px 16px',
-              borderRadius: '12px',
-              border: '1.5px solid #fde68a',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: showReminderSettings ? '14px' : '0',
-              flexWrap: 'wrap',
-              gap: '10px',
-              boxShadow: '0 2px 8px rgba(245, 158, 11, 0.08)'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <CheckCircle2 size={20} style={{ color: '#d97706', flexShrink: 0 }} />
-                <div>
-                  <div style={{ fontSize: '0.86rem', fontWeight: 800, color: '#92400e' }}>
-                    ⏰ Scheduled: {formattedActiveReminder}
+              {/* Slide-out Revision Note Box */}
+              {showRejectInput && (
+                <div className="approval-revision-box animate-fade-in">
+                  <div className="revision-box-header">
+                    <AlertTriangle size={13} style={{ color: '#e11d48' }} />
+                    <span>Revision Feedback:</span>
                   </div>
-                  <div style={{ fontSize: '0.73rem', color: '#b45309', marginTop: '1px' }}>
-                    Alarm active for MD & Assigned Staff ({task.assignedTo?.name || 'All Staff'})
+                  <div className="revision-box-input-row">
+                    <input
+                      type="text"
+                      className="form-input revision-input"
+                      placeholder="e.g. Verify calculation..."
+                      value={rejectReason}
+                      onChange={e => setRejectReason(e.target.value)}
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={handleRejectCompletion}
+                      disabled={isRejecting}
+                      className="btn-send-revision"
+                    >
+                      {isRejecting ? <Loader className="spinner" size={12} /> : <Send size={12} />}
+                      <span>Send</span>
+                    </button>
+                  </div>
+                  <div className="revision-quick-tags">
+                    <span onClick={() => setRejectReason('Please verify bill details.')}>⚡ Verify bill</span>
+                    <span onClick={() => setRejectReason('Customer confirmation pending.')}>⚡ Customer pending</span>
+                    <span onClick={() => setRejectReason('Incomplete work.')}>⚡ Incomplete</span>
                   </div>
                 </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleClearReminder}
-                disabled={isSavingReminder}
-                style={{
-                  padding: '6px 12px',
-                  fontSize: '0.76rem',
-                  fontWeight: 750,
-                  borderRadius: '8px',
-                  background: '#fee2e2',
-                  color: '#dc2626',
-                  border: '1px solid #fca5a5',
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '5px'
-                }}
-              >
-                <BellOff size={13} />
-                <span>Remove Alarm</span>
-              </button>
+              )}
             </div>
           )}
 
-          {/* Date, Time AM/PM Picker and Controls */}
-          {showReminderSettings && (
-            <div style={{ marginTop: '10px' }}>
-              {/* Quick Preset Buttons */}
-              <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '8px', marginBottom: '10px' }}>
-                <button
-                  type="button"
-                  onClick={() => applyPreset(15)}
-                  className="task-preset-btn"
-                >
-                  <Zap size={11} style={{ color: '#f59e0b' }} /> +15 Min
-                </button>
-                <button
-                  type="button"
-                  onClick={() => applyPreset(30)}
-                  className="task-preset-btn"
-                >
-                  <Zap size={11} style={{ color: '#f59e0b' }} /> +30 Min
-                </button>
-                <button
-                  type="button"
-                  onClick={() => applyPreset(60)}
-                  className="task-preset-btn"
-                >
-                  <Zap size={11} style={{ color: '#f59e0b' }} /> +1 Hour
-                </button>
-                <button
-                  type="button"
-                  onClick={applyTodayEvening}
-                  className="task-preset-btn"
-                >
-                  🌆 Today 5:00 PM
-                </button>
-                <button
-                  type="button"
-                  onClick={applyTomorrowMorning}
-                  className="task-preset-btn"
-                >
-                  🌅 Tomorrow 10:00 AM
-                </button>
-              </div>
-
-              {/* Date & Time AM/PM Pickers Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr 0.9fr', gap: '8px', alignItems: 'flex-end', marginBottom: '12px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.73rem', fontWeight: 750, color: '#475569', marginBottom: '4px' }}>
-                    📅 Date
-                  </label>
-                  <input
-                    type="date"
-                    className="task-form-input"
-                    value={remDate}
-                    onChange={e => setRemDate(e.target.value)}
-                    min={formatDateToYMD(new Date())}
-                    style={{ padding: '7px 10px', fontSize: '0.82rem', borderRadius: '10px' }}
-                  />
+          {/* COLUMN 2: SET REMINDER ALARM */}
+          <div className={`task-reminder-compact-card ${hasActiveReminder ? 'reminder-armed' : ''}`}>
+            <div className="compact-card-header">
+              <div className="compact-requester-info">
+                <div className={`compact-alarm-icon ${hasActiveReminder ? 'alarm-icon-active' : ''}`}>
+                  <Bell size={16} />
                 </div>
-
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.73rem', fontWeight: 750, color: '#475569', marginBottom: '4px' }}>
-                    ⏰ Hour (1-12)
-                  </label>
-                  <select
-                    className="task-form-input"
-                    value={remHour}
-                    onChange={e => setRemHour(e.target.value)}
-                    style={{ padding: '7px 10px', fontSize: '0.82rem', borderRadius: '10px', fontWeight: 750 }}
-                  >
-                    {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0')).map(h => (
-                      <option key={h} value={h}>{h}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.73rem', fontWeight: 750, color: '#475569', marginBottom: '4px' }}>
-                    ⏱ Minute
-                  </label>
-                  <select
-                    className="task-form-input"
-                    value={remMinute}
-                    onChange={e => setRemMinute(e.target.value)}
-                    style={{ padding: '7px 10px', fontSize: '0.82rem', borderRadius: '10px', fontWeight: 750 }}
-                  >
-                    {Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0')).map(m => (
-                      <option key={m} value={m}>{m}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.73rem', fontWeight: 750, color: '#475569', marginBottom: '4px' }}>
-                    ☀️/🌙 Period
-                  </label>
-                  <div style={{ display: 'flex', borderRadius: '10px', overflow: 'hidden', border: '1.5px solid #cbd5e1' }}>
-                    <button
-                      type="button"
-                      onClick={() => setRemPeriod('AM')}
-                      style={{
-                        flex: 1,
-                        padding: '6px 4px',
-                        fontSize: '0.8rem',
-                        fontWeight: 800,
-                        background: remPeriod === 'AM' ? '#4f46e5' : '#ffffff',
-                        color: remPeriod === 'AM' ? '#ffffff' : '#64748b',
-                        border: 'none',
-                        cursor: 'pointer',
-                        transition: 'all 0.15s ease'
-                      }}
-                    >
-                      AM
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setRemPeriod('PM')}
-                      style={{
-                        flex: 1,
-                        padding: '6px 4px',
-                        fontSize: '0.8rem',
-                        fontWeight: 800,
-                        background: remPeriod === 'PM' ? '#4f46e5' : '#ffffff',
-                        color: remPeriod === 'PM' ? '#ffffff' : '#64748b',
-                        border: 'none',
-                        cursor: 'pointer',
-                        transition: 'all 0.15s ease'
-                      }}
-                    >
-                      PM
-                    </button>
+                  <div className="compact-card-title">
+                    <span>Reminder Alarm</span>
+                    {hasActiveReminder && <span className="compact-alarm-tag">Active</span>}
+                  </div>
+                  <div className="compact-card-time">
+                    {hasActiveReminder ? (
+                      <span>⏰ {formattedActiveReminder}</span>
+                    ) : (
+                      <span>Set alarm for MD & Staff</span>
+                    )}
                   </div>
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div style={{ display: 'flex', gap: '8px' }}>
+              {!showReminderSettings && (
                 <button
                   type="button"
-                  onClick={handleSaveReminder}
+                  onClick={() => setShowReminderSettings(true)}
+                  className="btn-configure-alarm"
+                >
+                  {hasActiveReminder ? 'Edit Alarm' : '+ Set Alarm'}
+                </button>
+              )}
+            </div>
+
+            {hasActiveReminder && !showReminderSettings && (
+              <div className="compact-alarm-active-row">
+                <button
+                  type="button"
+                  onClick={handleClearReminder}
                   disabled={isSavingReminder}
-                  style={{
-                    flexGrow: 1,
-                    padding: '10px 18px',
-                    borderRadius: '12px',
-                    fontSize: '0.86rem',
-                    fontWeight: 800,
-                    background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-                    color: '#ffffff',
-                    border: 'none',
-                    boxShadow: '0 4px 14px rgba(245, 158, 11, 0.35)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '7px'
-                  }}
+                  className="btn-remove-alarm-compact"
                 >
-                  {isSavingReminder ? <Loader className="spinner" size={15} /> : <Bell size={16} />}
-                  <span>{hasActiveReminder ? 'Update & Arm Reminder Alarm' : 'Set & Arm Reminder Alarm'}</span>
+                  <BellOff size={12} />
+                  <span>Remove Alarm</span>
                 </button>
+              </div>
+            )}
 
-                {hasActiveReminder && (
+            {/* Expanded Reminder Configuration */}
+            {showReminderSettings && (
+              <div className="compact-reminder-settings animate-fade-in">
+                {/* Quick Presets */}
+                <div className="compact-presets-row">
+                  <button type="button" onClick={() => applyPreset(15)} className="task-preset-btn">+15m</button>
+                  <button type="button" onClick={() => applyPreset(30)} className="task-preset-btn">+30m</button>
+                  <button type="button" onClick={() => applyPreset(60)} className="task-preset-btn">+1h</button>
+                  <button type="button" onClick={applyTodayEvening} className="task-preset-btn">5 PM</button>
+                  <button type="button" onClick={applyTomorrowMorning} className="task-preset-btn">10 AM</button>
+                </div>
+
+                {/* Date & Time Pickers */}
+                <div className="compact-time-grid">
+                  <div>
+                    <label>Date</label>
+                    <input
+                      type="date"
+                      className="task-form-input compact-form-input"
+                      value={remDate}
+                      onChange={e => setRemDate(e.target.value)}
+                      min={formatDateToYMD(new Date())}
+                    />
+                  </div>
+                  <div>
+                    <label>Hour</label>
+                    <select
+                      className="task-form-input compact-form-input"
+                      value={remHour}
+                      onChange={e => setRemHour(e.target.value)}
+                    >
+                      {Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0')).map(h => (
+                        <option key={h} value={h}>{h}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label>Min</label>
+                    <select
+                      className="task-form-input compact-form-input"
+                      value={remMinute}
+                      onChange={e => setRemMinute(e.target.value)}
+                    >
+                      {Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0')).map(m => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label>AM/PM</label>
+                    <div className="compact-period-toggle">
+                      <button
+                        type="button"
+                        onClick={() => setRemPeriod('AM')}
+                        className={remPeriod === 'AM' ? 'active' : ''}
+                      >
+                        AM
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRemPeriod('PM')}
+                        className={remPeriod === 'PM' ? 'active' : ''}
+                      >
+                        PM
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="compact-alarm-actions">
                   <button
                     type="button"
-                    onClick={handleClearReminder}
+                    onClick={handleSaveReminder}
                     disabled={isSavingReminder}
-                    style={{
-                      padding: '10px 16px',
-                      borderRadius: '12px',
-                      fontSize: '0.84rem',
-                      fontWeight: 750,
-                      background: '#f1f5f9',
-                      color: '#64748b',
-                      border: '1px solid #cbd5e1',
-                      cursor: 'pointer'
-                    }}
+                    className="btn-save-alarm-compact"
                   >
-                    Clear
+                    {isSavingReminder ? <Loader className="spinner" size={13} /> : <Bell size={13} />}
+                    <span>{hasActiveReminder ? 'Update Alarm' : 'Set Alarm'}</span>
                   </button>
-                )}
+                  <button
+                    type="button"
+                    onClick={() => setShowReminderSettings(false)}
+                    className="btn-close-alarm-compact"
+                  >
+                    Close
+                  </button>
+                  {hasActiveReminder && (
+                    <button
+                      type="button"
+                      onClick={handleClearReminder}
+                      disabled={isSavingReminder}
+                      className="btn-remove-alarm-compact"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* PREMIUM TASK MESSENGER / CHAT SECTION */}
