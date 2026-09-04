@@ -189,7 +189,7 @@ export default function TaskDetailModal({
     setIsSavingReminder(true);
     try {
       const isoStr = buildIsoDateTime(remDate, remHour, remMinute, remPeriod);
-      
+
       const res = await fetch(`${apiBase}/tasks/${task._id}/set-reminder`, {
         method: 'POST',
         headers: {
@@ -348,7 +348,7 @@ export default function TaskDetailModal({
   };
 
   const hasActiveReminder = Boolean(task.reminderDateTime);
-  const formattedActiveReminder = task.reminderDateTime 
+  const formattedActiveReminder = task.reminderDateTime
     ? `${new Date(task.reminderDateTime).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })} at ${new Date(task.reminderDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}`
     : null;
 
@@ -359,43 +359,93 @@ export default function TaskDetailModal({
   return (
     <div className="task-modal-overlay" onClick={onClose}>
       <div className="task-modal-window" onClick={e => e.stopPropagation()}>
-        
+
         {/* =========================================================================
             TOP EXECUTIVE HERO & SPEC COMMAND BAR
            ========================================================================= */}
         <div style={{
           background: '#ffffff',
           borderBottom: '1px solid #eef2f6',
-          padding: '14px 22px 12px 22px',
+          padding: '14px 22px 14px 22px',
           display: 'flex',
           flexDirection: 'column',
-          gap: '8px',
+          gap: '12px',
           flexShrink: 0
         }}>
-          {/* Top Micro-Bar: Category Breadcrumb + Control Buttons */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+          {/* Row 1: Top Navigation & Utility Micro-Bar */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            flexWrap: 'wrap'
+          }}>
             {/* Breadcrumb Path & Badges */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', color: '#64748b' }}>
-              <span style={{ fontWeight: 650, color: '#475569', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                👑 Managing Director
-              </span>
-              <span>/</span>
-              <span style={{ textTransform: 'capitalize' }}>{task.taskType}</span>
-              <span>/</span>
-              <span style={{ textTransform: 'capitalize' }}>{task.frequency}</span>
-              
-              {/* Assigned Staff Chip */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '0.72rem',
+              color: '#64748b',
+              flexWrap: 'wrap'
+            }}>
               <span style={{
-                marginLeft: '4px',
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '4px',
-                fontSize: '0.68rem',
-                fontWeight: 650,
-                padding: '2px 7px',
+                fontSize: '0.72rem',
+                fontWeight: 750,
+                color: '#1e293b',
+                background: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                padding: '3px 9px',
                 borderRadius: '6px',
+                whiteSpace: 'nowrap',
+                flexShrink: 0
+              }}>
+                👑 Managing Director
+              </span>
+              <span style={{ color: '#cbd5e1', fontWeight: 700 }}>/</span>
+              <span style={{
+                textTransform: 'capitalize',
+                fontWeight: 650,
+                color: '#475569',
                 background: '#f1f5f9',
-                color: '#475569'
+                padding: '3px 8px',
+                borderRadius: '6px',
+                whiteSpace: 'nowrap',
+                flexShrink: 0
+              }}>
+                {task.taskType}
+              </span>
+              <span style={{ color: '#cbd5e1', fontWeight: 700 }}>/</span>
+              <span style={{
+                textTransform: 'capitalize',
+                fontWeight: 650,
+                color: '#475569',
+                background: '#f1f5f9',
+                padding: '3px 8px',
+                borderRadius: '6px',
+                whiteSpace: 'nowrap',
+                flexShrink: 0
+              }}>
+                {task.frequency}
+              </span>
+
+              {/* Assigned Staff Chip */}
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontSize: '0.70rem',
+                fontWeight: 700,
+                padding: '3px 9px',
+                borderRadius: '6px',
+                background: 'rgba(99, 102, 241, 0.08)',
+                color: '#4f46e5',
+                border: '1px solid rgba(99, 102, 241, 0.18)',
+                whiteSpace: 'nowrap',
+                flexShrink: 0
               }}>
                 <User size={11} />
                 <span>{task.assignedTo?.name || 'All Staff'}</span>
@@ -403,27 +453,113 @@ export default function TaskDetailModal({
 
               {/* Live Status Pill */}
               <span style={{
-                marginLeft: '4px',
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '4px',
-                fontSize: '0.67rem',
-                fontWeight: 750,
-                padding: '2px 8px',
+                fontSize: '0.68rem',
+                fontWeight: 800,
+                padding: '3px 10px',
                 borderRadius: '12px',
                 textTransform: 'uppercase',
                 letterSpacing: '0.03em',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
                 background: isCompleted ? '#ecfdf5' : isAwaitingApproval ? '#f5f3ff' : '#fef2f2',
                 color: isCompleted ? '#059669' : isAwaitingApproval ? '#6366f1' : '#dc2626',
-                border: isCompleted ? '1px solid #a7f3d0' : isAwaitingApproval ? '1px solid #ddd6fe' : '1px solid #fecaca'
+                border: isCompleted ? '1px solid #a7f3d0' : isAwaitingApproval ? '1px solid #ddd6fe' : '1px solid #fecaca',
+                boxShadow: isAwaitingApproval ? '0 1px 3px rgba(99, 102, 241, 0.1)' : 'none'
               }}>
-                {!isCompleted && !isAwaitingApproval && <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#dc2626', display: 'inline-block' }} />}
-                {isAwaitingApproval ? <><Clock3 size={11} /> Review Needed</> : task.status}
+                {!isCompleted && !isAwaitingApproval && <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#dc2626', display: 'inline-block' }} />}
+                {isAwaitingApproval ? <><Clock3 size={12} /> Review Needed</> : task.status}
               </span>
             </div>
 
-            {/* Top Right Actions */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {/* Top Right Utility Controls (Alarm & Close) */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              flexShrink: 0
+            }}>
+              <button
+                type="button"
+                onClick={() => setShowReminderSettings(!showReminderSettings)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  padding: '5px 11px',
+                  borderRadius: '6px',
+                  fontSize: '0.74rem',
+                  fontWeight: 650,
+                  background: hasActiveReminder ? '#fffbeb' : showReminderSettings ? '#eef2ff' : '#f8fafc',
+                  color: hasActiveReminder ? '#d97706' : showReminderSettings ? '#4f46e5' : '#475569',
+                  border: hasActiveReminder ? '1px solid #fcd34d' : showReminderSettings ? '1px solid #c7d2fe' : '1px solid #e2e8f0',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                  transition: 'all 0.15s ease'
+                }}
+                title={hasActiveReminder ? `Alarm: ${formattedActiveReminder}` : 'Configure Reminder Alarm'}
+              >
+                <Bell size={12} />
+                <span>{hasActiveReminder ? 'Alarm Active' : 'Set Alarm'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={onClose}
+                style={{
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: '1px solid #e2e8f0',
+                  background: '#f8fafc',
+                  color: '#64748b',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                  transition: 'all 0.15s ease'
+                }}
+                title="Close modal"
+              >
+                <X size={15} />
+              </button>
+            </div>
+          </div>
+
+          {/* Row 2: Main Task Title & Primary Action Command Buttons */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '16px',
+            flexWrap: 'wrap'
+          }}>
+            {/* Task Title */}
+            <div style={{ flex: '1 1 280px' }}>
+              <h1 style={{
+                fontSize: '1.25rem',
+                fontWeight: 800,
+                color: '#0f172a',
+                letterSpacing: '-0.02em',
+                margin: 0,
+                lineHeight: 1.35
+              }}>
+                {task.title}
+              </h1>
+            </div>
+
+            {/* Primary Action Buttons */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              flexShrink: 0,
+              flexWrap: 'nowrap'
+            }}>
               {isAwaitingApproval && (
                 <>
                   <button
@@ -433,20 +569,23 @@ export default function TaskDetailModal({
                     style={{
                       display: 'inline-flex',
                       alignItems: 'center',
-                      gap: '4px',
-                      padding: '4px 12px',
-                      borderRadius: '6px',
-                      fontSize: '0.72rem',
-                      fontWeight: 750,
+                      gap: '6px',
+                      padding: '7px 16px',
+                      borderRadius: '8px',
+                      fontSize: '0.78rem',
+                      fontWeight: 800,
                       background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                       color: '#ffffff',
                       border: 'none',
                       cursor: isCompleting ? 'wait' : 'pointer',
-                      boxShadow: '0 2px 6px rgba(16, 185, 129, 0.25)'
+                      boxShadow: '0 2px 8px rgba(16, 185, 129, 0.28)',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0,
+                      transition: 'all 0.15s ease'
                     }}
                     title="Approve work and mark task completed"
                   >
-                    {isCompleting ? <Loader className="spinner" size={11} /> : <Check size={12} strokeWidth={2.8} />}
+                    {isCompleting ? <Loader className="spinner" size={13} /> : <Check size={14} strokeWidth={2.8} />}
                     <span>Approve & Complete</span>
                   </button>
                   <button
@@ -455,19 +594,22 @@ export default function TaskDetailModal({
                     style={{
                       display: 'inline-flex',
                       alignItems: 'center',
-                      gap: '3px',
-                      padding: '4px 9px',
-                      borderRadius: '6px',
-                      border: '1px solid #fecdd3',
+                      gap: '5px',
+                      padding: '7px 14px',
+                      borderRadius: '8px',
+                      border: '1.5px solid #fecdd3',
                       background: showRejectInput ? '#f1f5f9' : '#fff1f2',
                       color: showRejectInput ? '#475569' : '#e11d48',
-                      fontSize: '0.72rem',
-                      fontWeight: 650,
-                      cursor: 'pointer'
+                      fontSize: '0.78rem',
+                      fontWeight: 750,
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0,
+                      transition: 'all 0.15s ease'
                     }}
                     title="Send work back for revision"
                   >
-                    <RotateCcw size={11} />
+                    <RotateCcw size={13} />
                     <span>{showRejectInput ? 'Cancel' : 'Reject / Revise'}</span>
                   </button>
                 </>
@@ -481,20 +623,22 @@ export default function TaskDetailModal({
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: '4px',
-                    padding: '4px 12px',
-                    borderRadius: '6px',
-                    fontSize: '0.72rem',
-                    fontWeight: 750,
+                    gap: '6px',
+                    padding: '7px 16px',
+                    borderRadius: '8px',
+                    fontSize: '0.78rem',
+                    fontWeight: 800,
                     background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                     color: '#ffffff',
                     border: 'none',
                     cursor: isCompleting ? 'wait' : 'pointer',
-                    boxShadow: '0 2px 6px rgba(16, 185, 129, 0.25)'
+                    boxShadow: '0 2px 8px rgba(16, 185, 129, 0.28)',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0
                   }}
                   title="Directly complete task"
                 >
-                  {isCompleting ? <Loader className="spinner" size={11} /> : <Check size={12} strokeWidth={3} />}
+                  {isCompleting ? <Loader className="spinner" size={13} /> : <Check size={14} strokeWidth={3} />}
                   <span>Finish Work</span>
                 </button>
               )}
@@ -504,86 +648,45 @@ export default function TaskDetailModal({
                   type="button"
                   onClick={handleResetTask}
                   disabled={isCompleting}
-                  className="task-header-reopen-btn"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '7px 14px',
+                    borderRadius: '8px',
+                    fontSize: '0.78rem',
+                    fontWeight: 750,
+                    border: '1.5px solid #cbd5e1',
+                    background: '#f8fafc',
+                    color: '#475569',
+                    cursor: isCompleting ? 'wait' : 'pointer',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0
+                  }}
                 >
-                  {isCompleting ? <Loader className="spinner" size={11} /> : '↺ Reopen Task'}
+                  {isCompleting ? <Loader className="spinner" size={12} /> : '↺ Reopen Task'}
                 </button>
               )}
-
-              <button
-                type="button"
-                onClick={() => setShowReminderSettings(!showReminderSettings)}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  padding: '4px 9px',
-                  borderRadius: '6px',
-                  fontSize: '0.72rem',
-                  fontWeight: 650,
-                  background: hasActiveReminder ? '#fffbeb' : showReminderSettings ? '#eef2ff' : '#f8fafc',
-                  color: hasActiveReminder ? '#d97706' : showReminderSettings ? '#4f46e5' : '#475569',
-                  border: hasActiveReminder ? '1px solid #fcd34d' : showReminderSettings ? '1px solid #c7d2fe' : '1px solid #e2e8f0',
-                  cursor: 'pointer'
-                }}
-                title={hasActiveReminder ? `Alarm: ${formattedActiveReminder}` : 'Configure Reminder Alarm'}
-              >
-                <Bell size={12} />
-                <span>{hasActiveReminder ? 'Alarm Active' : 'Set Alarm'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={onClose}
-                style={{
-                  width: '26px',
-                  height: '26px',
-                  borderRadius: '6px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  border: '1px solid #e2e8f0',
-                  background: '#f8fafc',
-                  color: '#64748b',
-                  cursor: 'pointer'
-                }}
-                title="Close modal"
-              >
-                <X size={14} />
-              </button>
             </div>
           </div>
 
-          {/* Main Task Title */}
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-            <h1 style={{
-              fontSize: '1.25rem',
-              fontWeight: 800,
-              color: '#0f172a',
-              letterSpacing: '-0.02em',
-              margin: 0,
-              lineHeight: 1.3
-            }}>
-              {task.title}
-            </h1>
-          </div>
-
-          {/* Status Notice if awaiting approval */}
+          {/* Row 3: Status Notice if awaiting approval */}
           {isAwaitingApproval && (
             <div style={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              padding: '6px 12px',
+              padding: '8px 14px',
               borderRadius: '8px',
               background: 'linear-gradient(135deg, #f5f3ff 0%, #fdf4ff 100%)',
               border: '1px solid #e0e7ff',
-              borderLeft: '3px solid #6366f1',
-              fontSize: '0.74rem',
-              color: '#4338ca'
+              borderLeft: '4px solid #6366f1',
+              fontSize: '0.76rem',
+              color: '#4338ca',
+              boxShadow: '0 1px 3px rgba(99, 102, 241, 0.06)'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '7px', fontWeight: 600 }}>
-                <Clock3 size={13} style={{ color: '#6366f1' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 650 }}>
+                <Clock3 size={14} style={{ color: '#6366f1' }} />
                 <span>Staff submitted work for completion review ({new Date(task.completionRequestedAt!).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })})</span>
               </div>
             </div>
@@ -593,70 +696,86 @@ export default function TaskDetailModal({
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-            gap: '8px',
-            marginTop: '2px'
+            gap: '10px',
+            marginTop: '4px'
           }}>
             {/* Tile 1: Description */}
             <div style={{
-              background: '#f8fafc',
-              border: '1px solid #eef2f6',
-              borderRadius: '8px',
-              padding: '8px 10px',
+              background: 'linear-gradient(135deg, #faf5ff 0%, #f5f3ff 100%)',
+              border: '1px solid #e9d5ff',
+              borderLeft: '4px solid #9333ea',
+              borderRadius: '10px',
+              padding: '10px 12px',
               display: 'flex',
               flexDirection: 'column',
-              gap: '2px'
+              gap: '3px',
+              boxShadow: '0 2px 6px rgba(147, 51, 234, 0.04)'
             }}>
-              <div style={{ fontSize: '0.62rem', fontWeight: 750, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.03em', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <div style={{ fontSize: '0.65rem', fontWeight: 800, color: '#7e22ce', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <span>📋</span> Overview & Scope
               </div>
-              <div style={{ fontSize: '0.76rem', color: '#334155', fontWeight: 500, lineHeight: 1.35 }}>
-                {cleanDescription || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>No overview provided</span>}
+              <div style={{ fontSize: '0.80rem', color: '#3b0764', fontWeight: 550, lineHeight: 1.4 }}>
+                {cleanDescription || <span style={{ color: '#a855f7', fontStyle: 'italic' }}>No overview provided</span>}
               </div>
             </div>
 
             {/* Tile 2: Remarks / Live Notes */}
             <div style={{
-              background: '#fcfcfc',
-              border: '1px solid #eef2f6',
-              borderRadius: '8px',
-              padding: '8px 10px',
+              background: 'linear-gradient(135deg, #fffdf5 0%, #fef3c7 100%)',
+              border: '1px solid #fde68a',
+              borderLeft: '4px solid #f59e0b',
+              borderRadius: '10px',
+              padding: '10px 12px',
               display: 'flex',
               flexDirection: 'column',
-              gap: '2px'
+              gap: '3px',
+              boxShadow: '0 2px 6px rgba(245, 158, 11, 0.05)'
             }}>
-              <div style={{ fontSize: '0.62rem', fontWeight: 750, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.03em', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <div style={{ fontSize: '0.65rem', fontWeight: 800, color: '#b45309', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <span>⚡</span> Staff Remarks
               </div>
-              <div style={{ fontSize: '0.76rem', color: '#1e293b', fontWeight: 550, lineHeight: 1.35 }}>
-                {task.remarks || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>No remarks yet</span>}
+              <div style={{ fontSize: '0.82rem', color: '#78350f', fontWeight: 700, lineHeight: 1.4 }}>
+                {task.remarks || <span style={{ color: '#d97706', fontStyle: 'italic', fontWeight: 400 }}>No remarks yet</span>}
               </div>
             </div>
 
             {/* Tile 3: Follow-up & Reminder */}
             <div style={{
-              background: '#f8fafc',
-              border: '1px solid #eef2f6',
-              borderRadius: '8px',
-              padding: '8px 10px',
+              background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+              border: '1px solid #bbf7d0',
+              borderLeft: '4px solid #10b981',
+              borderRadius: '10px',
+              padding: '10px 12px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              gap: '8px'
+              gap: '8px',
+              boxShadow: '0 2px 6px rgba(16, 185, 129, 0.05)'
             }}>
               <div>
-                <div style={{ fontSize: '0.62rem', fontWeight: 750, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                <div style={{ fontSize: '0.65rem', fontWeight: 800, color: '#047857', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   📅 Follow-up Date
                 </div>
-                <div style={{ fontSize: '0.76rem', color: '#4338ca', fontWeight: 700, marginTop: '2px' }}>
+                <div style={{ fontSize: '0.82rem', color: '#065f46', fontWeight: 800, marginTop: '2px' }}>
                   {task.nextFollowup ? task.nextFollowup : 'Not scheduled'}
                 </div>
               </div>
 
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: '0.62rem', fontWeight: 750, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                <div style={{ fontSize: '0.65rem', fontWeight: 800, color: '#047857', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   ⏰ Alarm
                 </div>
-                <div style={{ fontSize: '0.72rem', color: hasActiveReminder ? '#d97706' : '#94a3b8', fontWeight: 650, marginTop: '2px' }}>
+                <div style={{
+                  fontSize: '0.74rem',
+                  color: hasActiveReminder ? '#d97706' : '#64748b',
+                  fontWeight: 750,
+                  marginTop: '2px',
+                  background: '#ffffff',
+                  padding: '2px 8px',
+                  borderRadius: '6px',
+                  border: hasActiveReminder ? '1px solid #fcd34d' : '1px solid #e2e8f0',
+                  display: 'inline-block'
+                }}>
                   {hasActiveReminder ? '🔔 Active' : 'Off'}
                 </div>
               </div>
@@ -865,13 +984,13 @@ export default function TaskDetailModal({
             {task.comments && task.comments.length > 0 ? (
               task.comments.map((c: any, index: number) => {
                 const isMD = c.authorRole === 'owner' ||
-                             c.authorRole === 'admin' ||
-                             (c.authorName && (
-                               c.authorName.toLowerCase().includes('owner') ||
-                               c.authorName.toLowerCase().includes('director') ||
-                               c.authorName.toLowerCase().includes('sir') ||
-                               c.authorName.toLowerCase().includes('md')
-                             ));
+                  c.authorRole === 'admin' ||
+                  (c.authorName && (
+                    c.authorName.toLowerCase().includes('owner') ||
+                    c.authorName.toLowerCase().includes('director') ||
+                    c.authorName.toLowerCase().includes('sir') ||
+                    c.authorName.toLowerCase().includes('md')
+                  ));
 
                 const isRevisionNotice = c.text && c.text.includes('Work sent back for revision');
 

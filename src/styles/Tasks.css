@@ -1455,7 +1455,8 @@
 }
 
 .bubble-ticks {
-  color: #53bdeb; /* WhatsApp Blue Double Ticks */
+  color: #53bdeb;
+  /* WhatsApp Blue Double Ticks */
   display: inline-flex;
   align-items: center;
 }
