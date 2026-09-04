@@ -376,6 +376,10 @@ export default function TaskDetailModal({
                 <span>{task.assignedTo?.name || '👥 All Staff'}</span>
               </span>
 
+              <span className="task-meta-type-chip">
+                {task.taskType === 'reminder-sir' ? '⏰ Reminder Sir' : task.taskType === 'custom' ? '⚡ Custom Task' : '📋 Regular Task'} • {task.frequency}
+              </span>
+
               {isCompleted && task.completedBy && (
                 <span className="task-meta-user-chip chip-completed">
                   <CheckCircle2 size={13} />
@@ -396,7 +400,7 @@ export default function TaskDetailModal({
                   className="btn-approve-primary btn-top"
                   title="Approve work and mark task completed"
                 >
-                  {isCompleting ? <Loader className="spinner" size={13} /> : <Check size={14} strokeWidth={2.8} />}
+                  {isCompleting ? <Loader className="spinner" size={14} /> : <Check size={15} strokeWidth={2.8} />}
                   <span>{isCompleting ? 'Approving...' : 'Approve & Complete'}</span>
                 </button>
                 <button
@@ -405,7 +409,7 @@ export default function TaskDetailModal({
                   className={`btn-reject-secondary btn-top ${showRejectInput ? 'active' : ''}`}
                   title="Send work back for revision"
                 >
-                  <RotateCcw size={12} />
+                  <RotateCcw size={13} />
                   <span>{showRejectInput ? 'Cancel' : 'Reject / Revise'}</span>
                 </button>
               </>
@@ -419,8 +423,8 @@ export default function TaskDetailModal({
                 className="btn-approve-primary btn-top"
                 title="Directly complete task"
               >
-                {isCompleting ? <Loader className="spinner" size={13} /> : <Check size={14} strokeWidth={3} />}
-                <span>Finish</span>
+                {isCompleting ? <Loader className="spinner" size={14} /> : <Check size={15} strokeWidth={3} />}
+                <span>Finish Work</span>
               </button>
             )}
 
@@ -431,7 +435,7 @@ export default function TaskDetailModal({
                 disabled={isCompleting}
                 className="task-header-reopen-btn"
               >
-                {isCompleting ? <Loader className="spinner" size={13} /> : '↺ Reopen'}
+                {isCompleting ? <Loader className="spinner" size={14} /> : '↺ Reopen Task'}
               </button>
             )}
 
@@ -441,8 +445,8 @@ export default function TaskDetailModal({
               className={`task-header-alarm-btn ${hasActiveReminder ? 'alarm-active' : ''} ${showReminderSettings ? 'active' : ''}`}
               title={hasActiveReminder ? `Alarm: ${formattedActiveReminder}` : 'Configure Reminder Alarm'}
             >
-              <Bell size={13} />
-              <span>{hasActiveReminder ? 'Alarm Set' : 'Set Reminder'}</span>
+              <Bell size={14} />
+              <span>{hasActiveReminder ? 'Alarm Active' : 'Set Reminder'}</span>
             </button>
 
             <button
@@ -455,6 +459,30 @@ export default function TaskDetailModal({
             </button>
           </div>
         </div>
+
+        {/* Task Details Overview Banner (if description, remarks or followup exist) */}
+        {(task.description || task.remarks || task.nextFollowup) && (
+          <div className="task-overview-banner">
+            {task.description && (
+              <div className="overview-item">
+                <span className="overview-label">Overview:</span>
+                <span className="overview-text">{task.description.replace(/\[lang:(en|hi|ta)\]\s*/g, '').trim()}</span>
+              </div>
+            )}
+            {task.remarks && (
+              <div className="overview-item">
+                <span className="overview-label">Remarks:</span>
+                <span className="overview-text">{task.remarks}</span>
+              </div>
+            )}
+            {task.nextFollowup && (
+              <div className="overview-item">
+                <span className="overview-label">Follow-up:</span>
+                <span className="overview-tag">📅 {task.nextFollowup}</span>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Slide-out Revision Note Box (Directly below header) */}
         {showRejectInput && (
