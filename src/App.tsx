@@ -847,7 +847,11 @@ export default function App() {
       });
       if (res.ok) {
         const data = await res.json();
-        setAdvances(data);
+        const deletedIds: string[] = (() => {
+          try { return JSON.parse(localStorage.getItem('deleted_advance_ids') || '[]'); }
+          catch { return []; }
+        })();
+        setAdvances(Array.isArray(data) ? data.filter((a: AdvanceRequest) => !deletedIds.includes(a._id)) : []);
       }
     } catch (err) {
       console.error(err);

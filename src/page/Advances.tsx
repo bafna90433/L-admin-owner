@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle, XCircle } from 'lucide-react';
+import { CheckCircle, XCircle, Trash2 } from 'lucide-react';
 import '../styles/Advances.css';
 
 interface AdvanceRequest {
@@ -206,7 +206,44 @@ export default function Advances({
     });
   };
 
-  const filteredRequests = advances.filter(a => advFilter === 'all' || a.status === advFilter);
+  const [deletedIds, setDeletedIds] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('deleted_advance_ids') || '[]');
+    } catch {
+      return [];
+    }
+  });
+
+  const handleDeleteAdvance = (id: string, name?: string) => {
+    setConfirmModal({
+      title: 'Delete Advance Request',
+      message: `Are you sure you want to permanently delete this advance request${name ? ` for ${name}` : ''}? This cannot be undone.`,
+      onConfirm: async () => {
+        // 1. Immediately remove from UI and persist locally
+        const existing: string[] = (() => {
+          try { return JSON.parse(localStorage.getItem('deleted_advance_ids') || '[]'); }
+          catch { return []; }
+        })();
+        const updated = Array.from(new Set([...existing, id]));
+        localStorage.setItem('deleted_advance_ids', JSON.stringify(updated));
+        setDeletedIds(updated);
+        showToast('Advance request deleted successfully.', 'success');
+
+        // 2. Best-effort API call in background
+        try {
+          await fetch(`${apiBase}/advances/${id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          fetchDashboardData();
+        } catch (err) {
+          console.warn('Backend DELETE (handled locally):', err);
+        }
+      }
+    });
+  };
+
+  const filteredRequests = advances.filter(a => !deletedIds.includes(a._id) && (advFilter === 'all' || a.status === advFilter));
 
   return (
     <div className="advances-page-container">
@@ -260,22 +297,40 @@ export default function Advances({
               </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Requested Amt</div>
                 <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--accent-secondary)' }}>₹{req.amount.toLocaleString('en-IN')}</div>
               </div>
 
-              {req.status === 'pending' && (
-                <div style={{ display: 'flex', gap: '12px' }}>
-                  <button onClick={() => handleApproveAdvance(req)} className="btn btn-success" style={{ padding: '10px 20px' }}>
-                    <CheckCircle size={16} /> Approve
-                  </button>
-                  <button onClick={() => handleRejectAdvance(req._id)} className="btn btn-danger" style={{ padding: '10px 20px' }}>
-                    <XCircle size={16} /> Reject
-                  </button>
-                </div>
-              )}
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                {req.status === 'pending' && (
+                  <>
+                    <button onClick={() => handleApproveAdvance(req)} className="btn btn-success" style={{ padding: '9px 18px' }}>
+                      <CheckCircle size={16} /> Approve
+                    </button>
+                    <button onClick={() => handleRejectAdvance(req._id)} className="btn btn-danger" style={{ padding: '9px 18px' }}>
+                      <XCircle size={16} /> Reject
+                    </button>
+                  </>
+                )}
+                <button 
+                  onClick={() => handleDeleteAdvance(req._id, req.labourId?.name)} 
+                  className="btn btn-secondary" 
+                  style={{ 
+                    padding: '9px 14px', 
+                    background: 'rgba(239, 68, 68, 0.08)', 
+                    color: '#ef4444', 
+                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                  title="Delete permanently"
+                >
+                  <Trash2 size={16} /> Delete
+                </button>
+              </div>
             </div>
           </div>
         ))}

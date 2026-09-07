@@ -233,6 +233,74 @@
   text-align: center;
 }
 
+/* Full-Width Staff Credit & Expense Ledger Page */
+.credit-history-page-container {
+  width: 100%;
+  max-width: 100%;
+  padding-bottom: 40px;
+}
+
+.credit-history-page-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.credit-history-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 10px;
+  cursor: pointer;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  color: var(--text-primary, #1e293b);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease;
+}
+
+.credit-history-back-btn:hover {
+  background: #f8fafc;
+  transform: translateX(-3px);
+  border-color: #cbd5e1;
+}
+
+.credit-history-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px 28px;
+  border-radius: 16px;
+  margin-bottom: 20px;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  background: linear-gradient(135deg, rgba(236, 253, 245, 0.9), rgba(248, 250, 252, 0.98));
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+}
+
+.credit-history-totals-page {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.credit-history-page-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #ffffff;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+  margin-bottom: 16px;
+}
+
 /* History Modal */
 .credit-history-overlay {
   position: fixed;

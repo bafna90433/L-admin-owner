@@ -37,6 +37,7 @@ interface AdvanceRequest {
     username?: string;
     role?: string;
   };
+  expenseTxId?: any;
 }
 
 interface CashTx {
@@ -189,13 +190,26 @@ export default function AdvanceHistory({
       return id === labId && a.status === 'approved';
     });
 
-    const totalTaken = labAdvances.reduce((sum, a) => sum + a.amount, 0);
+    // Also include any CashTx direct advance expenses that don't have an AdvanceRequest linked yet
+    const existingTxIds = new Set(
+      labAdvances.map(a => a.expenseTxId ? (typeof a.expenseTxId === 'object' ? (a.expenseTxId as any)._id : a.expenseTxId) : '').filter(Boolean)
+    );
+
+    const orphanAdvanceTxs = localExpenses.filter(t => {
+      const id = typeof t.labourId === 'object' ? t.labourId?._id : t.labourId;
+      const isAdv = t.category === 'salary-advance' || t.category === 'Labour Advance' || (t.category || '').toLowerCase().includes('advance');
+      return id === labId && isAdv && !existingTxIds.has(t._id);
+    });
+
+    const orphanTotal = orphanAdvanceTxs.reduce((sum, t) => sum + (t.amount || 0), 0);
+
+    const totalTaken = labAdvances.reduce((sum, a) => sum + a.amount, 0) + orphanTotal;
     const totalDeducted = labAdvances.reduce((sum, a) => sum + (a.deductedAmount || 0), 0);
     const balance = totalTaken - totalDeducted;
 
     // Calculate source breakdowns for outstanding balance
     let ownerBalance = 0;
-    let staffBalance = 0;
+    let staffBalance = orphanTotal;
 
     labAdvances.forEach(a => {
       const remaining = a.amount - (a.deductedAmount || 0);
@@ -234,6 +248,29 @@ export default function AdvanceHistory({
         referenceId: a._id,
         source: isOwner ? 'owner' : 'staff',
         requestedByName: a.requestedBy?.name || 'Staff'
+      });
+    });
+
+    // Also include any orphan direct advances from CashTx if not linked to AdvanceRequest
+    const existingTxIds = new Set(
+      labAdvances.map(a => a.expenseTxId ? (typeof a.expenseTxId === 'object' ? (a.expenseTxId as any)._id : a.expenseTxId) : '').filter(Boolean)
+    );
+
+    const orphanAdvanceTxs = localExpenses.filter(t => {
+      const id = typeof t.labourId === 'object' ? t.labourId?._id : t.labourId;
+      const isAdv = t.category === 'salary-advance' || t.category === 'Labour Advance' || (t.category || '').toLowerCase().includes('advance');
+      return id === labId && isAdv && !existingTxIds.has(t._id);
+    });
+
+    orphanAdvanceTxs.forEach(t => {
+      timeline.push({
+        date: t.date,
+        type: 'advance',
+        amount: t.amount,
+        description: `Direct Advance (Petty Cash): ${t.description || 'Advance logged by staff'}`,
+        referenceId: t._id,
+        source: 'staff',
+        requestedByName: 'Staff'
       });
     });
 

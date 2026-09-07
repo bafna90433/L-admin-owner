@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { ArrowLeft } from 'lucide-react';
 import { getCategoryEmoji } from '../utils/categoryTheme';
 import '../styles/Dashboard.css';
 
@@ -413,6 +414,341 @@ export default function Dashboard({
     return selectedCreditHistory.transactions;
   }, [selectedCreditHistory, historyFilter]);
 
+  const getLabourRecipientName = (tx: any) => {
+    if (!tx) return '';
+    const staffPaying = (selectedCreditHistory?.name || '').trim().toLowerCase();
+
+    if (typeof tx.labourId === 'object' && tx.labourId?.name) {
+      const name = tx.labourId.name.trim();
+      if (!staffPaying || name.toLowerCase() !== staffPaying) {
+        return name;
+      }
+    }
+    if (typeof tx.labourId === 'string' && tx.labourId) {
+      const found = (labours || []).find((l: any) => (l._id || l.id) === tx.labourId);
+      if (found?.name && (!staffPaying || found.name.trim().toLowerCase() !== staffPaying)) {
+        return found.name;
+      }
+    }
+    if (tx.labourName && (!staffPaying || tx.labourName.trim().toLowerCase() !== staffPaying)) {
+      return tx.labourName;
+    }
+
+    if (tx.description) {
+      const descWithoutStaff = tx.description.replace(/\[Staff:\s*[^\]]+\]/gi, '').toLowerCase();
+      const matched = (labours || []).find((l: any) => {
+        if (!l.name) return false;
+        const lName = l.name.trim().toLowerCase();
+        if (lName.length < 3) return false;
+        if (staffPaying && lName === staffPaying) return false;
+        if (lName.includes('badrinath') || lName === 'deepa' || lName === 'ramya') return false;
+        return descWithoutStaff.includes(lName);
+      });
+      if (matched?.name) return matched.name;
+    }
+
+    return '';
+  };
+
+  // Helper to resolve clean recipient and clean notes separately
+  const resolveTransactionItem = (tx: any) => {
+    const isCredit = tx.txType === 'received';
+    const { details, reason, extractedCategory } = parseDescription(tx.description, tx.category, tx.txType);
+
+    if (isCredit) {
+      return {
+        recipient: '',
+        notes: details,
+        reason,
+        extractedCategory
+      };
+    }
+
+    let recipient = getLabourRecipientName(tx);
+    let cleanNotes = details;
+
+    if (cleanNotes) {
+      cleanNotes = cleanNotes.replace(/^(badrinath mandal\.?\s*g|deepa|ramya)\s*[-–—:]\s*/i, '').trim();
+      if (selectedCreditHistory?.name) {
+        const staffRegex = new RegExp(`^${selectedCreditHistory.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*[-–—:]\\s*`, 'i');
+        cleanNotes = cleanNotes.replace(staffRegex, '').trim();
+      }
+    }
+
+    if (!recipient && (labours || []).length > 0) {
+      const staffPaying = (selectedCreditHistory?.name || '').trim().toLowerCase();
+      const lowerNotes = cleanNotes.toLowerCase();
+      const foundLabour = (labours || []).find((l: any) => {
+        if (!l.name) return false;
+        const lName = l.name.trim().toLowerCase();
+        if (lName.length < 3) return false;
+        if (staffPaying && lName === staffPaying) return false;
+        if (lName.includes('badrinath') || lName === 'deepa' || lName === 'ramya') return false;
+        return lowerNotes.includes(lName);
+      });
+      if (foundLabour) {
+        recipient = foundLabour.name;
+      }
+    }
+
+    if (recipient && cleanNotes) {
+      const recRegex = new RegExp(`(^|[-–—:]\\s*)${recipient.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s*[-–—:]|$)`, 'gi');
+      cleanNotes = cleanNotes.replace(recRegex, ' ').replace(/\s+/g, ' ').replace(/^[-–—:]\s*|\s*[-–—:]$/g, '').trim();
+      
+      const compactRec = recipient.replace(/\s+/g, '');
+      const compactRegex = new RegExp(`(^|[-–—:]\\s*)${compactRec}(\\s*[-–—:]|$)`, 'gi');
+      cleanNotes = cleanNotes.replace(compactRegex, ' ').replace(/\s+/g, ' ').replace(/^[-–—:]\s*|\s*[-–—:]$/g, '').trim();
+    }
+
+    if (!cleanNotes || cleanNotes === '--') {
+      const cat = (tx.category || '').toLowerCase();
+      cleanNotes = cat.includes('advance') ? 'Salary advance' : 'Expense';
+    }
+
+    return {
+      recipient,
+      notes: cleanNotes,
+      reason,
+      extractedCategory
+    };
+  };
+
+  if (selectedCreditHistory) {
+    return (
+      <div className="credit-history-page-container animate-fade-in" style={{ width: '100%', maxWidth: '100%' }}>
+        {/* Top Navigation Bar */}
+        <div className="credit-history-page-nav">
+          <button
+            type="button"
+            className="credit-history-back-btn"
+            onClick={() => setSelectedCreditPersonId(null)}
+          >
+            <ArrowLeft size={16} />
+            <span>Back to Dashboard</span>
+          </button>
+          <span className="badge badge-info" style={{ fontSize: '0.75rem', padding: '5px 12px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            {selectedCreditHistory.transactions.length} Total Records
+          </span>
+        </div>
+
+        {/* Page Banner Header */}
+        <div className="credit-history-page-header">
+          <div className="credit-history-person">
+            <span aria-hidden="true">
+              {selectedCreditHistory.name.trim().slice(0, 2).toUpperCase() || 'ST'}
+            </span>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <small>Staff Credit & Expense Ledger</small>
+              </div>
+              <h2 style={{ margin: '2px 0 0', color: '#172033', fontSize: '1.5rem', fontWeight: 800 }}>
+                {selectedCreditHistory.name}
+              </h2>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => setSelectedCreditPersonId(null)}
+            style={{ fontSize: '0.82rem', padding: '6px 14px', borderRadius: '8px' }}
+          >
+            Close Ledger
+          </button>
+        </div>
+
+        {/* Top Totals Summary (Full-Width Responsive Grid) */}
+        <div className="credit-history-totals-page">
+          <div className="credit-summary-card credit-inflow-card">
+            <small>Total Credit (+)</small>
+            <strong>+₹{selectedCreditHistory.totalCredit.toLocaleString('en-IN')}</strong>
+            <span className="credit-summary-sub">{selectedCreditHistory.creditCount} Inflow {selectedCreditHistory.creditCount === 1 ? 'entry' : 'entries'}</span>
+          </div>
+          <div className="credit-summary-card credit-outflow-card">
+            <small>Total Spent / Minus (-)</small>
+            <strong>-₹{selectedCreditHistory.totalSpent.toLocaleString('en-IN')}</strong>
+            <span className="credit-summary-sub">{selectedCreditHistory.spentCount} Deduction {selectedCreditHistory.spentCount === 1 ? 'entry' : 'entries'}</span>
+          </div>
+          <div className="credit-summary-card credit-balance-card">
+            <small>Net Hold Balance</small>
+            <strong style={{ color: selectedCreditHistory.netHold >= 0 ? '#0284c7' : '#dc2626' }}>
+              ₹{selectedCreditHistory.netHold.toLocaleString('en-IN')}
+            </strong>
+            <span className="credit-summary-sub">In-hand remaining</span>
+          </div>
+          <div className="credit-summary-card">
+            <small>Online Received</small>
+            <strong style={{ color: '#2563eb' }}>₹{selectedCreditHistory.onlineCredit.toLocaleString('en-IN')}</strong>
+            <span className="credit-summary-sub">Bank / UPI</span>
+          </div>
+          <div className="credit-summary-card">
+            <small>Cash Received</small>
+            <strong style={{ color: '#059669' }}>₹{selectedCreditHistory.handCashCredit.toLocaleString('en-IN')}</strong>
+            <span className="credit-summary-sub">Handcash</span>
+          </div>
+        </div>
+
+        {/* Filter Bar */}
+        <div className="credit-history-filter-bar" style={{ padding: '0 0 16px 0', border: 'none' }}>
+          <button
+            type="button"
+            className={`history-filter-btn ${historyFilter === 'all' ? 'active' : ''}`}
+            onClick={() => setHistoryFilter('all')}
+          >
+            All Activity ({selectedCreditHistory.transactions.length})
+          </button>
+          <button
+            type="button"
+            className={`history-filter-btn filter-inflow ${historyFilter === 'credit' ? 'active' : ''}`}
+            onClick={() => setHistoryFilter('credit')}
+          >
+            📥 Credits Received (+₹{selectedCreditHistory.totalCredit.toLocaleString('en-IN')})
+          </button>
+          <button
+            type="button"
+            className={`history-filter-btn filter-outflow ${historyFilter === 'expense' ? 'active' : ''}`}
+            onClick={() => setHistoryFilter('expense')}
+          >
+            📤 Deductions / Minus (-₹{selectedCreditHistory.totalSpent.toLocaleString('en-IN')})
+          </button>
+        </div>
+
+        {/* Detailed Full-Width Transaction Table */}
+        <div className="table-container credit-history-page-table-wrap">
+          <table className="custom-table credit-history-table">
+            <thead>
+              <tr>
+                <th style={{ width: '135px' }}>Date & Time</th>
+                <th style={{ width: '125px' }}>Type</th>
+                <th style={{ width: '135px' }}>Category</th>
+                <th style={{ width: '180px' }}>Advance Recipient (Labour)</th>
+                <th>Details / Notes</th>
+                <th style={{ width: '120px' }}>Payment Mode</th>
+                <th style={{ width: '125px', textAlign: 'right' }}>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {displayedHistoryTransactions.length > 0 ? (
+                displayedHistoryTransactions.map((tx, idx) => {
+                  const isCredit = tx.txType === 'received';
+                  const { recipient, notes, reason, extractedCategory } = resolveTransactionItem(tx);
+                  const { date: txDate, time: txTime } = formatDateTime(tx.date);
+                  const categoryLabel = isCredit
+                    ? 'CASH RECEIVED'
+                    : ((tx.category === 'miscellaneous' && extractedCategory) ? extractedCategory : (tx.category || 'MISCELLANEOUS')).replace(/[-_]/g, ' ').toUpperCase();
+                  const staffLogger = (typeof tx.staffId === 'object' && tx.staffId?.name) 
+                    ? tx.staffId.name 
+                    : (tx.staffName || '');
+
+                  return (
+                    <tr key={tx._id || idx} style={{ background: isCredit ? 'transparent' : 'rgba(254, 242, 242, 0.3)' }}>
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          <span style={{ fontWeight: 600 }}>{txDate}</span>
+                          {txTime && (
+                            <small style={{ color: 'var(--text-secondary)', fontSize: '0.73rem' }}>
+                              {txTime}
+                            </small>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        {isCredit ? (
+                          <span className="credit-type-pill credit-inflow">
+                            📥 Credit Inflow
+                          </span>
+                        ) : (
+                          <span className="credit-type-pill credit-outflow">
+                            📤 Minus (Spent)
+                          </span>
+                        )}
+                      </td>
+                      <td>
+                        <span className={`badge ${isCredit ? 'badge-success' : 'badge-danger'}`} style={{ fontSize: '0.67rem', padding: '2px 8px', letterSpacing: '0.04em' }}>
+                          {categoryLabel}
+                        </span>
+                      </td>
+                      <td style={{ verticalAlign: 'middle' }}>
+                        {recipient ? (
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '3px 8px', background: 'rgba(99, 102, 241, 0.08)', border: '1px solid rgba(99, 102, 241, 0.2)', borderRadius: '8px' }}>
+                            <span style={{
+                              width: '22px',
+                              height: '22px',
+                              borderRadius: '50%',
+                              background: 'linear-gradient(135deg, #4f46e5, #6366f1)',
+                              color: '#ffffff',
+                              display: 'grid',
+                              placeItems: 'center',
+                              fontSize: '0.65rem',
+                              fontWeight: 850,
+                              flexShrink: 0
+                            }}>
+                              {recipient.trim().slice(0, 2).toUpperCase()}
+                            </span>
+                            <strong style={{ color: '#1e1b4b', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
+                              {recipient}
+                            </strong>
+                          </div>
+                        ) : (
+                          <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>--</span>
+                        )}
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                          <strong style={{ color: '#1e293b', fontSize: '0.85rem' }}>{notes}</strong>
+                          {reason && reason !== '--' && (
+                            <small style={{ color: '#64748b', fontStyle: 'italic' }}>
+                              Reason: {reason}
+                            </small>
+                          )}
+                          {!isCredit && staffLogger && (
+                            <small style={{ color: '#0284c7', fontSize: '0.72rem', fontWeight: 600 }}>
+                              👤 Logged by: {staffLogger}
+                            </small>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', fontWeight: 500 }}>
+                          {tx.paymentMode === 'online' ? '🌐 Online' : '💵 Cash'}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <span style={{ 
+                          fontWeight: 800, 
+                          fontSize: '0.95rem',
+                          color: isCredit ? '#059669' : '#dc2626'
+                        }}>
+                          {isCredit ? '+' : '-'}₹{Number(tx.amount).toLocaleString('en-IN')}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td colSpan={7} style={{ textAlign: 'center', padding: '36px 16px', color: 'var(--text-secondary)' }}>
+                    {historyFilter === 'expense'
+                      ? 'No deductions / spent entries recorded for this staff member yet.'
+                      : historyFilter === 'credit'
+                      ? 'No cash received / credit records found for this staff member.'
+                      : 'No transactions found.'}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Footer */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 4px 0', flexWrap: 'wrap', gap: '12px' }}>
+          <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+            Showing <strong>{displayedHistoryTransactions.length}</strong> of <strong>{selectedCreditHistory.transactions.length}</strong> total transaction{selectedCreditHistory.transactions.length === 1 ? '' : 's'}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="dashboard-page-container">
 
@@ -762,222 +1098,6 @@ export default function Dashboard({
         </div>
 
       </div>
-
-      {/* View History Modal */}
-      {selectedCreditHistory && (
-        <div
-          className="credit-history-overlay"
-          role="presentation"
-          onMouseDown={event => {
-            if (event.target === event.currentTarget) setSelectedCreditPersonId(null);
-          }}
-        >
-          <section
-            className="credit-history-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="credit-history-title"
-          >
-            {/* Modal Header */}
-            <div className="credit-history-header">
-              <div className="credit-history-person">
-                <span aria-hidden="true">
-                  {selectedCreditHistory.name.trim().slice(0, 2).toUpperCase() || 'ST'}
-                </span>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <small>Staff Credit & Expense Ledger</small>
-                    <span className="badge badge-info" style={{ fontSize: '0.62rem', padding: '1px 6px', textTransform: 'uppercase' }}>
-                      {selectedCreditHistory.transactions.length} Total Records
-                    </span>
-                  </div>
-                  <h3 id="credit-history-title">{selectedCreditHistory.name}</h3>
-                </div>
-              </div>
-              <button
-                type="button"
-                className="credit-history-close"
-                onClick={() => setSelectedCreditPersonId(null)}
-                aria-label="Close credit history"
-              >
-                ×
-              </button>
-            </div>
-
-            {/* Top Totals Summary */}
-            <div className="credit-history-totals">
-              <div className="credit-summary-card credit-inflow-card">
-                <small>Total Credit (+)</small>
-                <strong>+₹{selectedCreditHistory.totalCredit.toLocaleString('en-IN')}</strong>
-                <span className="credit-summary-sub">{selectedCreditHistory.creditCount} Inflow {selectedCreditHistory.creditCount === 1 ? 'entry' : 'entries'}</span>
-              </div>
-              <div className="credit-summary-card credit-outflow-card">
-                <small>Total Spent / Minus (-)</small>
-                <strong>-₹{selectedCreditHistory.totalSpent.toLocaleString('en-IN')}</strong>
-                <span className="credit-summary-sub">{selectedCreditHistory.spentCount} Deduction {selectedCreditHistory.spentCount === 1 ? 'entry' : 'entries'}</span>
-              </div>
-              <div className="credit-summary-card credit-balance-card">
-                <small>Net Hold Balance</small>
-                <strong style={{ color: selectedCreditHistory.netHold >= 0 ? '#0284c7' : '#dc2626' }}>
-                  ₹{selectedCreditHistory.netHold.toLocaleString('en-IN')}
-                </strong>
-                <span className="credit-summary-sub">In-hand remaining</span>
-              </div>
-              <div className="credit-summary-card">
-                <small>Online Received</small>
-                <strong style={{ color: '#2563eb' }}>₹{selectedCreditHistory.onlineCredit.toLocaleString('en-IN')}</strong>
-                <span className="credit-summary-sub">Bank / UPI</span>
-              </div>
-              <div className="credit-summary-card">
-                <small>Cash Received</small>
-                <strong style={{ color: '#059669' }}>₹{selectedCreditHistory.handCashCredit.toLocaleString('en-IN')}</strong>
-                <span className="credit-summary-sub">Handcash</span>
-              </div>
-            </div>
-
-            {/* Filter Tabs */}
-            <div className="credit-history-filter-bar">
-              <button
-                type="button"
-                className={`history-filter-btn ${historyFilter === 'all' ? 'active' : ''}`}
-                onClick={() => setHistoryFilter('all')}
-              >
-                All Activity ({selectedCreditHistory.transactions.length})
-              </button>
-              <button
-                type="button"
-                className={`history-filter-btn filter-inflow ${historyFilter === 'credit' ? 'active' : ''}`}
-                onClick={() => setHistoryFilter('credit')}
-              >
-                📥 Credits Received (+₹{selectedCreditHistory.totalCredit.toLocaleString('en-IN')})
-              </button>
-              <button
-                type="button"
-                className={`history-filter-btn filter-outflow ${historyFilter === 'expense' ? 'active' : ''}`}
-                onClick={() => setHistoryFilter('expense')}
-              >
-                📤 Deductions / Minus (-₹{selectedCreditHistory.totalSpent.toLocaleString('en-IN')})
-              </button>
-            </div>
-
-            {/* Detailed Transaction Table */}
-            <div className="credit-history-table-wrap">
-              <table className="credit-history-table">
-                <thead>
-                  <tr>
-                    <th style={{ width: '130px' }}>Date & Time</th>
-                    <th style={{ width: '120px' }}>Type</th>
-                    <th style={{ width: '140px' }}>Category</th>
-                    <th>Details / Notes</th>
-                    <th style={{ width: '120px' }}>Payment Mode</th>
-                    <th style={{ width: '120px', textAlign: 'right' }}>Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {displayedHistoryTransactions.length > 0 ? (
-                    displayedHistoryTransactions.map((tx, idx) => {
-                      const isCredit = tx.txType === 'received';
-                      const { details, reason, extractedCategory } = parseDescription(tx.description, tx.category, tx.txType);
-                      const { date: txDate, time: txTime } = formatDateTime(tx.date);
-                      const categoryLabel = isCredit
-                        ? 'CASH RECEIVED'
-                        : ((tx.category === 'miscellaneous' && extractedCategory) ? extractedCategory : (tx.category || 'MISCELLANEOUS')).replace(/[-_]/g, ' ').toUpperCase();
-                      const staffLogger = (typeof tx.staffId === 'object' && tx.staffId?.name) 
-                        ? tx.staffId.name 
-                        : (tx.staffName || '');
-
-                      return (
-                        <tr key={tx._id || idx} style={{ background: isCredit ? 'transparent' : 'rgba(254, 242, 242, 0.3)' }}>
-                          <td>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                              <span style={{ fontWeight: 600 }}>{txDate}</span>
-                              {txTime && (
-                                <small style={{ color: 'var(--text-secondary)', fontSize: '0.73rem' }}>
-                                  {txTime}
-                                </small>
-                              )}
-                            </div>
-                          </td>
-                          <td>
-                            {isCredit ? (
-                              <span className="credit-type-pill credit-inflow">
-                                📥 Credit Inflow
-                              </span>
-                            ) : (
-                              <span className="credit-type-pill credit-outflow">
-                                📤 Minus (Spent)
-                              </span>
-                            )}
-                          </td>
-                          <td>
-                            <span className={`badge ${isCredit ? 'badge-success' : 'badge-danger'}`} style={{ fontSize: '0.67rem', padding: '2px 8px', letterSpacing: '0.04em' }}>
-                              {categoryLabel}
-                            </span>
-                          </td>
-                          <td>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                              <strong style={{ color: '#1e293b', fontSize: '0.85rem' }}>{details}</strong>
-                              {reason && reason !== '--' && (
-                                <small style={{ color: '#64748b', fontStyle: 'italic' }}>
-                                  Reason: {reason}
-                                </small>
-                              )}
-                              {!isCredit && staffLogger && (
-                                <small style={{ color: '#0284c7', fontSize: '0.72rem', fontWeight: 600 }}>
-                                  👤 Logged by: {staffLogger}
-                                </small>
-                              )}
-                            </div>
-                          </td>
-                          <td>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', fontWeight: 500 }}>
-                              {tx.paymentMode === 'online' ? '🌐 Online' : '💵 Cash'}
-                            </span>
-                          </td>
-                          <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                            <span style={{ 
-                              fontWeight: 800, 
-                              fontSize: '0.95rem',
-                              color: isCredit ? '#059669' : '#dc2626'
-                            }}>
-                              {isCredit ? '+' : '-'}₹{Number(tx.amount).toLocaleString('en-IN')}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  ) : (
-                    <tr>
-                      <td colSpan={6} style={{ textAlign: 'center', padding: '36px 16px', color: 'var(--text-secondary)' }}>
-                        {historyFilter === 'expense'
-                          ? 'No deductions / spent entries recorded for this staff member yet.'
-                          : historyFilter === 'credit'
-                          ? 'No cash received / credit records found for this staff member.'
-                          : 'No transactions found.'}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Footer */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 24px 18px', borderTop: '1px solid #edf2f7' }}>
-              <div style={{ fontSize: '0.78rem', color: '#64748b' }}>
-                Showing <strong>{displayedHistoryTransactions.length}</strong> of <strong>{selectedCreditHistory.transactions.length}</strong> total transaction{selectedCreditHistory.transactions.length === 1 ? '' : 's'}
-              </div>
-              <button
-                type="button"
-                className="credit-history-done"
-                style={{ margin: 0 }}
-                onClick={() => setSelectedCreditPersonId(null)}
-              >
-                Close History
-              </button>
-            </div>
-          </section>
-        </div>
-      )}
 
     </div>
   );
