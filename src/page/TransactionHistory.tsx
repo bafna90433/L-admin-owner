@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { 
   Search, 
   Calendar, 
@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 
 import * as XLSX from 'xlsx';
+import { getCategoryEmoji } from '../utils/categoryTheme';
 import '../styles/Tasks.css'; // Leverage styles
 
 
@@ -56,6 +57,104 @@ export default function TransactionHistory({
 }: TransactionHistoryProps) {
   const [transactions, setTransactions] = useState<CashTx[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // Helper to format date and time
+  const formatDateTime = (dateStr: string | Date) => {
+    if (!dateStr) return { date: '--', time: '' };
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return { date: String(dateStr), time: '' };
+    const date = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    return { date, time };
+  };
+
+  // Helper to parse description
+  const parseDescription = (description: string = '', category: string = '', txType: string = '') => {
+    let raw = (description || '').trim();
+    if (raw.includes('[Staff: ')) {
+      raw = raw.replace(/\[Staff:\s*[^\]]+\]\s*/g, '').trim();
+    }
+    
+    // Extract legacy [Category: XYZ] or [Custom Category] if present
+    let extractedCategory = '';
+    const catMatch = raw.match(/\[Category:\s*([^\]]+)\]/i);
+    if (catMatch) {
+      extractedCategory = catMatch[1].trim();
+      raw = raw.replace(/\[Category:\s*[^\]]+\]\s*/gi, '').trim();
+    }
+    if (raw.includes('[Custom Category]')) {
+      raw = raw.replace(/\[Custom Category\]\s*/gi, '').trim();
+    }
+
+    let details = '';
+    let reason = '';
+    const reasonMarker = '. Reason: ';
+    const directReasonMarker = 'Reason: ';
+    
+    if (raw.includes(reasonMarker)) {
+      const parts = raw.split(reasonMarker);
+      details = parts[0].trim();
+      reason = parts.slice(1).join(reasonMarker).trim();
+    } else if (raw.startsWith(directReasonMarker)) {
+      details = raw.replace(/^Reason:\s*/i, '').trim();
+      reason = '';
+    } else if (raw.includes(directReasonMarker)) {
+      const parts = raw.split(directReasonMarker);
+      details = parts[0].trim() || parts.slice(1).join(directReasonMarker).trim();
+      reason = parts[0].trim() ? parts.slice(1).join(directReasonMarker).trim() : '';
+    } else {
+      details = raw || (txType === 'received' ? 'Cash Received from MD' : '--');
+      reason = '';
+    }
+
+    if (details.endsWith('.')) {
+      details = details.slice(0, -1);
+    }
+
+    // If details happened to be just the category name (e.g. legacy "MISCELLANEOUS"), replace with reason or notes
+    const effectiveCat = (category === 'miscellaneous' && extractedCategory) ? extractedCategory : (category || '');
+    if (effectiveCat && details.toLowerCase() === effectiveCat.toLowerCase() && reason) {
+      details = reason;
+      reason = '';
+    }
+
+    return { details, reason, extractedCategory };
+  };
+
+  // Helper to render details with status badges
+  const renderDetailsCell = (detailsText: string) => {
+    let text = detailsText;
+    let badgeText = '';
+    let badgeClass = '';
+
+    if (detailsText.includes('(Auto-Approved)')) {
+      text = detailsText.replace('(Auto-Approved)', '').trim();
+      badgeText = 'Auto-Approved';
+      badgeClass = 'badge-success';
+    } else if (detailsText.includes('(Approved by Owner)')) {
+      text = detailsText.replace('(Approved by Owner)', '').trim();
+      badgeText = 'MD Approved';
+      badgeClass = 'badge-info';
+    } else if (detailsText.includes('(By Owner)')) {
+      text = detailsText.replace('(By Owner)', '').trim();
+      badgeText = 'Direct Advance';
+      badgeClass = 'badge-warning';
+    }
+
+    text = text.replace(/\s+/g, ' ').trim();
+    if (text.endsWith('.')) text = text.slice(0, -1);
+
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+        <span style={{ fontWeight: 600 }}>{text}</span>
+        {badgeText && (
+          <span className={`badge ${badgeClass}`} style={{ fontSize: '0.65rem', padding: '1px 6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            {badgeText}
+          </span>
+        )}
+      </div>
+    );
+  };
 
   // Filter States
   const [startDate, setStartDate] = useState('');
@@ -142,87 +241,16 @@ export default function TransactionHistory({
   const netBalance = totalReceived - totalSpent;
 
   // Extract all categories dynamically from the loaded transactions
-  const dynamicCategories = Array.from(new Set(transactions.map(tx => tx.category))).filter(Boolean);
-
-  // Helper to format date and time
-  const formatDateTime = (dateStr: string | Date) => {
-    if (!dateStr) return { date: '--', time: '' };
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return { date: String(dateStr), time: '' };
-    const date = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-    return { date, time };
-  };
-
-  // Helper to parse description
-  const parseDescription = (description: string = '', category: string = '', txType: string = '') => {
-    let raw = description || '';
-    if (raw.includes('[Staff: ')) {
-      raw = raw.replace(/\[Staff:\s*[^\]]+\]\s*/g, '').trim();
-    }
-    let details = '';
-    let reason = '';
-    const reasonMarker = '. Reason: ';
-    const directReasonMarker = 'Reason: ';
-    
-    if (raw.includes(reasonMarker)) {
-      const parts = raw.split(reasonMarker);
-      details = parts[0];
-      reason = parts.slice(1).join(reasonMarker);
-    } else if (raw.includes(directReasonMarker)) {
-      const parts = raw.split(directReasonMarker);
-      details = parts[0];
-      reason = parts.slice(1).join(directReasonMarker);
-    } else {
-      if (txType === 'received') {
-        details = 'Cash Received from MD';
-      } else {
-        details = category.replace('-', ' ').toUpperCase();
-      }
-      reason = raw || '--';
-    }
-
-    if (details.endsWith('.')) {
-      details = details.slice(0, -1);
-    }
-
-    return { details, reason };
-  };
-
-  // Helper to render details with status badges
-  const renderDetailsCell = (detailsText: string) => {
-    let text = detailsText;
-    let badgeText = '';
-    let badgeClass = '';
-
-    if (detailsText.includes('(Auto-Approved)')) {
-      text = detailsText.replace('(Auto-Approved)', '').trim();
-      badgeText = 'Auto-Approved';
-      badgeClass = 'badge-success';
-    } else if (detailsText.includes('(Approved by Owner)')) {
-      text = detailsText.replace('(Approved by Owner)', '').trim();
-      badgeText = 'MD Approved';
-      badgeClass = 'badge-info';
-    } else if (detailsText.includes('(By Owner)')) {
-      text = detailsText.replace('(By Owner)', '').trim();
-      badgeText = 'Direct Advance';
-      badgeClass = 'badge-warning';
-    }
-
-    text = text.replace(/\s+/g, ' ').trim();
-    if (text.endsWith('.')) text = text.slice(0, -1);
-
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-        <span style={{ fontWeight: 600 }}>{text}</span>
-        {badgeText && (
-          <span className={`badge ${badgeClass}`} style={{ fontSize: '0.65rem', padding: '1px 6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            {badgeText}
-          </span>
-        )}
-      </div>
-    );
-  };
+  const dynamicCategories = useMemo(() => {
+    const set = new Set<string>();
+    transactions.forEach(tx => {
+      if (tx.txType === 'received') return;
+      const { extractedCategory } = parseDescription(tx.description || '', tx.category || '', tx.txType || '');
+      const cat = (tx.category === 'miscellaneous' && extractedCategory) ? extractedCategory : (tx.category || '');
+      if (cat && cat.toLowerCase() !== 'received') set.add(cat);
+    });
+    return Array.from(set);
+  }, [transactions]);
 
   // Export filtered transactions to rich Excel (.xlsx) with AutoFilters
   const exportToExcel = () => {
@@ -498,19 +526,9 @@ export default function TransactionHistory({
           <div className="form-group" style={{ margin: 0 }}>
             <label className="form-label">Category</label>
             <select className="form-input" value={category} onChange={e => setCategory(e.target.value)}>
-              <option value="all">All Categories</option>
-              <option value="received">Cash Transferred (received)</option>
-              <option value="petrol">Petrol</option>
-              <option value="porter-vehicle">Porter Vehicle</option>
-              <option value="staff-welfare">Staff Welfare</option>
-              <option value="salary-advance">Salary Advance</option>
-              <option value="company-expenses">Company Expenses</option>
-              <option value="sir-expenses">Sir Expenses</option>
-              <option value="miscellaneous">Miscellaneous</option>
-              {dynamicCategories.map(cat => (
-                !['petrol', 'porter-vehicle', 'staff-welfare', 'salary-advance', 'company-expenses', 'sir-expenses', 'miscellaneous', 'received'].includes(cat) && (
-                  <option key={cat} value={cat}>{cat.replace('-', ' ')}</option>
-                )
+              <option value="all">📁 All Categories</option>
+              {dynamicCategories.map((cat: string) => (
+                <option key={cat} value={cat}>{getCategoryEmoji(cat)} {cat.replace('-', ' ')}</option>
               ))}
             </select>
           </div>
@@ -579,8 +597,8 @@ export default function TransactionHistory({
               <thead>
                 <tr>
                   <th>Date</th>
-                  <th>Details & Remarks</th>
                   <th>Category</th>
+                  <th>Details & Remarks</th>
                   <th>Payment Mode</th>
                   <th>Staff</th>
                   <th>Amount</th>
@@ -588,7 +606,7 @@ export default function TransactionHistory({
               </thead>
               <tbody>
                 {filteredTxs.map((tx) => {
-                  const { details, reason } = parseDescription(tx.description, tx.category, tx.txType);
+                  const { details, reason, extractedCategory } = parseDescription(tx.description, tx.category, tx.txType);
                   return (
                     <tr key={tx._id}>
                       {/* Date */}
@@ -606,6 +624,23 @@ export default function TransactionHistory({
                         </div>
                       </td>
 
+                      {/* Category Badge */}
+                      <td>
+                        {tx.txType === 'received' ? (
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>--</span>
+                        ) : (
+                          <span className={`badge ${
+                            tx.category === 'petrol' ? 'badge-info' :
+                            tx.category === 'porter-vehicle' ? 'badge-warning' :
+                            tx.category === 'staff-welfare' ? 'badge-success' :
+                            tx.category === 'salary-advance' ? 'badge-danger' :
+                            'badge-info'
+                          }`}>
+                            {getCategoryEmoji((tx.category === 'miscellaneous' && extractedCategory) ? extractedCategory : (tx.category || 'MISCELLANEOUS'))} {((tx.category === 'miscellaneous' && extractedCategory) ? extractedCategory : (tx.category || 'MISCELLANEOUS')).replace(/[-_]/g, ' ').toUpperCase()}
+                          </span>
+                        )}
+                      </td>
+
                       {/* Details & Remarks */}
                       <td>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -621,20 +656,6 @@ export default function TransactionHistory({
                             </div>
                           )}
                         </div>
-                      </td>
-
-                      {/* Category Badge */}
-                      <td>
-                        <span className={`badge ${
-                          tx.txType === 'received' ? 'badge-success' :
-                          tx.category === 'petrol' ? 'badge-info' :
-                          tx.category === 'porter-vehicle' ? 'badge-warning' :
-                          tx.category === 'staff-welfare' ? 'badge-success' :
-                          tx.category === 'salary-advance' ? 'badge-danger' :
-                          'badge-info'
-                        }`} style={{ textTransform: 'capitalize' }}>
-                          {tx.txType === 'received' ? 'Received Cash' : tx.category.replace('-', ' ')}
-                        </span>
                       </td>
 
                       {/* Payment Mode */}

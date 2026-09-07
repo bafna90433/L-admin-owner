@@ -12,13 +12,15 @@ import {
   Receipt,
   Loader,
   Trash2,
-  Clock
+  Clock,
+  Tag
 } from 'lucide-react';
 
 // Import Modular Page Components
 import Login from './page/Login';
 import Notifications, { type NotificationItem } from './page/Notifications';
 import Dashboard from './page/Dashboard';
+import Categories from './page/Categories';
 import Labourers from './page/Labourers';
 import Advances from './page/Advances';
 import Reminders from './page/Reminders';
@@ -286,7 +288,7 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
 
   // Router Tab
-  const adminValidTabs = ['notifications', 'dashboard', 'labourers', 'advances', 'advance-history', 'transaction-history', 'deleted-logs', 'reminders', 'tasks', 'chat', 'settings', 'profile'] as const;
+  const adminValidTabs = ['notifications', 'dashboard', 'labourers', 'advances', 'advance-history', 'transaction-history', 'categories', 'deleted-logs', 'reminders', 'tasks', 'chat', 'settings', 'profile'] as const;
   type AdminTabType = typeof adminValidTabs[number];
   const adminSavedTab = localStorage.getItem('admin_active_tab') as AdminTabType | null;
   const [activeTab, setActiveTab] = useState<AdminTabType>(adminSavedTab && adminValidTabs.includes(adminSavedTab) ? adminSavedTab : 'dashboard');
@@ -817,7 +819,7 @@ export default function App() {
       });
       if (txRes.ok) {
         const data = await txRes.json();
-        setExpenses(data.slice(0, 15)); // Get top 15
+        setExpenses(data);
       }
     } catch (err) {
       console.error(err);
@@ -1645,6 +1647,7 @@ export default function App() {
           <Dashboard
             expenses={expenses}
             balanceData={balanceData}
+            labours={labours}
             onViewHistoryClick={() => navigateTo('transaction-history')}
           />
         );
@@ -1693,6 +1696,17 @@ export default function App() {
             apiBase={API_BASE}
             allStaff={allStaff}
             showToast={showToast}
+          />
+        );
+      case 'categories':
+        return (
+          <Categories
+            token={token}
+            apiBase={API_BASE}
+            transactions={expenses}
+            onNavigate={navigateTo}
+            showToast={showToast}
+            setConfirmModal={setConfirmModal}
           />
         );
       case 'deleted-logs':
@@ -1876,6 +1890,14 @@ export default function App() {
           >
             <Receipt size={18} />
             <span>Transaction History</span>
+          </button>
+          <button
+            onClick={() => navigateTo('categories')}
+            className={`nav-link ${activeTab === 'categories' ? 'active' : ''}`}
+            aria-current={activeTab === 'categories' ? 'page' : undefined}
+          >
+            <Tag size={18} />
+            <span>Expense Categories</span>
           </button>
           <button
             onClick={() => navigateTo('deleted-logs')}

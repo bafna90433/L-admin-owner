@@ -7,7 +7,6 @@ import {
   IndianRupee,
   ShieldCheck,
   UsersRound,
-  Building2,
   ChevronRight,
   Search,
   SlidersHorizontal,
@@ -39,11 +38,6 @@ interface RoleSummary {
   isActive: boolean;
 }
 
-interface Department {
-  _id: string;
-  name: string;
-}
-
 interface SettingsProps {
   token: string | null;
   apiBase: string;
@@ -64,7 +58,6 @@ export default function Settings({
   const settingsNav = [
     { id: 'settings-access', label: 'Staff & Roles', icon: ShieldCheck },
     { id: 'settings-staff-names', label: 'Staff Display Names', icon: UsersRound },
-    { id: 'settings-departments', label: 'Departments', icon: Building2 },
     { id: 'settings-advance', label: 'Advance Approval', icon: IndianRupee }
   ];
 
@@ -82,10 +75,6 @@ export default function Settings({
   const [directoryLoading, setDirectoryLoading] = useState(false);
   const [staffSearch, setStaffSearch] = useState('');
 
-  // Departments State
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [newDeptName, setNewDeptName] = useState('');
-  const [addingDept, setAddingDept] = useState(false);
 
   // Advance Auto Approval Limit state
   const [autoApproveLimit, setAutoApproveLimit] = useState('5000');
@@ -93,7 +82,6 @@ export default function Settings({
 
   useEffect(() => {
     if (token) {
-      fetchDepartments();
       fetchAutoApproveLimit();
       fetchDirectoryData();
     }
@@ -171,68 +159,6 @@ export default function Settings({
       showToast('Error connecting to server', 'danger');
     } finally {
       setSavingAutoApproveLimit(false);
-    }
-  };
-
-  const fetchDepartments = async () => {
-    try {
-      const res = await fetch(`${apiBase}/departments`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setDepartments(data);
-      }
-    } catch (err) {
-      console.error('Error fetching departments:', err);
-    }
-  };
-
-  const handleAddDepartment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newDeptName.trim()) return;
-    setAddingDept(true);
-    try {
-      const res = await fetch(`${apiBase}/departments`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ name: newDeptName })
-      });
-      if (res.ok) {
-        showToast('Department added successfully!', 'success');
-        setNewDeptName('');
-        fetchDepartments();
-      } else {
-        const data = await res.json();
-        showToast(data.message || 'Failed to add department', 'danger');
-      }
-    } catch (err) {
-      console.error(err);
-      showToast('Error connecting to server', 'danger');
-    } finally {
-      setAddingDept(false);
-    }
-  };
-
-  const handleDeleteDepartment = async (id: string) => {
-    try {
-      const res = await fetch(`${apiBase}/departments/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        showToast('Department deleted successfully!', 'success');
-        fetchDepartments();
-      } else {
-        const data = await res.json();
-        showToast(data.message || 'Failed to delete department', 'danger');
-      }
-    } catch (err) {
-      console.error(err);
-      showToast('Error connecting to server', 'danger');
     }
   };
 
@@ -543,77 +469,6 @@ export default function Settings({
           </div>
         </div>
       )}
-
-      {/* Manage Departments Section */}
-      <div id="settings-departments" className="settings-anchor-section" hidden={activeSetting !== 'settings-departments'}>
-        <h2 style={{ fontSize: '1.6rem', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <SettingsIcon size={24} /> Manage Departments
-        </h2>
-        <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>Configure department names for your employee badges and search filters.</p>
-      </div>
-
-      <div className="settings-grid" hidden={activeSetting !== 'settings-departments'}>
-        {/* Left column: Department List */}
-        <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <h3 style={{ fontSize: '1.25rem' }}>Active Departments</h3>
-          <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-            Existing departments in the system. Delete a department to remove it from the uploader suggestions.
-          </p>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '350px', overflowY: 'auto', paddingRight: '8px' }}>
-            {departments.map(dept => (
-              <div 
-                key={dept._id} 
-                className="staff-settings-card"
-                style={{ background: 'var(--bg-tertiary)' }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div className="staff-avatar" style={{ background: 'var(--accent-secondary)' }}>
-                    {dept.name.slice(0, 2).toUpperCase()}
-                  </div>
-                  <div>
-                    <div className="staff-name-text">{dept.name}</div>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => handleDeleteDepartment(dept._id)}
-                  className="btn btn-danger"
-                  style={{ padding: '8px 12px', fontSize: '0.85rem' }}
-                >
-                  <Trash2 size={14} /> Delete
-                </button>
-              </div>
-            ))}
-            {departments.length === 0 && (
-              <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '24px', fontStyle: 'italic' }}>
-                No departments registered in system.
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right column: Add Form */}
-        <div className="glass-panel" style={{ height: 'fit-content' }}>
-          <h3 style={{ fontSize: '1.25rem', marginBottom: '16px' }}>Add New Department</h3>
-          <form onSubmit={handleAddDepartment} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div className="form-group">
-              <label className="form-label">Department Name</label>
-              <input 
-                type="text" 
-                className="form-input" 
-                placeholder="e.g. Security, Supervisor, Accounts"
-                value={newDeptName}
-                onChange={e => setNewDeptName(e.target.value)}
-                required
-              />
-            </div>
-
-            <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={addingDept}>
-              {addingDept ? <Loader className="spinner" size={16} /> : 'Create Department'}
-            </button>
-          </form>
-        </div>
-      </div>
 
       {/* Advance Auto Approval Limit Section */}
       <div id="settings-advance" className="settings-anchor-section" hidden={activeSetting !== 'settings-advance'}>
