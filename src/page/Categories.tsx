@@ -40,6 +40,18 @@ interface CategoriesProps {
 }
 
 
+export const DEFAULT_EXPENSE_CATEGORIES: string[] = [
+  'Company Expenses',
+  'Petrol / Vehicle Fuel',
+  'Transport / Porter',
+  'Staff Welfare & Tea Snacks',
+  'Labour Advance',
+  'Stationery & Office Supplies',
+  'Maintenance & Repairs',
+  'Electricity & Utility Bills',
+  'General Petty Cash'
+];
+
 export default function Categories({
   token,
   apiBase,
@@ -47,7 +59,20 @@ export default function Categories({
   showToast,
   setConfirmModal
 }: CategoriesProps) {
-  const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const getInitialCategories = (): CategoryItem[] => {
+    try {
+      const saved = localStorage.getItem('office_categories_list');
+      if (saved) {
+        const parsed: string[] = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map(name => ({ id: name, name, createdAt: new Date() }));
+        }
+      }
+    } catch (e) {}
+    return DEFAULT_EXPENSE_CATEGORIES.map(name => ({ id: name, name, createdAt: new Date() }));
+  };
+
+  const [categories, setCategories] = useState<CategoryItem[]>(getInitialCategories);
   const [loading, setLoading] = useState(false);
   const [categoryInput, setCategoryInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -65,12 +90,30 @@ export default function Categories({
       });
       if (res.ok) {
         const data = await res.json();
-        const formatted: CategoryItem[] = (Array.isArray(data) ? data : []).map(item => {
+        let formatted: CategoryItem[] = (Array.isArray(data) ? data : []).map(item => {
           if (typeof item === 'string') {
             return { id: item, name: item, createdAt: new Date() };
           }
           return item;
         });
+
+        // If backend returned empty array, auto-seed defaults and save
+        if (formatted.length === 0) {
+          formatted = DEFAULT_EXPENSE_CATEGORIES.map(name => ({ id: name, name, createdAt: new Date() }));
+          for (const name of DEFAULT_EXPENSE_CATEGORIES) {
+            try {
+              await fetch(`${apiBase}/categories`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ name })
+              });
+            } catch (e) {}
+          }
+        }
+
         setCategories(formatted);
 
         // Keep local cache in sync
@@ -95,9 +138,13 @@ export default function Categories({
       const saved = localStorage.getItem('office_categories_list');
       if (saved) {
         const parsed: string[] = JSON.parse(saved);
-        setCategories(parsed.map(name => ({ id: name, name, createdAt: new Date() })));
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setCategories(parsed.map(name => ({ id: name, name, createdAt: new Date() })));
+          return;
+        }
       }
     } catch (e) {}
+    setCategories(DEFAULT_EXPENSE_CATEGORIES.map(name => ({ id: name, name, createdAt: new Date() })));
   };
 
   useEffect(() => {
