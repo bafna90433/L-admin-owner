@@ -149,7 +149,7 @@ export default function Settings({
         body: JSON.stringify({ value: limit })
       });
       if (res.ok) {
-        showToast('Advance auto-approval limit updated successfully!', 'success');
+        showToast('Company cash request auto-approval limit updated successfully!', 'success');
       } else {
         const data = await res.json();
         showToast(data.message || 'Failed to update limit', 'danger');
@@ -470,12 +470,12 @@ export default function Settings({
         </div>
       )}
 
-      {/* Advance Auto Approval Limit Section */}
+          {/* Company cash request auto-approval limit */}
       <div id="settings-advance" className="settings-anchor-section" hidden={activeSetting !== 'settings-advance'}>
         <h2 style={{ fontSize: '1.6rem', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <IndianRupee size={24} /> Labour Advance Auto-Approval
+          <IndianRupee size={24} /> Company Cash Request Auto-Approval
         </h2>
-        <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>Configure the maximum advance amount that staff can give without owner approval.</p>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>Configure the maximum company cash request that can be recorded without owner approval. Labour advance requests always require MD approval.</p>
       </div>
 
       <div className="glass-panel" hidden={activeSetting !== 'settings-advance'}>

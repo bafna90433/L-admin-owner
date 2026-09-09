@@ -32,6 +32,23 @@ export interface CategoryTheme {
 }
 
 /**
+ * Universal display label for categories.
+ *
+ * An advance can land in the ledger with two different category names -
+ * 'salary-advance' (created by the MD approval flow) or 'Labour Advance'
+ * (chosen in the petty-cash form) - but both mean exactly the same thing.
+ * Showing them as two separate categories confuses MD and staff, so every
+ * screen renders the single label "SALARY ADVANCE". How the advance was
+ * authorised is shown separately in the Advance Type / Authorisation details.
+ */
+export const getCategoryLabel = (categoryName: string = ''): string => {
+  const name = (categoryName || '').toLowerCase().trim();
+  if (!name) return 'MISCELLANEOUS';
+  if (name === 'salary-advance' || name.includes('advance')) return 'SALARY ADVANCE';
+  return categoryName.replace(/[-_]/g, ' ').toUpperCase();
+};
+
+/**
  * Universal emoji resolver for categories across dropdowns, tables, and badges.
  */
 export const getCategoryEmoji = (categoryName: string = ''): string => {

@@ -7,9 +7,7 @@ import {
   RefreshCw, 
   Layers, 
   CheckCircle2, 
-  Receipt, 
-  Sparkles,
-  ArrowRight
+  Sparkles
 } from 'lucide-react';
 import { getCategoryTheme } from '../utils/categoryTheme';
 import '../styles/Tasks.css';
@@ -34,7 +32,6 @@ interface CategoriesProps {
   token: string | null;
   apiBase: string;
   transactions?: CashTx[];
-  onNavigate?: (tab: any) => void;
   showToast: (message: string, type?: 'success' | 'danger' | 'warning' | 'info') => void;
   setConfirmModal?: (modal: { title: string; message: string; onConfirm: () => void } | null) => void;
 }
@@ -55,7 +52,6 @@ export const DEFAULT_EXPENSE_CATEGORIES: string[] = [
 export default function Categories({
   token,
   apiBase,
-  onNavigate,
   showToast,
   setConfirmModal
 }: CategoriesProps) {
@@ -342,16 +338,6 @@ export default function Categories({
             <RefreshCw size={15} className={loading ? 'spinner' : ''} /> Refresh
           </button>
 
-          {onNavigate && (
-            <button
-              type="button"
-              onClick={() => onNavigate('history')}
-              className="btn btn-primary"
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 700 }}
-            >
-              <Receipt size={16} /> View Transactions <ArrowRight size={14} />
-            </button>
-          )}
         </div>
       </div>
 

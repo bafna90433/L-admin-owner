@@ -23,6 +23,13 @@ interface AdvanceRequest {
     role?: string;
     upiId?: string;
   };
+  fundingStaffId?: {
+    _id?: string;
+    name: string;
+    username?: string;
+    role?: string;
+  };
+  fundingStaffName?: string;
   approvedBy?: {
     _id?: string;
     name: string;
@@ -51,6 +58,107 @@ export default function Advances({
   showToast
 }: AdvancesProps) {
   const [advFilter, setAdvFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+
+  // Two very different things land on this screen: requests the staff sent for
+  // MD to decide on, and advances MD already told the staff to hand over in
+  // person. Each card must say which one it is, in MD's own words.
+  const getRequestSource = (req: AdvanceRequest) => {
+    const rawReason = String(req?.reason || '');
+    const requesterName = req?.requestedBy?.name || 'Staff';
+    const requesterRole = req?.requestedBy?.role || '';
+    const requesterId = String(req?.requestedBy?._id || '');
+    const approverId = String(req?.approvedBy?._id || '');
+    const labourName = req?.labourId?.name || 'the employee';
+    const isCompanyCash = req?.labourId?.name === 'Company Expenses';
+    const forWhom = isCompanyCash ? ' for company expenses' : ` for ${labourName}`;
+    const amount = `₹${Number(req?.amount || 0).toLocaleString('en-IN')}`;
+    // Created and cleared by the same staff account means it never passed
+    // through this approval screen at all.
+    const selfCleared = Boolean(approverId) && approverId === requesterId && requesterRole !== 'owner';
+
+    if (requesterRole === 'owner') {
+      return {
+        key: 'md-direct',
+        label: 'Direct by MD',
+        icon: '👑',
+        headline: 'You recorded this advance yourself',
+        story: `You entered this ${amount} advance${forWhom} directly from the Owner Dashboard. No staff request was involved.`
+      };
+    }
+
+    if (rawReason.includes('(MD Instructed)') || (selfCleared && !isCompanyCash)) {
+      return {
+        key: 'md-verbal',
+        label: 'MD Verbal Order',
+        icon: '📞',
+        headline: `You told ${requesterName} to hand over this advance`,
+        story: `You instructed ${requesterName} in person or on call to give ${labourName} ${amount}. ${requesterName} paid it from their own petty cash and logged it on the Staff Desk, so it never came to this screen for approval.`
+      };
+    }
+
+    if (selfCleared && isCompanyCash) {
+      return {
+        key: 'auto-approved',
+        label: 'Auto Approved',
+        icon: '⚡',
+        headline: 'Cleared automatically by your limit',
+        story: `${requesterName} requested ${amount} for company expenses. It was within the auto-approval limit you set, so the system released it without asking you.`
+      };
+    }
+
+    if (req?.status === 'pending') {
+      return {
+        key: 'pending',
+        label: 'Awaiting Your Approval',
+        icon: '⏳',
+        headline: `${requesterName} is waiting for your decision`,
+        story: `${requesterName} raised this ${amount} request${forWhom} from the Staff Desk. Nothing has been paid yet — the cash is released only after you approve it here.`
+      };
+    }
+
+    if (req?.status === 'rejected') {
+      return {
+        key: 'rejected',
+        label: 'Rejected by You',
+        icon: '🚫',
+        headline: 'You turned this request down',
+        story: `${requesterName} raised this ${amount} request${forWhom} and you rejected it, so no cash was paid.`
+      };
+    }
+
+    return {
+      key: 'md-approved',
+      label: 'MD Approved',
+      icon: '🛡️',
+      headline: 'You approved this request on this screen',
+      story: `${requesterName} raised this ${amount} request${forWhom} from the Staff Desk and you approved it here. The cash was handed over only after your approval.`
+    };
+  };
+
+  const SOURCE_ACCENTS: Record<string, { bg: string; border: string; text: string }> = {
+    'md-approved': { bg: 'rgba(6, 182, 212, 0.08)', border: 'rgba(6, 182, 212, 0.32)', text: '#0891b2' },
+    'auto-approved': { bg: 'rgba(16, 185, 129, 0.08)', border: 'rgba(16, 185, 129, 0.32)', text: '#059669' },
+    'md-direct': { bg: 'rgba(139, 92, 246, 0.08)', border: 'rgba(139, 92, 246, 0.32)', text: '#7c3aed' },
+    'md-verbal': { bg: 'rgba(245, 158, 11, 0.1)', border: 'rgba(245, 158, 11, 0.38)', text: '#b45309' },
+    'pending': { bg: 'rgba(239, 68, 68, 0.07)', border: 'rgba(239, 68, 68, 0.3)', text: '#dc2626' },
+    'rejected': { bg: 'rgba(100, 116, 139, 0.09)', border: 'rgba(100, 116, 139, 0.3)', text: '#475569' }
+  };
+
+  // The stored reason still carries the staff tag and the approval marker that
+  // the card now shows on its own, so strip them and keep the actual note.
+  const getCleanReason = (req: AdvanceRequest) => {
+    const labourName = req?.labourId?.name || '';
+    let text = String(req?.reason || '')
+      .replace(/\[Staff:\s*[^\]]+\]/g, '')
+      .replace(/\((Auto-Approved|Approved by Owner|By Owner|MD Instructed)\)/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (labourName) {
+      const escaped = labourName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      text = text.replace(new RegExp(`^${escaped}\\s*[-–—:]\\s*`, 'i'), '').trim();
+    }
+    return text.replace(/^[-–—:\s]+|[-–—:\s]+$/g, '').trim();
+  };
   
   // Pending payment modal state (persisted in localStorage)
   const [activePaymentModal, setActivePaymentModal] = useState<{
@@ -90,7 +198,7 @@ export default function Advances({
       // Regular labourer advance: approve immediately with standard confirmation dialog
       setConfirmModal({
         title: 'Approve Advance Request',
-        message: `Are you sure you want to approve this advance request of ₹${req.amount.toLocaleString('en-IN')} for ${req.labourId?.name || 'Labourer'}? It will deduct from salary and add to office expenses.`,
+        message: `Approve ₹${req.amount.toLocaleString('en-IN')} for ${req.labourId?.name || 'Labourer'}? The amount will be deducted from ${req.fundingStaffName || req.fundingStaffId?.name || req.requestedBy?.name || 'the requesting staff'}'s company credit.`,
         onConfirm: async () => {
           try {
             const res = await fetch(`${apiBase}/advances/${req._id}/approve`, {
@@ -106,7 +214,8 @@ export default function Advances({
               fetchDashboardData();
               showToast('Advance request approved successfully!', 'success');
             } else {
-              showToast('Failed to approve request', 'danger');
+              const data = await res.json().catch(() => ({}));
+              showToast(data.message || 'Failed to approve request', 'danger');
             }
           } catch (err) {
             console.error(err);
@@ -269,7 +378,11 @@ export default function Advances({
 
       {/* Advance Request List */}
       <div className="advances-list">
-        {filteredRequests.map((req) => (
+        {filteredRequests.map((req) => {
+          const source = getRequestSource(req);
+          const accent = SOURCE_ACCENTS[source.key] || SOURCE_ACCENTS['md-approved'];
+          const cleanReason = getCleanReason(req);
+          return (
           <div key={req._id} className="glass-panel animate-fade-in advance-card-item">
             <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexGrow: 1 }}>
               <img 
@@ -287,12 +400,50 @@ export default function Advances({
                   }`}>
                     {req.status}
                   </span>
+                  <span
+                    title={source.story}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '5px',
+                      background: accent.bg,
+                      border: `1px solid ${accent.border}`,
+                      color: accent.text,
+                      padding: '3px 10px', borderRadius: '9999px',
+                      fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.04em',
+                      textTransform: 'uppercase', whiteSpace: 'nowrap'
+                    }}
+                  >
+                    <span aria-hidden="true">{source.icon}</span>
+                    <span>{source.label}</span>
+                  </span>
                 </div>
                 <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '4px' }}>
                   Requested by <span style={{ fontWeight: 600 }}>{req.requestedBy?.name}</span> on {new Date(req.date).toLocaleDateString('en-GB')}
                 </div>
-                <div style={{ fontSize: '0.95rem', marginTop: '6px', fontStyle: 'italic', color: 'var(--text-primary)' }}>
-                  &ldquo;{req.reason || 'No reason provided'}&rdquo;
+                {(req.fundingStaffName || req.fundingStaffId?.name) && req.labourId?.name !== 'Company Expenses' && (
+                  <div style={{ color: 'var(--accent-primary)', fontSize: '0.82rem', marginTop: '4px', fontWeight: 650 }}>
+                    Deduct from: {req.fundingStaffName || req.fundingStaffId?.name}'s company credit
+                  </div>
+                )}
+                <div style={{
+                  marginTop: '10px',
+                  padding: '10px 13px',
+                  background: accent.bg,
+                  border: `1px solid ${accent.border}`,
+                  borderRadius: '10px',
+                  maxWidth: '620px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '5px' }}>
+                    <span aria-hidden="true">{source.icon}</span>
+                    <strong style={{ color: accent.text, fontSize: '0.88rem' }}>{source.headline}</strong>
+                  </div>
+                  <p style={{ margin: 0, fontSize: '0.83rem', lineHeight: 1.5, color: 'var(--text-secondary)' }}>
+                    {source.story}
+                  </p>
+                </div>
+
+                <div style={{ fontSize: '0.95rem', marginTop: '8px', fontStyle: 'italic', color: 'var(--text-primary)' }}>
+                  <span style={{ fontStyle: 'normal', fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 700, letterSpacing: '0.04em' }}>REASON / NOTE: </span>
+                  &ldquo;{cleanReason || 'No reason provided'}&rdquo;
                 </div>
               </div>
             </div>
@@ -333,7 +484,8 @@ export default function Advances({
               </div>
             </div>
           </div>
-        ))}
+          );
+        })}
 
         {filteredRequests.length === 0 && (
           <div className="glass-panel" style={{ textAlign: 'center', padding: '48px', color: 'var(--text-secondary)' }}>

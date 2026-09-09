@@ -618,3 +618,362 @@
   .credit-history-table-wrap { margin: 0 16px; }
   .credit-history-done { width: calc(100% - 32px); align-self: center; margin: 16px; }
 }
+
+/* Recent Logs - MD Panel Professional Ledger */
+.recent-logs-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+}
+
+.recent-logs-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.recent-logs-header h3 {
+  font-size: 1.3rem;
+  font-weight: 800;
+  margin: 0;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.recent-logs-header p {
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+  margin: 4px 0 0 0;
+}
+
+.recent-logs-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.recent-logs-search {
+  position: relative;
+  min-width: 220px;
+}
+
+.recent-logs-search input {
+  width: 100%;
+  padding-left: 36px;
+  padding-right: 28px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  font-size: 0.85rem;
+  height: 38px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: #ffffff;
+  outline: none;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.recent-logs-search input:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+.recent-logs-total-badge {
+  font-size: 0.8rem;
+  padding: 6px 12px;
+  border-radius: 12px;
+  background: rgba(99, 102, 241, 0.1);
+  color: #4f46e5;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.recent-logs-tabs {
+  display: flex;
+  gap: 8px;
+  background: rgba(241, 245, 249, 0.7);
+  padding: 5px;
+  border-radius: 12px;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  width: fit-content;
+  flex-wrap: wrap;
+}
+
+.recent-logs-tab-btn {
+  padding: 8px 18px;
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+}
+
+.recent-logs-tab-btn.inflow.active {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(5, 150, 105, 0.12) 100%);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: #059669;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.15);
+}
+
+.recent-logs-tab-btn.outflow.active {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.22) 0%, rgba(79, 70, 229, 0.14) 100%);
+  border-color: rgba(99, 102, 241, 0.4);
+  color: #4f46e5;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
+}
+
+.recent-logs-tab-btn.advance.active {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.22) 0%, rgba(217, 119, 6, 0.14) 100%);
+  border-color: rgba(245, 158, 11, 0.45);
+  color: #d97706;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.15);
+}
+
+.recent-logs-count-pill {
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 800;
+}
+
+.recent-logs-table-wrap {
+  border: 1px solid rgba(226, 232, 240, 0.85);
+  border-radius: 14px;
+  background: #ffffff;
+  overflow-x: auto;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.recent-logs-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.recent-logs-table th {
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 12px 14px;
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.recent-logs-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 0.86rem;
+  vertical-align: middle;
+}
+
+.recent-logs-table tbody tr:hover td {
+  background-color: rgba(99, 102, 241, 0.03);
+}
+
+/* Staff member cell */
+.log-staff-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.log-staff-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4f46e5, #6366f1);
+  color: #ffffff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.log-staff-cell strong {
+  font-size: 0.84rem;
+  color: #1e293b;
+  font-weight: 650;
+}
+
+/* Details and notes cell */
+.log-details-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 260px;
+  cursor: pointer;
+  padding: 3px 6px;
+  border-radius: 6px;
+  transition: background 0.15s ease;
+}
+
+.log-details-cell:hover {
+  background: rgba(99, 102, 241, 0.07);
+}
+
+.log-details-text {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #1e293b;
+}
+
+.log-btn-view {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 650;
+  background: rgba(99, 102, 241, 0.1);
+  color: #4f46e5;
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.log-btn-view:hover {
+  background: #4f46e5;
+  color: #ffffff;
+  border-color: #4f46e5;
+}
+
+/* Action Dropdown Menu */
+.log-action-dropdown-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.log-btn-action-dropdown {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 650;
+  background: #ffffff;
+  color: #334155;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.log-btn-action-dropdown:hover,
+.log-btn-action-dropdown.active {
+  background: #ffffff;
+  border-color: #4f46e5;
+  color: #4f46e5;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.15);
+}
+
+.log-action-dropdown-popover {
+  position: absolute;
+  right: 0;
+  min-width: 140px;
+  background: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  padding: 5px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  animation: dropdownFadeIn 0.15s ease-out;
+}
+
+.log-action-dropdown-popover.open-down {
+  top: calc(100% + 4px);
+}
+
+.log-action-dropdown-popover.open-up {
+  bottom: calc(100% + 4px);
+}
+
+.log-action-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.log-action-item.view {
+  color: #334155;
+}
+
+.log-action-item.view:hover {
+  background: rgba(99, 102, 241, 0.08);
+  color: #4f46e5;
+}
+
+.log-action-item.delete {
+  color: #ef4444;
+}
+
+.log-action-item.delete:hover {
+  background: rgba(239, 68, 68, 0.08);
+  color: #dc2626;
+}
+
+/* Modal */
+.log-detail-modal-overlay {
+  position: fixed;
+  inset: 0;
+  /* Matches the Add Employee modal: the page behind must be hidden, not readable. */
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  z-index: 99999;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  animation: credit-history-fade 0.2s ease-out;
+}
+
+.log-detail-modal {
+  width: 100%;
+  max-width: 520px;
+  background: #ffffff;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.2);
+  animation: credit-history-rise 0.2s ease-out;
+}
+

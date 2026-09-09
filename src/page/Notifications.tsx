@@ -11,13 +11,14 @@ import {
   Zap,
   MessageSquare,
   UserRound,
-  ExternalLink
+  ExternalLink,
+  Wallet
 } from 'lucide-react';
 import '../styles/Notifications.css';
 
 export interface NotificationItem {
   id: string;
-  type: 'new_task' | 'completion_requested' | 'task_completed' | 'task_comment' | 'task_update' | 'advance_request' | 'reminder';
+  type: 'new_task' | 'completion_requested' | 'task_completed' | 'task_comment' | 'task_update' | 'advance_request' | 'reminder' | 'cash_activity';
   title: string;
   description: string;
   timestamp: string | Date;
@@ -28,7 +29,7 @@ export interface NotificationItem {
   staffImage?: string;
   badge: string;
   badgeColor: 'warning' | 'success' | 'info' | 'primary' | 'danger' | 'purple' | 'secondary';
-  targetTab: 'tasks' | 'advances' | 'reminders';
+  targetTab: 'tasks' | 'advances' | 'reminders' | 'dashboard';
   action?: 'open_task' | 'open_comments' | 'open_advance';
   isRead?: boolean;
 }
@@ -61,6 +62,7 @@ export default function Notifications({
   const completedTasksCount = notifications.filter(n => !n.isRead && n.type === 'task_completed').length;
   const commentsCount = notifications.filter(n => !n.isRead && n.type === 'task_comment').length;
   const advancesCount = notifications.filter(n => !n.isRead && n.type === 'advance_request').length;
+  const cashActivityCount = notifications.filter(n => !n.isRead && n.type === 'cash_activity').length;
   const readHistoryCount = notifications.filter(n => n.isRead).length;
 
   // Filter and Search Logic: Hide already viewed/selected/read items from the active view
@@ -78,6 +80,7 @@ export default function Notifications({
       if (filterType === 'task_completed' && item.type !== 'task_completed') return false;
       if (filterType === 'task_comment' && item.type !== 'task_comment') return false;
       if (filterType === 'advance_request' && item.type !== 'advance_request') return false;
+      if (filterType === 'cash_activity' && item.type !== 'cash_activity') return false;
       if (filterType === 'reminder' && item.type !== 'reminder') return false;
 
       if (searchQuery.trim()) {
@@ -296,6 +299,13 @@ export default function Notifications({
             </button>
             <button
               type="button"
+              className={`deck-filter-tab ${filterType === 'cash_activity' ? 'active' : ''}`}
+              onClick={() => setFilterType('cash_activity')}
+            >
+              <Wallet size={13} aria-hidden="true" /> Cash Desk <span className="deck-tab-count">{cashActivityCount}</span>
+            </button>
+            <button
+              type="button"
               className={`deck-filter-tab ${filterType === 'read_history' ? 'active' : ''}`}
               onClick={() => setFilterType('read_history')}
             >
@@ -341,6 +351,7 @@ export default function Notifications({
             const isApproval = notif.type === 'completion_requested';
             const isComment = notif.type === 'task_comment';
             const isAdvance = notif.type === 'advance_request';
+            const isCashActivity = notif.type === 'cash_activity';
             const staffInitial = (notif.staffName || 'S').charAt(0).toUpperCase();
 
             return (
@@ -379,7 +390,7 @@ export default function Notifications({
                     {staffInitial}
                   </div>
                   <span className="notif-avatar-role-badge">
-                    {isAdvance ? <ArrowUpRight size={11} /> : isComment ? <MessageSquare size={11} /> : isCompleted ? <CheckCircle2 size={11} /> : isApproval ? <Zap size={11} /> : <UserRound size={11} />}
+                    {isCashActivity ? <Wallet size={11} /> : isAdvance ? <ArrowUpRight size={11} /> : isComment ? <MessageSquare size={11} /> : isCompleted ? <CheckCircle2 size={11} /> : isApproval ? <Zap size={11} /> : <UserRound size={11} />}
                   </span>
                 </div>
 
@@ -392,7 +403,8 @@ export default function Notifications({
                         notif.type === 'new_task' ? 'badge-info' : 
                         notif.type === 'completion_requested' ? 'badge-info' :
                         notif.type === 'task_completed' ? 'badge-success' : 
-                        notif.type === 'advance_request' ? 'badge-warning' : 
+                        notif.type === 'advance_request' ? 'badge-warning' :
+                        notif.type === 'cash_activity' ? 'badge-primary' :
                         'badge-secondary'
                       }`} style={{ textTransform: 'capitalize' }}>
                         {notif.badge}

@@ -1,0 +1,153 @@
+/* Header strip for the Salary & Advances page.
+   The page has no title block, so this bar is the page's identity: a flat
+   full-width card holding a segmented tab track, with the active tab's own
+   filter on the right. Deliberately flat - no shadows, no raised edges. */
+
+.advance-tabs-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  width: 100%;
+  padding: 8px;
+  border-radius: 14px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--glass-border);
+}
+
+/* The track gives the row a filled base so the bar never looks empty. */
+.advance-tabs-group {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 4px;
+  border-radius: 11px;
+  background: var(--bg-tertiary);
+}
+
+.advance-tab {
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.87rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: var(--transition-smooth);
+}
+
+.advance-tab svg {
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: var(--transition-smooth);
+}
+
+.advance-tab:hover {
+  background: rgba(255, 255, 255, 0.8);
+  color: var(--text-primary);
+}
+
+.advance-tab:hover svg {
+  opacity: 1;
+}
+
+.advance-tab.active {
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-violet));
+  color: #ffffff;
+}
+
+.advance-tab.active svg {
+  opacity: 1;
+}
+
+.advance-tab-count {
+  min-width: 20px;
+  padding: 1px 7px;
+  border-radius: 9999px;
+  background: rgba(15, 23, 42, 0.07);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-align: center;
+  transition: var(--transition-smooth);
+}
+
+.advance-tab.active .advance-tab-count {
+  background: rgba(255, 255, 255, 0.24);
+  color: #ffffff;
+}
+
+.advance-tabs-filter {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-shrink: 0;
+  padding-left: 14px;
+  border-left: 1px solid var(--glass-border);
+}
+
+.advance-tabs-filter > span {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.advance-tabs-filter .form-input {
+  height: 38px;
+  min-width: 190px;
+  font-weight: 650;
+  font-size: 0.86rem;
+  box-shadow: none;
+}
+
+@media (max-width: 1150px) {
+  .advance-tab {
+    padding: 10px 8px;
+    font-size: 0.81rem;
+    gap: 6px;
+  }
+}
+
+@media (max-width: 900px) {
+  .advance-tabs-bar {
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .advance-tabs-group {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .advance-tabs-group::-webkit-scrollbar {
+    display: none;
+  }
+
+  .advance-tab {
+    flex: 0 0 auto;
+  }
+
+  .advance-tabs-filter {
+    width: 100%;
+    padding-left: 0;
+    border-left: none;
+  }
+
+  .advance-tabs-filter .form-input {
+    flex: 1;
+    min-width: 0;
+  }
+}

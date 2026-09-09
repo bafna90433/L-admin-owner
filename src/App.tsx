@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
-  Users,
   ArrowUpRight,
   TrendingUp,
   LogOut,
@@ -9,19 +8,15 @@ import {
   MessageSquare,
   Settings as SettingsIcon,
   History,
-  Receipt,
   Loader,
   Trash2,
-  Clock,
-  Tag
+  Clock
 } from 'lucide-react';
 
 // Import Modular Page Components
 import Login from './page/Login';
 import Notifications, { type NotificationItem } from './page/Notifications';
 import Dashboard from './page/Dashboard';
-import Categories from './page/Categories';
-import Labourers from './page/Labourers';
 import Advances from './page/Advances';
 import Reminders from './page/Reminders';
 import Tasks from './page/Tasks';
@@ -30,7 +25,6 @@ import TaskDetailModal from './page/TaskDetailModal';
 import Settings from './page/Settings';
 import Profile from './page/Profile';
 import AdvanceHistory from './page/AdvanceHistory';
-import TransactionHistory from './page/TransactionHistory';
 import DeletedLogs from './page/DeletedLogs';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'https://l-backend-production-ff32.up.railway.app/api';
@@ -288,7 +282,7 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
 
   // Router Tab
-  const adminValidTabs = ['notifications', 'dashboard', 'labourers', 'advances', 'advance-history', 'transaction-history', 'categories', 'deleted-logs', 'reminders', 'tasks', 'chat', 'settings', 'profile'] as const;
+  const adminValidTabs = ['notifications', 'dashboard', 'advances', 'advance-history', 'deleted-logs', 'reminders', 'tasks', 'chat', 'settings', 'profile'] as const;
   type AdminTabType = typeof adminValidTabs[number];
   const adminSavedTab = localStorage.getItem('admin_active_tab') as AdminTabType | null;
   const [activeTab, setActiveTab] = useState<AdminTabType>(adminSavedTab && adminValidTabs.includes(adminSavedTab) ? adminSavedTab : 'dashboard');
@@ -412,6 +406,76 @@ export default function App() {
     allNotifications.forEach(n => allIds.add(n.id));
     saveReadNotifIds(allIds);
     showToast('All notifications marked as read', 'success');
+  };
+
+  // Cash entries the MD made themselves (staff transfers) must never alert the MD.
+  const mdCreatedCashTxIdsRef = useRef<Set<string>>(new Set());
+
+  const getCashTxStaffName = (tx: any) => {
+    const tagged = String(tx?.description || '').match(/\[Staff:\s*([^\]]+)\]/);
+    if (tagged && tagged[1]) return tagged[1].trim();
+    if (tx?.staffId && typeof tx.staffId === 'object' && tx.staffId.name) return tx.staffId.name;
+    return tx?.staffName || 'Staff';
+  };
+
+  // True only for entries a staff member created on the Staff Desk cash pages.
+  const isStaffCashActivity = (tx: any) => {
+    if (!tx) return false;
+    if (mdCreatedCashTxIdsRef.current.has(String(tx._id))) return false;
+    const desc = String(tx.description || '');
+    // Records the MD generated: their own approvals and their own direct entries.
+    if (desc.includes('(Approved by Owner)') || desc.includes('(By Owner)')) return false;
+    // Auto-approved company cash requests are already announced as advance
+    // requests, so the mirrored cash entry must not alert a second time.
+    if (desc.includes('(Auto-Approved)')) return false;
+    return true;
+  };
+
+  const describeCashTx = (tx: any) => {
+    const amount = `₹${Number(tx?.amount || 0).toLocaleString('en-IN')}`;
+    const staffName = getCashTxStaffName(tx);
+    const category = String(tx?.category || '').replace(/[-_]/g, ' ').trim();
+    const isAdvance = String(tx?.category || '').toLowerCase().includes('advance');
+    const labourName = (tx?.labourId && typeof tx.labourId === 'object') ? (tx.labourId.name || '') : '';
+    const note = String(tx?.description || '')
+      .replace(/\[Staff:\s*[^\]]+\]/g, '')
+      .replace(/\((Auto-Approved|Approved by Owner|By Owner|MD Instructed)\)/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (tx?.txType === 'received') {
+      return {
+        title: `💵 Cash Received: ${amount}`,
+        body: `${staffName} recorded ${amount} received${note ? ` — ${note}` : ''}`,
+        badge: 'Cash Received'
+      };
+    }
+    if (isAdvance) {
+      return {
+        title: `💼 Salary Advance: ${amount}`,
+        body: `${staffName} paid ${amount}${labourName ? ` to ${labourName}` : ''}${note ? ` — ${note}` : ''}`,
+        badge: 'Advance Paid'
+      };
+    }
+    return {
+      title: `💸 Expense Logged: ${amount}`,
+      body: `${staffName} logged ${amount}${category ? ` under ${category}` : ''}${note ? ` — ${note}` : ''}`,
+      badge: 'Expense'
+    };
+  };
+
+  const describeAdvanceRequest = (a: any) => {
+    const amount = `₹${Number(a?.amount || 0).toLocaleString('en-IN')}`;
+    const requester = a?.requestedBy?.name || 'Staff';
+    const labourName = a?.labourId?.name || '';
+    const isCompanyCash = !labourName || labourName === 'Company Expenses';
+    const status = a?.status === 'pending' ? 'Needs your approval' : `Auto-approved`;
+    return {
+      title: isCompanyCash
+        ? `💰 Company Cash Request: ${amount}`
+        : `🛡️ Advance Request: ${amount}`,
+      body: `${requester}${isCompanyCash ? '' : ` • for ${labourName}`}${a?.reason ? ` • ${a.reason}` : ''} • ${status}`
+    };
   };
 
   // Build aggregated notifications list from tasks, comments, advances, and reminders
@@ -636,8 +700,27 @@ export default function App() {
       });
     });
 
+    // 4. Cash, expense and advance entries logged by staff on the Staff Desk
+    (expenses || []).forEach((tx: any) => {
+      if (!isStaffCashActivity(tx)) return;
+      const notifId = `notif_cash_${String(tx._id)}`;
+      const { title, body, badge } = describeCashTx(tx);
+      list.push({
+        id: notifId,
+        type: 'cash_activity',
+        title,
+        description: body,
+        timestamp: tx.date || new Date(),
+        staffName: getCashTxStaffName(tx),
+        badge,
+        badgeColor: tx.txType === 'received' ? 'success' : 'primary',
+        targetTab: 'dashboard',
+        isRead: readNotifIds.has(notifId)
+      });
+    });
+
     return list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-  }, [tasks, advances, reminders, readNotifIds]);
+  }, [tasks, advances, reminders, expenses, readNotifIds]);
 
   const unreadNotificationCount = allNotifications.filter(n => !n.isRead).length;
 
@@ -674,6 +757,8 @@ export default function App() {
       navigateTo('advances');
     } else if (notif.targetTab === 'reminders') {
       navigateTo('reminders');
+    } else if (notif.targetTab === 'dashboard') {
+      navigateTo('dashboard');
     } else {
       navigateTo('tasks');
     }
@@ -739,6 +824,8 @@ export default function App() {
       });
 
       if (res.ok) {
+        const createdTx = await res.json().catch(() => null);
+        if (createdTx?._id) mdCreatedCashTxIdsRef.current.add(String(createdTx._id));
         setShowCashModal(false);
         setCashAmount('');
         setCashDesc('');
@@ -819,6 +906,7 @@ export default function App() {
       });
       if (txRes.ok) {
         const data = await txRes.json();
+        hasFetchedCashRef.current = true;
         setExpenses(data);
       }
     } catch (err) {
@@ -851,6 +939,7 @@ export default function App() {
           try { return JSON.parse(localStorage.getItem('deleted_advance_ids') || '[]'); }
           catch { return []; }
         })();
+        hasFetchedAdvancesRef.current = true;
         setAdvances(Array.isArray(data) ? data.filter((a: AdvanceRequest) => !deletedIds.includes(a._id)) : []);
       }
     } catch (err) {
@@ -1180,6 +1269,14 @@ export default function App() {
     completionRequestedAt?: string;
   }>>(new Map());
   const mdCreatedTaskIdsRef = useRef<Set<string>>(new Set());
+
+  // Seen-entry trackers for the Staff Desk cash alerts above
+  const knownCashTxIdsRef = useRef<Set<string>>(new Set());
+  const isInitialCashScanRef = useRef(true);
+  const hasFetchedCashRef = useRef(false);
+  const knownAdvanceIdsRef = useRef<Set<string>>(new Set());
+  const isInitialAdvanceScanRef = useRef(true);
+  const hasFetchedAdvancesRef = useRef(false);
 
   const registerMDTaskLocally = (taskId: string) => {
     if (!taskId) return;
@@ -1544,6 +1641,70 @@ export default function App() {
     return () => clearInterval(interval);
   }, [token, user]);
 
+  // Poll the cash ledger and advance requests so anything a staff member records
+  // on the Staff Desk reaches the MD within a few seconds.
+  useEffect(() => {
+    if (!token || !user || user.role !== 'owner') return;
+    const interval = setInterval(() => {
+      fetchDashboardData();
+      fetchAdvances();
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [token, user]);
+
+  // Alert on new cash / expense / advance entries logged from the Staff Desk
+  useEffect(() => {
+    if (!user || user.role !== 'owner') return;
+    if (!hasFetchedCashRef.current || !Array.isArray(expenses)) return;
+
+    if (isInitialCashScanRef.current) {
+      expenses.forEach((tx: any) => knownCashTxIdsRef.current.add(String(tx._id)));
+      isInitialCashScanRef.current = false;
+      return;
+    }
+
+    const fresh = expenses.filter((tx: any) => !knownCashTxIdsRef.current.has(String(tx._id)));
+    if (fresh.length === 0) return;
+    fresh.forEach((tx: any) => knownCashTxIdsRef.current.add(String(tx._id)));
+
+    const staffEntries = fresh.filter(isStaffCashActivity);
+    if (staffEntries.length === 0) return;
+
+    playLoudNotificationSound();
+    staffEntries.slice(0, 3).forEach((tx: any) => {
+      const { title, body } = describeCashTx(tx);
+      showToast(`${title} — ${body}`, 'warning');
+      triggerDesktopPushNotification(title, body);
+    });
+  }, [expenses, user]);
+
+  // Alert on new advance / company cash requests raised by staff
+  useEffect(() => {
+    if (!user || user.role !== 'owner') return;
+    if (!hasFetchedAdvancesRef.current || !Array.isArray(advances)) return;
+
+    if (isInitialAdvanceScanRef.current) {
+      advances.forEach((a: any) => knownAdvanceIdsRef.current.add(String(a._id)));
+      isInitialAdvanceScanRef.current = false;
+      return;
+    }
+
+    const fresh = advances.filter((a: any) => !knownAdvanceIdsRef.current.has(String(a._id)));
+    if (fresh.length === 0) return;
+    fresh.forEach((a: any) => knownAdvanceIdsRef.current.add(String(a._id)));
+
+    // Requests the MD raised themselves must stay silent.
+    const staffRequests = fresh.filter((a: any) => (a?.requestedBy?.role || 'staff') !== 'owner');
+    if (staffRequests.length === 0) return;
+
+    playLoudNotificationSound();
+    staffRequests.slice(0, 3).forEach((a: any) => {
+      const { title, body } = describeAdvanceRequest(a);
+      showToast(`${title} — ${body}`, 'warning');
+      triggerDesktopPushNotification(title, body);
+    });
+  }, [advances, user]);
+
   const fetchUnreadCounts = async () => {
     if (!token) return;
     try {
@@ -1649,25 +1810,16 @@ export default function App() {
       case 'dashboard':
         return (
           <Dashboard
+            token={token}
+            apiBase={API_BASE}
             expenses={expenses}
             balanceData={balanceData}
             labours={labours}
-            onViewHistoryClick={() => navigateTo('transaction-history')}
-          />
-        );
-      case 'labourers':
-        return (
-          <Labourers
-            token={token}
-            apiBase={API_BASE}
-            labours={labours}
-            advances={advances}
-            fetchLabours={fetchLabours}
-            setConfirmModal={setConfirmModal}
+            fetchDashboardData={fetchDashboardData}
             showToast={showToast}
+            setConfirmModal={setConfirmModal}
           />
         );
-
       case 'advances':
         return (
           <Advances
@@ -1691,26 +1843,6 @@ export default function App() {
             showToast={showToast}
             fetchAdvances={fetchAdvances}
             fetchDashboardData={fetchDashboardData}
-          />
-        );
-      case 'transaction-history':
-        return (
-          <TransactionHistory
-            token={token}
-            apiBase={API_BASE}
-            allStaff={allStaff}
-            showToast={showToast}
-          />
-        );
-      case 'categories':
-        return (
-          <Categories
-            token={token}
-            apiBase={API_BASE}
-            transactions={expenses}
-            onNavigate={navigateTo}
-            showToast={showToast}
-            setConfirmModal={setConfirmModal}
           />
         );
       case 'deleted-logs':
@@ -1851,14 +1983,6 @@ export default function App() {
           <p className="sidebar-section-label">Operations</p>
 
           <button
-            onClick={() => navigateTo('labourers')}
-            className={`nav-link ${activeTab === 'labourers' ? 'active' : ''}`}
-            aria-current={activeTab === 'labourers' ? 'page' : undefined}
-          >
-            <Users size={18} />
-            <span>Labour Directory</span>
-          </button>
-          <button
             onClick={() => navigateTo('advances')}
             className={`nav-link ${activeTab === 'advances' ? 'active' : ''}`}
             aria-current={activeTab === 'advances' ? 'page' : undefined}
@@ -1877,7 +2001,7 @@ export default function App() {
             aria-current={activeTab === 'advance-history' ? 'page' : undefined}
           >
             <History size={18} />
-            <span>Advance Ledger</span>
+            <span>Salary &amp; Advances</span>
           </button>
           <button
             onClick={() => navigateTo('dashboard')}
@@ -1886,22 +2010,6 @@ export default function App() {
           >
             <TrendingUp size={18} />
             <span>Expenses Desk</span>
-          </button>
-          <button
-            onClick={() => navigateTo('transaction-history')}
-            className={`nav-link ${activeTab === 'transaction-history' ? 'active' : ''}`}
-            aria-current={activeTab === 'transaction-history' ? 'page' : undefined}
-          >
-            <Receipt size={18} />
-            <span>Transaction History</span>
-          </button>
-          <button
-            onClick={() => navigateTo('categories')}
-            className={`nav-link ${activeTab === 'categories' ? 'active' : ''}`}
-            aria-current={activeTab === 'categories' ? 'page' : undefined}
-          >
-            <Tag size={18} />
-            <span>Expense Categories</span>
           </button>
           <button
             onClick={() => navigateTo('deleted-logs')}
