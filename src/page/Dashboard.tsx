@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import ReactDOM from 'react-dom';
-import { ArrowLeft, Search, Eye, ChevronDown, X } from 'lucide-react';
+import { ArrowLeft, Banknote, CalendarDays, CircleMinus, CirclePlus, FileText, Search, ShieldCheck, Eye, ChevronDown, X } from 'lucide-react';
 import { getCategoryEmoji, getCategoryLabel } from '../utils/categoryTheme';
 import '../styles/Dashboard.css';
 
@@ -70,7 +70,7 @@ export default function Dashboard({
   labours = []
 }: DashboardProps) {
   const [selectedCreditPersonId, setSelectedCreditPersonId] = useState<string | null>(null);
-  const [historyFilter, setHistoryFilter] = useState<'all' | 'credit' | 'expense'>('all');
+  const [historyFilter, setHistoryFilter] = useState<'credit' | 'expense'>('credit');
 
   // Recent Logs states
   const [logTab, setLogTab] = useState<'inflow' | 'outflow' | 'advance'>('outflow');
@@ -394,20 +394,6 @@ export default function Dashboard({
       .sort((a, b) => b.totalCredit - a.totalCredit);
   }, [expenses, labours]);
 
-  // Per-person expense deductions (expenses tagged to each staff member)
-  const staffTaggedExpenses = useMemo(() => {
-    const expMap: Record<string, number> = {};
-    (expenses || []).forEach(tx => {
-      if (tx.txType === 'received') return;
-      const labourObj = typeof (tx as any).labourId === 'object' ? (tx as any).labourId : null;
-      if (labourObj?.name) {
-        const key = labourObj.name.trim().toLowerCase();
-        expMap[key] = (expMap[key] || 0) + (Number(tx.amount) || 0);
-      }
-    });
-    return expMap;
-  }, [expenses]);
-
   // Active selected person for View History modal
   const selectedCreditHistory = useMemo(() => {
     if (!selectedCreditPersonId) return null;
@@ -419,7 +405,7 @@ export default function Dashboard({
     if (!selectedCreditHistory) return [];
     if (historyFilter === 'credit') return selectedCreditHistory.creditTransactions;
     if (historyFilter === 'expense') return selectedCreditHistory.expenseTransactions;
-    return selectedCreditHistory.transactions;
+    return [];
   }, [selectedCreditHistory, historyFilter]);
 
   const getTransactionStaffName = (tx: CashTx | any) => {
@@ -738,6 +724,7 @@ export default function Dashboard({
   };
 
   if (selectedCreditHistory) {
+    const showAdvanceColumns = historyFilter !== 'credit';
     return (
       <div className="credit-history-page-container animate-fade-in" style={{ width: '100%', maxWidth: '100%' }}>
         {/* Top Navigation Bar */}
@@ -755,7 +742,7 @@ export default function Dashboard({
           </span>
         </div>
 
-        {/* Page Banner Header */}
+        {/* Staff identity + featured balance */}
         <div className="credit-history-page-header">
           <div className="credit-history-person">
             <span aria-hidden="true">
@@ -768,58 +755,57 @@ export default function Dashboard({
               <h2 style={{ margin: '2px 0 0', color: '#172033', fontSize: '1.5rem', fontWeight: 800 }}>
                 {selectedCreditHistory.name}
               </h2>
+              <p>Track staff advances, expenses and settlements</p>
             </div>
           </div>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => setSelectedCreditPersonId(null)}
-            style={{ fontSize: '0.82rem', padding: '6px 14px', borderRadius: '8px' }}
-          >
-            Close Ledger
-          </button>
+          <div className="credit-history-balance-hero">
+            <span className="credit-history-balance-icon" aria-hidden="true">₹</span>
+            <div>
+              <small>Net Hold</small>
+              <strong>₹{selectedCreditHistory.netHold.toLocaleString('en-IN')}</strong>
+              <span>In-hand remaining</span>
+            </div>
+          </div>
         </div>
 
         {/* Top Totals Summary (Full-Width Responsive Grid) */}
         <div className="credit-history-totals-page">
           <div className="credit-summary-card credit-inflow-card">
+            <span className="credit-stat-icon credit-stat-icon-green" aria-hidden="true">₹</span>
+            <div>
             <small>Total Credit (+)</small>
             <strong>+₹{selectedCreditHistory.totalCredit.toLocaleString('en-IN')}</strong>
             <span className="credit-summary-sub">{selectedCreditHistory.creditCount} Inflow {selectedCreditHistory.creditCount === 1 ? 'entry' : 'entries'}</span>
+            </div>
           </div>
           <div className="credit-summary-card credit-outflow-card">
+            <span className="credit-stat-icon credit-stat-icon-red" aria-hidden="true">−</span>
+            <div>
             <small>Total Spent / Minus (-)</small>
             <strong>-₹{selectedCreditHistory.totalSpent.toLocaleString('en-IN')}</strong>
             <span className="credit-summary-sub">{selectedCreditHistory.spentCount} Deduction {selectedCreditHistory.spentCount === 1 ? 'entry' : 'entries'}</span>
-          </div>
-          <div className="credit-summary-card credit-balance-card">
-            <small>Net Hold Balance</small>
-            <strong style={{ color: selectedCreditHistory.netHold >= 0 ? '#0284c7' : '#dc2626' }}>
-              ₹{selectedCreditHistory.netHold.toLocaleString('en-IN')}
-            </strong>
-            <span className="credit-summary-sub">In-hand remaining</span>
+            </div>
           </div>
           <div className="credit-summary-card">
+            <span className="credit-stat-icon credit-stat-icon-blue" aria-hidden="true">▣</span>
+            <div>
             <small>Online Received</small>
             <strong style={{ color: '#2563eb' }}>₹{selectedCreditHistory.onlineCredit.toLocaleString('en-IN')}</strong>
             <span className="credit-summary-sub">Bank / UPI</span>
+            </div>
           </div>
           <div className="credit-summary-card">
+            <span className="credit-stat-icon credit-stat-icon-green" aria-hidden="true">₹</span>
+            <div>
             <small>Cash Received</small>
             <strong style={{ color: '#059669' }}>₹{selectedCreditHistory.handCashCredit.toLocaleString('en-IN')}</strong>
             <span className="credit-summary-sub">Handcash</span>
+            </div>
           </div>
         </div>
 
         {/* Filter Bar */}
         <div className="credit-history-filter-bar" style={{ padding: '0 0 16px 0', border: 'none' }}>
-          <button
-            type="button"
-            className={`history-filter-btn ${historyFilter === 'all' ? 'active' : ''}`}
-            onClick={() => setHistoryFilter('all')}
-          >
-            All Activity ({selectedCreditHistory.transactions.length})
-          </button>
           <button
             type="button"
             className={`history-filter-btn filter-inflow ${historyFilter === 'credit' ? 'active' : ''}`}
@@ -836,16 +822,24 @@ export default function Dashboard({
           </button>
         </div>
 
-        {/* Detailed Full-Width Transaction Table */}
+        <div className="credit-history-section-heading">
+          <div>
+            <h3>Recent Transactions</h3>
+            <p>Chronological view of staff credit and expense transactions</p>
+          </div>
+          <span>{displayedHistoryTransactions.length} of {selectedCreditHistory.transactions.length} transactions</span>
+        </div>
+
+        {/* Connected transaction timeline */}
         <div className="table-container credit-history-page-table-wrap">
-          <table className="custom-table credit-history-table">
+          <table className={`custom-table credit-history-table credit-history-table-${historyFilter}`}>
             <thead>
               <tr>
                 <th style={{ width: '135px' }}>Date & Time</th>
                 <th style={{ width: '125px' }}>Type</th>
-                <th style={{ width: '135px' }}>Category</th>
-                <th style={{ width: '180px' }}>Advance Recipient (Labour)</th>
-                <th style={{ width: '160px' }}>Advance Type</th>
+                {showAdvanceColumns && <th style={{ width: '135px' }}>Category</th>}
+                {showAdvanceColumns && <th style={{ width: '180px' }}>Advance Recipient (Labour)</th>}
+                {showAdvanceColumns && <th style={{ width: '160px' }}>Advance Type</th>}
                 <th>Details / Notes</th>
                 <th style={{ width: '120px' }}>Payment Mode</th>
                 <th style={{ width: '125px', textAlign: 'right' }}>Amount</th>
@@ -870,6 +864,7 @@ export default function Dashboard({
                   return (
                     <tr key={tx._id || idx} style={{ background: isCredit ? 'transparent' : 'rgba(254, 242, 242, 0.3)' }}>
                       <td>
+                        <span className="timeline-node-icon timeline-node-date" aria-hidden="true"><CalendarDays size={23} /></span>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                           <span style={{ fontWeight: 600 }}>{txDate}</span>
                           {txTime && (
@@ -879,23 +874,7 @@ export default function Dashboard({
                           )}
                         </div>
                       </td>
-                      <td>
-                        {isCredit ? (
-                          <span className="credit-type-pill credit-inflow">
-                            📥 Credit Inflow
-                          </span>
-                        ) : (
-                          <span className="credit-type-pill credit-outflow">
-                            📤 Minus (Spent)
-                          </span>
-                        )}
-                      </td>
-                      <td>
-                        <span className={`badge ${isCredit ? 'badge-success' : 'badge-danger'}`} style={{ fontSize: '0.67rem', padding: '2px 8px', letterSpacing: '0.04em' }}>
-                          {categoryLabel}
-                        </span>
-                      </td>
-                      <td style={{ verticalAlign: 'middle' }}>
+                      {showAdvanceColumns && <td style={{ verticalAlign: 'middle' }}>
                         {recipient ? (
                           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '3px 8px', background: 'rgba(99, 102, 241, 0.08)', border: '1px solid rgba(99, 102, 241, 0.2)', borderRadius: '8px' }}>
                             <span style={{
@@ -919,8 +898,12 @@ export default function Dashboard({
                         ) : (
                           <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>--</span>
                         )}
-                      </td>
-                      <td style={{ verticalAlign: 'middle' }}>
+                        <span className="badge badge-danger" style={{ fontSize: '0.67rem', padding: '2px 8px', letterSpacing: '0.04em' }}>
+                          {categoryLabel}
+                        </span>
+                      </td>}
+                      {showAdvanceColumns && <td style={{ verticalAlign: 'middle' }}>
+                        <span className="timeline-node-icon timeline-node-approval" aria-hidden="true"><ShieldCheck size={24} /></span>
                         {advSource ? (
                           <span
                             title={advSource.flow}
@@ -952,8 +935,9 @@ export default function Dashboard({
                         ) : (
                           <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>--</span>
                         )}
-                      </td>
+                      </td>}
                       <td>
+                        <span className="timeline-node-icon timeline-node-notes" aria-hidden="true"><FileText size={23} /></span>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
                           <strong style={{ color: '#1e293b', fontSize: '0.85rem' }}>
                             {advSource ? getAdvanceNote({ reason }, notes) : notes}
@@ -971,11 +955,15 @@ export default function Dashboard({
                         </div>
                       </td>
                       <td>
+                        <span className="timeline-node-icon timeline-node-payment" aria-hidden="true"><Banknote size={24} /></span>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', fontWeight: 500 }}>
                           {tx.paymentMode === 'online' ? '🌐 Online' : '💵 Cash'}
                         </span>
                       </td>
                       <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <span className={`timeline-node-icon ${isCredit ? 'timeline-node-credit' : 'timeline-node-minus'}`} aria-hidden="true">
+                          {isCredit ? <CirclePlus size={25} /> : <CircleMinus size={25} />}
+                        </span>
                         <span style={{ 
                           fontWeight: 800, 
                           fontSize: '0.95rem',
@@ -989,7 +977,7 @@ export default function Dashboard({
                 })
               ) : (
                 <tr>
-                  <td colSpan={8} style={{ textAlign: 'center', padding: '36px 16px', color: 'var(--text-secondary)' }}>
+                  <td colSpan={showAdvanceColumns ? 6 : 4} style={{ textAlign: 'center', padding: '36px 16px', color: 'var(--text-secondary)' }}>
                     {historyFilter === 'expense'
                       ? 'No deductions / spent entries recorded for this staff member yet.'
                       : historyFilter === 'credit'
@@ -1175,7 +1163,7 @@ export default function Dashboard({
                   <strong>+₹{person.totalCredit.toLocaleString('en-IN')}</strong>
                 </div>
                 {(() => {
-                  const spent = person.totalSpent || staffTaggedExpenses[person.name.trim().toLowerCase()] || 0;
+                  const spent = person.totalSpent;
                   const net = person.netHold !== undefined ? person.netHold : (person.totalCredit - spent);
                   return spent > 0 ? (
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '8px', marginBottom: '4px' }}>
@@ -1206,7 +1194,7 @@ export default function Dashboard({
                   className="dashboard-credit-history-button"
                   onClick={() => {
                     setSelectedCreditPersonId(person.id || person.name);
-                    setHistoryFilter('all');
+                    setHistoryFilter('credit');
                   }}
                 >
                   View History <span aria-hidden="true">→</span>
