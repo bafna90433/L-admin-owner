@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import {
   Sparkles,
   ArrowUp,
@@ -102,11 +104,13 @@ const STARTERS = [
 const HINGLISH_REQUEST = /\b(hinglish|hindi\s*(me|mein|m\b|language)?|roman\s*hindi)\b|mix(ed)?\s*(hindi|language)/i;
 const ENGLISH_REQUEST = /\b(in\s*english|english\s*(me|mein|only|please)?|angrezi)\b/i;
 const DEVANAGARI = /[ऀ-ॿ]/;
+const ROMAN_HINDI = /\b(mujhe|chahiye|chaye|kaise|kya|hai|hain|mein|mera|meri|mere|batao|dikhao|karo|wala|wali|liye|acha|achha|sabse|kitna|under)\b/gi;
 
 /** Returns the language the message asks for, or null if it asks for nothing. */
 function requestedLang(text: string): Lang | null {
   if (ENGLISH_REQUEST.test(text)) return 'en';
-  if (HINGLISH_REQUEST.test(text) || DEVANAGARI.test(text)) return 'hinglish';
+  const romanHindiWords = text.match(ROMAN_HINDI)?.length || 0;
+  if (HINGLISH_REQUEST.test(text) || DEVANAGARI.test(text) || romanHindiWords >= 2) return 'hinglish';
   return null;
 }
 
@@ -747,7 +751,15 @@ export default function AiCouncil({ apiBase, token }: AiCouncilProps = {}) {
 
                           {(a.status === 'streaming' || a.status === 'done') && (
                             <div className="aic-msg-text">
-                              {a.text}
+                              <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                components={{
+                                  a: props => <a {...props} target="_blank" rel="noopener noreferrer" />,
+                                  img: props => <img {...props} loading="lazy" referrerPolicy="no-referrer" alt={props.alt || 'AI result'} />
+                                }}
+                              >
+                                {a.text}
+                              </ReactMarkdown>
                               {a.status === 'streaming' && <i className="aic-caret" />}
                             </div>
                           )}
