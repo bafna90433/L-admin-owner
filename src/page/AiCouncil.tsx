@@ -418,8 +418,18 @@ export default function AiCouncil({ apiBase, token }: AiCouncilProps = {}) {
       const startedAt = Date.now();
       patchAnswer(turnId, model, { status: 'thinking', text: '', ms: 0, error: undefined });
 
+      // In Live mode a model without a key must say so — showing it a sample
+      // answer next to real ones would read as a genuine reply.
+      if (live && authToken && !ready[model]) {
+        patchAnswer(turnId, model, {
+          status: 'error',
+          error: `${metaOf(model).name} ki API key abhi add nahi hui hai — Settings me daal dijiye.`
+        });
+        return;
+      }
+
       // Demo mode: sample answer with a staggered delay so each model feels independent.
-      if (!live || !ready[model] || !authToken) {
+      if (!live || !authToken) {
         const delay = { gemini: 800, gpt: 1400, claude: 1100 }[model];
         schedule(() => streamText(turnId, model, demoAnswer(model, question, replyLang), startedAt), delay);
         return;
