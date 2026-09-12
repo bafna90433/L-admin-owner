@@ -13,7 +13,9 @@ import {
   Languages,
   Trash2,
   Users,
-  X
+  X,
+  Globe,
+  ExternalLink
 } from 'lucide-react';
 import '../styles/AiCouncil.css';
 
@@ -56,11 +58,22 @@ const metaOf = (id: ModelId) => MODELS.find(m => m.id === id)!;
 const modelStyle = (m: ModelMeta) =>
   ({ ['--m1' as string]: m.c1, ['--m2' as string]: m.c2 }) as React.CSSProperties;
 
+/** A page the model cited, shown as a card under the answer. */
+interface SourceCard {
+  url: string;
+  title: string;
+  site: string;
+  host: string;
+  image: string | null;
+  favicon: string | null;
+}
+
 interface AnswerState {
   status: AnswerStatus;
   text: string;
   ms: number;
   error?: string;
+  sources?: SourceCard[];
 }
 
 interface Turn {
@@ -437,6 +450,9 @@ export default function AiCouncil({ apiBase, token }: AiCouncilProps = {}) {
             return;
           }
 
+          if (Array.isArray(data.sources) && data.sources.length) {
+            patchAnswer(turnId, model, { sources: data.sources });
+          }
           streamText(turnId, model, data.text || '', startedAt);
         } catch (err) {
           patchAnswer(turnId, model, {
@@ -761,6 +777,53 @@ export default function AiCouncil({ apiBase, token }: AiCouncilProps = {}) {
                                 {a.text}
                               </ReactMarkdown>
                               {a.status === 'streaming' && <i className="aic-caret" />}
+                            </div>
+                          )}
+
+                          {a.status === 'done' && !!a.sources?.length && (
+                            <div className="aic-sources">
+                              <div className="aic-sources-label">
+                                <Globe size={12} />
+                                Sources &amp; links
+                              </div>
+                              <div className="aic-source-grid">
+                                {a.sources.map(src => (
+                                  <a
+                                    key={src.url}
+                                    className="aic-source"
+                                    href={src.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    <div className="aic-source-thumb">
+                                      {src.image ? (
+                                        <img
+                                          src={src.image}
+                                          alt=""
+                                          loading="lazy"
+                                          referrerPolicy="no-referrer"
+                                          onError={e => {
+                                            // Hotlink blocked — fall back to the site icon.
+                                            const img = e.currentTarget;
+                                            img.style.display = 'none';
+                                            img.parentElement?.classList.add('is-icon');
+                                          }}
+                                        />
+                                      ) : null}
+                                      {src.favicon && (
+                                        <img className="aic-source-fav" src={src.favicon} alt="" loading="lazy" />
+                                      )}
+                                    </div>
+                                    <div className="aic-source-body">
+                                      <span className="aic-source-title">{src.title}</span>
+                                      <span className="aic-source-site">
+                                        {src.site || src.host}
+                                        <ExternalLink size={11} />
+                                      </span>
+                                    </div>
+                                  </a>
+                                ))}
+                              </div>
                             </div>
                           )}
 
