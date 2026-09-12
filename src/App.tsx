@@ -10,7 +10,8 @@ import {
   History,
   Loader,
   Trash2,
-  Clock
+  Clock,
+  Sparkles
 } from 'lucide-react';
 
 // Import Modular Page Components
@@ -26,6 +27,7 @@ import Settings from './page/Settings';
 import Profile from './page/Profile';
 import AdvanceHistory from './page/AdvanceHistory';
 import DeletedLogs from './page/DeletedLogs';
+import AiCouncil from './page/AiCouncil';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'https://l-backend-production-ff32.up.railway.app/api';
 
@@ -282,7 +284,7 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
 
   // Router Tab
-  const adminValidTabs = ['notifications', 'dashboard', 'advances', 'advance-history', 'deleted-logs', 'reminders', 'tasks', 'chat', 'settings', 'profile'] as const;
+  const adminValidTabs = ['notifications', 'dashboard', 'advances', 'advance-history', 'deleted-logs', 'ai-council', 'reminders', 'tasks', 'chat', 'settings', 'profile'] as const;
   type AdminTabType = typeof adminValidTabs[number];
   const adminSavedTab = localStorage.getItem('admin_active_tab') as AdminTabType | null;
   const [activeTab, setActiveTab] = useState<AdminTabType>(adminSavedTab && adminValidTabs.includes(adminSavedTab) ? adminSavedTab : 'dashboard');
@@ -1853,6 +1855,8 @@ export default function App() {
             showToast={showToast}
           />
         );
+      case 'ai-council':
+        return <AiCouncil apiBase={API_BASE} token={token} />;
       case 'reminders':
         return (
           <Reminders
@@ -2018,6 +2022,14 @@ export default function App() {
           >
             <Trash2 size={18} />
             <span>Deleted History</span>
+          </button>
+          <button
+            onClick={() => navigateTo('ai-council')}
+            className={`nav-link ${activeTab === 'ai-council' ? 'active' : ''}`}
+            aria-current={activeTab === 'ai-council' ? 'page' : undefined}
+          >
+            <Sparkles size={18} />
+            <span>AI Council</span>
           </button>
         </nav>
 
