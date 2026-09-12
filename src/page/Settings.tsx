@@ -13,7 +13,13 @@ import {
   UserPlus,
   Phone,
   X,
-  Save
+  Save,
+  KeyRound,
+  Eye,
+  EyeOff,
+  Bot,
+  CheckCircle2,
+  Wifi
 } from 'lucide-react';
 import '../styles/Settings.css';
 import AccessControl from './AccessControl';
@@ -46,6 +52,15 @@ interface SettingsProps {
   showToast: (message: string, type?: 'success' | 'danger' | 'warning' | 'info') => void;
 }
 
+type AiProviderId = 'gemini' | 'gpt' | 'claude';
+type AiProviderConfig = { configured: boolean; maskedKey: string; model: string; source: string | null };
+
+const aiProviderMeta: Record<AiProviderId, { name: string; company: string; color: string; hint: string }> = {
+  gemini: { name: 'Gemini', company: 'Google AI', color: '#4285f4', hint: 'AIza...' },
+  gpt: { name: 'ChatGPT', company: 'OpenAI', color: '#10a37f', hint: 'sk-...' },
+  claude: { name: 'Claude', company: 'Anthropic', color: '#d97745', hint: 'sk-ant-...' }
+};
+
 export default function Settings({
   token,
   apiBase,
@@ -58,7 +73,8 @@ export default function Settings({
   const settingsNav = [
     { id: 'settings-access', label: 'Staff & Roles', icon: ShieldCheck },
     { id: 'settings-staff-names', label: 'Staff Display Names', icon: UsersRound },
-    { id: 'settings-advance', label: 'Advance Approval', icon: IndianRupee }
+    { id: 'settings-advance', label: 'Advance Approval', icon: IndianRupee },
+    { id: 'settings-ai', label: 'AI Council APIs', icon: KeyRound }
   ];
 
   const openSetting = (id: string) => {
@@ -79,13 +95,87 @@ export default function Settings({
   // Advance Auto Approval Limit state
   const [autoApproveLimit, setAutoApproveLimit] = useState('5000');
   const [savingAutoApproveLimit, setSavingAutoApproveLimit] = useState(false);
+  const [aiConfig, setAiConfig] = useState<Record<AiProviderId, AiProviderConfig> | null>(null);
+  const [aiKeys, setAiKeys] = useState<Record<AiProviderId, string>>({ gemini: '', gpt: '', claude: '' });
+  const [aiModels, setAiModels] = useState<Record<AiProviderId, string>>({ gemini: '', gpt: '', claude: '' });
+  const [visibleAiKeys, setVisibleAiKeys] = useState<Record<AiProviderId, boolean>>({ gemini: false, gpt: false, claude: false });
+  const [aiConfigLoading, setAiConfigLoading] = useState(false);
+  const [aiConfigSaving, setAiConfigSaving] = useState(false);
+  const [testingProvider, setTestingProvider] = useState<AiProviderId | null>(null);
 
   useEffect(() => {
     if (token) {
       fetchAutoApproveLimit();
       fetchDirectoryData();
+      fetchAiConfig();
     }
   }, [token]);
+
+  async function fetchAiConfig() {
+    if (!token) return;
+    setAiConfigLoading(true);
+    try {
+      const response = await fetch(`${apiBase}/ai/config`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Could not load AI settings');
+      setAiConfig(data.providers);
+      setAiModels({
+        gemini: data.providers.gemini.model,
+        gpt: data.providers.gpt.model,
+        claude: data.providers.claude.model
+      });
+    } catch (error) {
+      console.error(error);
+      showToast(error instanceof Error ? error.message : 'Could not load AI settings', 'danger');
+    } finally {
+      setAiConfigLoading(false);
+    }
+  }
+
+  async function saveAiSettings(event: React.FormEvent) {
+    event.preventDefault();
+    setAiConfigSaving(true);
+    try {
+      const body = Object.fromEntries((Object.keys(aiProviderMeta) as AiProviderId[]).map(provider => [provider, {
+        apiKey: aiKeys[provider],
+        model: aiModels[provider]
+      }]));
+      const response = await fetch(`${apiBase}/ai/config`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body)
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Could not save AI settings');
+      setAiConfig(data.providers);
+      setAiKeys({ gemini: '', gpt: '', claude: '' });
+      showToast('AI Council API settings saved securely.', 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Could not save AI settings', 'danger');
+    } finally {
+      setAiConfigSaving(false);
+    }
+  }
+
+  async function testAiProvider(provider: AiProviderId) {
+    if (aiKeys[provider]) {
+      showToast('Save the new API key before testing it.', 'warning');
+      return;
+    }
+    setTestingProvider(provider);
+    try {
+      const response = await fetch(`${apiBase}/ai/test/${provider}`, {
+        method: 'POST', headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Connection failed');
+      showToast(`${aiProviderMeta[provider].name} connected successfully (${data.ms} ms).`, 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Connection failed', 'danger');
+    } finally {
+      setTestingProvider(null);
+    }
+  }
 
   async function fetchDirectoryData() {
     if (!token) return;
@@ -280,7 +370,7 @@ export default function Settings({
       </aside>
 
       <div className="settings-page-container">
-      <div hidden={activeSetting === 'settings-staff-names' || activeSetting === 'settings-access'}>
+      <div hidden={activeSetting === 'settings-staff-names' || activeSetting === 'settings-access' || activeSetting === 'settings-ai'}>
         <h1 style={{ fontSize: '2.2rem', display: 'flex', alignItems: 'center', gap: '12px' }}>
           <SettingsIcon size={32} /> System Settings
         </h1>
@@ -500,6 +590,79 @@ export default function Settings({
           </button>
         </form>
       </div>
+
+      <section id="settings-ai" className="ai-settings-page settings-anchor-section" hidden={activeSetting !== 'settings-ai'}>
+        <header className="ai-settings-header">
+          <div className="ai-settings-title-icon"><Bot size={27} /></div>
+          <div>
+            <span>AI Council configuration</span>
+            <h1>Connect your AI providers</h1>
+            <p>Add one or more API keys. AI Council will use real answers for connected providers and samples for the rest.</p>
+          </div>
+        </header>
+
+        <div className="ai-security-note">
+          <ShieldCheck size={20} />
+          <div><strong>Your keys stay private</strong><span>Keys are encrypted on the server and are never sent back to this browser after saving.</span></div>
+        </div>
+
+        <form className="ai-provider-form" onSubmit={saveAiSettings}>
+          {aiConfigLoading && !aiConfig ? (
+            <div className="ai-settings-loading"><Loader className="spinner" size={22} /> Loading AI providers...</div>
+          ) : (Object.keys(aiProviderMeta) as AiProviderId[]).map(provider => {
+            const meta = aiProviderMeta[provider];
+            const status = aiConfig?.[provider];
+            return (
+              <article className="ai-provider-card" key={provider} style={{ '--provider-color': meta.color } as React.CSSProperties}>
+                <div className="ai-provider-card-head">
+                  <span className="ai-provider-logo">{meta.name.slice(0, 1)}</span>
+                  <div><h2>{meta.name}</h2><p>{meta.company}</p></div>
+                  <span className={`ai-provider-status ${status?.configured ? 'connected' : ''}`}>
+                    {status?.configured ? <><CheckCircle2 size={15} /> Connected</> : 'Not connected'}
+                  </span>
+                </div>
+
+                <div className="ai-provider-fields">
+                  <label>
+                    <span>API key</span>
+                    <div className="ai-key-input">
+                      <KeyRound size={17} />
+                      <input
+                        type={visibleAiKeys[provider] ? 'text' : 'password'}
+                        value={aiKeys[provider]}
+                        onChange={event => setAiKeys(current => ({ ...current, [provider]: event.target.value }))}
+                        placeholder={status?.configured ? `${status.maskedKey} — enter only to replace` : meta.hint}
+                        autoComplete="new-password"
+                      />
+                      <button type="button" aria-label={`${visibleAiKeys[provider] ? 'Hide' : 'Show'} ${meta.name} API key`} onClick={() => setVisibleAiKeys(current => ({ ...current, [provider]: !current[provider] }))}>
+                        {visibleAiKeys[provider] ? <EyeOff size={17} /> : <Eye size={17} />}
+                      </button>
+                    </div>
+                  </label>
+                  <label>
+                    <span>Model</span>
+                    <input className="ai-model-input" value={aiModels[provider]} onChange={event => setAiModels(current => ({ ...current, [provider]: event.target.value }))} />
+                  </label>
+                </div>
+
+                <div className="ai-provider-card-foot">
+                  <small>{status?.source === 'environment' ? 'Configured from server environment' : status?.source === 'settings' ? 'Saved in Owner Settings' : 'API key required for live answers'}</small>
+                  <button type="button" disabled={!status?.configured || testingProvider === provider} onClick={() => testAiProvider(provider)}>
+                    {testingProvider === provider ? <Loader className="spinner" size={15} /> : <Wifi size={15} />} Test connection
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+
+          <div className="ai-settings-actions">
+            <div><strong>Ready to connect?</strong><span>Save first, then test each configured provider.</span></div>
+            <button type="submit" disabled={aiConfigSaving || aiConfigLoading}>
+              {aiConfigSaving ? <Loader className="spinner" size={17} /> : <Save size={17} />} Save API settings
+            </button>
+          </div>
+        </form>
+      </section>
 
       </div>
 
