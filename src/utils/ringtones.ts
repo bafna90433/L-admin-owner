@@ -296,17 +296,93 @@ export interface PlayOptions {
   customUrl?: string;
   /** How many times the tone repeats before stopping on its own. */
   repeat?: number;
-  /**
-   * Keep ringing for this long instead of a fixed number of passes. This is
-   * what makes a ring carry on until somebody actually answers it.
-   */
+  /** Keep ringing for this long instead of a fixed number of passes. */
   loopMs?: number;
+  /** Ring on and on until the returned stop function is called. */
+  loop?: boolean;
   volume?: number;
 }
 
 /** Plays a tone and hands back a function that stops it early. */
+/** Schedules a fixed number of passes and reports how long they will take. */
+const scheduleTone = (
+  audio: Ctx,
+  spec: ToneSpec,
+  passes: number,
+  volume: number
+): { stop: () => void; seconds: number } => {
+  // The compressor is what lets the output run this hot without tearing.
+  const squash = audio.createDynamicsCompressor();
+  squash.threshold.value = -20;
+  squash.knee.value = 14;
+  squash.ratio.value = 9;
+  squash.attack.value = 0.003;
+  squash.release.value = 0.2;
+
+  const master = audio.createGain();
+  master.gain.value = Math.min(1, Math.max(0, volume)) * OUTPUT_BOOST;
+  master.connect(squash).connect(audio.destination);
+
+  const started: OscillatorNode[] = [];
+  const base = audio.currentTime + 0.02;
+  const stride = spec.length + (spec.gap ?? 0.15);
+
+  for (let pass = 0; pass < passes; pass++) {
+    const offset = base + pass * stride;
+    for (const note of spec.notes) {
+      const osc = audio.createOscillator();
+      const gain = audio.createGain();
+      const noteStart = offset + note.at;
+      const noteEnd = noteStart + note.dur;
+      const peak = note.gain ?? 0.5;
+
+      osc.type = note.type || 'sine';
+      osc.frequency.setValueAtTime(note.freq, noteStart);
+      if (note.to) osc.frequency.linearRampToValueAtTime(note.to, noteEnd);
+
+      // A quick attack stops the click a square edge would make. Alarm tones
+      // then hold at full level; musical ones decay away naturally.
+      const attack = Math.min(0.012, note.dur * 0.2);
+      gain.gain.setValueAtTime(0.0001, noteStart);
+      gain.gain.exponentialRampToValueAtTime(peak, noteStart + attack);
+      if (spec.sustain) {
+        const release = Math.min(0.05, note.dur * 0.25);
+        gain.gain.setValueAtTime(peak, noteEnd - release);
+        gain.gain.exponentialRampToValueAtTime(0.0001, noteEnd);
+      } else {
+        gain.gain.exponentialRampToValueAtTime(0.0001, noteEnd);
+      }
+
+      osc.connect(gain).connect(master);
+      osc.start(noteStart);
+      osc.stop(noteEnd + 0.02);
+      started.push(osc);
+    }
+  }
+
+  return {
+    seconds: passes * stride,
+    stop: () => {
+      for (const osc of started) {
+        try {
+          osc.stop();
+        } catch {
+          // Already finished — nothing to stop.
+        }
+      }
+      try {
+        master.disconnect();
+        squash.disconnect();
+      } catch {
+        // Context torn down.
+      }
+    }
+  };
+};
+
+/** Plays a tone and hands back a function that stops it early. */
 export const playTone = (tone: ToneId, options: PlayOptions = {}): (() => void) => {
-  const { customUrl = '', repeat = 1, loopMs = 0, volume = 1 } = options;
+  const { customUrl = '', repeat = 1, loopMs = 0, loop = false, volume = 1 } = options;
 
   if (tone === 'custom' && customUrl) {
     const el = new Audio(customUrl);
@@ -315,7 +391,7 @@ export const playTone = (tone: ToneId, options: PlayOptions = {}): (() => void) 
     let plays = 0;
     el.addEventListener('ended', () => {
       plays++;
-      const again = until ? Date.now() < until : plays < repeat;
+      const again = loop || (until ? Date.now() < until : plays < repeat);
       if (again) {
         el.currentTime = 0;
         void el.play().catch(() => undefined);
@@ -334,73 +410,37 @@ export const playTone = (tone: ToneId, options: PlayOptions = {}): (() => void) 
 
   if (audio.state === 'suspended') void audio.resume().catch(() => undefined);
 
-  // The compressor is what lets the output run this hot without tearing.
-  const squash = audio.createDynamicsCompressor();
-  squash.threshold.value = -20;
-  squash.knee.value = 14;
-  squash.ratio.value = 9;
-  squash.attack.value = 0.003;
-  squash.release.value = 0.2;
-
-  const master = audio.createGain();
-  master.gain.value = Math.min(1, Math.max(0, volume)) * OUTPUT_BOOST;
-  master.connect(squash).connect(audio.destination);
-
-  const started: OscillatorNode[] = [];
-  const base = audio.currentTime + 0.02;
   const stride = spec.length + (spec.gap ?? 0.15);
 
-  // Every pass is scheduled up front. Stopping the ring stops the oscillators,
-  // so there is no timer to drift and no gap between passes.
-  const passes = loopMs ? Math.max(1, Math.ceil(loopMs / 1000 / stride)) : Math.max(1, repeat);
-
-  for (let pass = 0; pass < passes; pass++) {
-    const offset = base + pass * stride;
-    for (const note of spec.notes) {
-      const osc = audio.createOscillator();
-      const gain = audio.createGain();
-      const start = offset + note.at;
-      const end = start + note.dur;
-      const peak = note.gain ?? 0.5;
-
-      osc.type = note.type || 'sine';
-      osc.frequency.setValueAtTime(note.freq, start);
-      if (note.to) osc.frequency.linearRampToValueAtTime(note.to, end);
-
-      // A quick attack stops the click a square edge would make. Alarm tones
-      // then hold at full level; musical ones decay away naturally.
-      const attack = Math.min(0.012, note.dur * 0.2);
-      gain.gain.setValueAtTime(0.0001, start);
-      gain.gain.exponentialRampToValueAtTime(peak, start + attack);
-      if (spec.sustain) {
-        const release = Math.min(0.05, note.dur * 0.25);
-        gain.gain.setValueAtTime(peak, end - release);
-        gain.gain.exponentialRampToValueAtTime(0.0001, end);
-      } else {
-        gain.gain.exponentialRampToValueAtTime(0.0001, end);
-      }
-
-      osc.connect(gain).connect(master);
-      osc.start(start);
-      osc.stop(end + 0.02);
-      started.push(osc);
-    }
+  if (!loop) {
+    const passes = loopMs ? Math.max(1, Math.ceil(loopMs / 1000 / stride)) : Math.max(1, repeat);
+    return scheduleTone(audio, spec, passes, volume).stop;
   }
 
+  // Ringing until somebody answers. Web Audio needs every note scheduled with a
+  // start time, so book a short block at a time and queue the next block just
+  // before the current one runs out. A late timer leaves a tiny gap; booking
+  // them all up front would instead risk overlap, which sounds far worse.
+  let stopped = false;
+  let stopBlock: (() => void) | null = null;
+  let timer: number | null = null;
+
+  const BLOCK_SECONDS = 8;
+
+  const queueBlock = () => {
+    if (stopped) return;
+    const passes = Math.max(1, Math.ceil(BLOCK_SECONDS / stride));
+    const block = scheduleTone(audio, spec, passes, volume);
+    stopBlock = block.stop;
+    timer = window.setTimeout(queueBlock, block.seconds * 1000);
+  };
+
+  queueBlock();
+
   return () => {
-    for (const osc of started) {
-      try {
-        osc.stop();
-      } catch {
-        // Already finished — nothing to stop.
-      }
-    }
-    try {
-      master.disconnect();
-      squash.disconnect();
-    } catch {
-      // Context torn down.
-    }
+    stopped = true;
+    if (timer) window.clearTimeout(timer);
+    stopBlock?.();
   };
 };
 

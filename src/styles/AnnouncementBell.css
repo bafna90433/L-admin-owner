@@ -109,7 +109,7 @@
 
 .anb-grid {
   display: grid;
-  grid-template-columns: minmax(320px, 400px) 1fr;
+  grid-template-columns: minmax(340px, 420px) 1fr;
   gap: 18px;
   align-items: start;
 }
@@ -672,4 +672,200 @@
   .anb-modes {
     grid-template-columns: 1fr;
   }
+}
+
+
+/* ---------- the tabbed side panel ---------- */
+
+.anb-panel {
+  padding: 0;
+  overflow: hidden;
+}
+
+.anb-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-bottom: 1px solid var(--glass-border);
+  background: linear-gradient(180deg, #ffffff, var(--bg-tertiary));
+}
+
+.anb-tabs button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 15px 10px 13px;
+  border: none;
+  border-bottom: 3px solid transparent;
+  background: transparent;
+  font-family: var(--font-family);
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.anb-tabs button + button {
+  border-left: 1px solid var(--glass-border);
+}
+
+.anb-tabs button:hover {
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.anb-tabs button.on {
+  border-bottom-color: var(--accent-primary);
+  background: #ffffff;
+  color: var(--accent-primary);
+}
+
+.anb-tabs em {
+  font-size: 0.7rem;
+  font-style: normal;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.anb-tab-body {
+  padding: 18px 20px 20px;
+}
+
+.anb-tab-body .anb-staff-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.anb-tab-body .anb-staff-head .anb-hint {
+  margin: 0;
+}
+
+.anb-log-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.anb-log-list li {
+  padding: 12px 14px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius-md);
+  background: #ffffff;
+}
+
+@media (max-width: 1080px) {
+  .anb-tabs button {
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 560px) {
+  .anb-tabs {
+    grid-template-columns: 1fr;
+  }
+
+  .anb-tabs button + button {
+    border-left: none;
+    border-top: 1px solid var(--glass-border);
+  }
+}
+
+/* ---------- polished three-step workspace ---------- */
+.anb-page {
+  max-width: 1500px;
+  margin: 0 auto;
+  gap: 20px;
+  padding: 4px 0 32px;
+}
+
+.anb-head {
+  padding: 25px 28px;
+  border: 1px solid rgba(99, 102, 241, .18);
+  border-radius: 20px;
+  background: radial-gradient(circle at 88% 12%, rgba(255,255,255,.35), transparent 22%), linear-gradient(120deg, #eef2ff 0%, #f5f3ff 48%, #ecfeff 100%);
+  box-shadow: 0 16px 38px rgba(79, 70, 229, .08);
+}
+
+.anb-grid {
+  grid-template-columns: minmax(390px, 455px) minmax(0, 1fr);
+  gap: 20px;
+}
+
+.anb-card {
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 12px 34px rgba(15, 23, 42, .06);
+}
+
+.anb-compose {
+  position: sticky;
+  top: 18px;
+  border-top: 4px solid #6366f1;
+}
+
+.anb-panel {
+  min-height: 570px;
+  border-color: #dce3ee;
+}
+
+.anb-tabs {
+  gap: 8px;
+  padding: 10px;
+  border-bottom: 1px solid #e7ebf2;
+  background: #f7f8fc;
+}
+
+.anb-tabs button {
+  justify-content: center;
+  min-height: 74px;
+  padding: 11px 12px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+}
+
+.anb-tabs button + button { border-left: 1px solid transparent; }
+.anb-tabs button:hover { color: #4338ca; background: rgba(255,255,255,.82); }
+.anb-tabs button.on {
+  border-color: #c7d2fe;
+  background: #fff;
+  color: #4f46e5;
+  box-shadow: 0 6px 16px rgba(79,70,229,.1);
+}
+
+.anb-tabs button:focus-visible {
+  outline: 3px solid rgba(99,102,241,.24);
+  outline-offset: 2px;
+}
+
+.anb-tabs em { font-size: .68rem; }
+.anb-tab-body { padding: 22px 24px 26px; }
+.anb-ringtone-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px 18px;
+}
+.anb-ringtone-panel > .anb-hint { grid-column: 1 / -1; margin-bottom: 0; }
+.anb-ringtone-panel .anb-tone-actions { margin-top: 0; }
+
+@media (max-width: 1080px) {
+  .anb-grid { grid-template-columns: 1fr; }
+  .anb-compose { position: static; }
+  .anb-panel { min-height: 440px; }
+}
+
+@media (max-width: 560px) {
+  .anb-tabs { grid-template-columns: 1fr; }
+  .anb-tabs button { min-height: 62px; }
+  .anb-ringtone-panel { grid-template-columns: 1fr; }
 }

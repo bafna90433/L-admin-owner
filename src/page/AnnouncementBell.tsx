@@ -11,15 +11,13 @@ import {
   RefreshCw,
   Upload,
   Users,
-  Volume2
+  History
 } from 'lucide-react';
 import {
   TONES,
   previewTone,
   playSpeech,
   unlockAudio,
-  armAudioUnlock,
-  isAudioReady,
   type ToneId
 } from '../utils/ringtones';
 import '../styles/AnnouncementBell.css';
@@ -46,11 +44,6 @@ const TEMPLATES = [
   'Please collect your work sheet from the front desk.'
 ];
 
-const LANGUAGES: { id: 'en' | 'hi' | 'ta'; label: string }[] = [
-  { id: 'en', label: 'English' },
-  { id: 'hi', label: 'Hindi' },
-  { id: 'ta', label: 'Tamil' }
-];
 
 interface StaffRow {
   _id: string;
@@ -92,16 +85,14 @@ const AnnouncementBell = ({ apiBase, token }: Props) => {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState('');
   const [mode, setMode] = useState<'ring' | 'announce'>('ring');
-  const [lang, setLang] = useState<'en' | 'hi' | 'ta'>('en');
   const [polishing, setPolishing] = useState(false);
   const [urgent, setUrgent] = useState(false);
   const [ringtone, setRingtone] = useState<Ringtone>({ tone: 'telephone', customUrl: '', customName: '' });
-  const [durationMs, setDurationMs] = useState(30000);
   const [ringing, setRinging] = useState(false);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState('');
+  const [panel, setPanel] = useState<'staff' | 'ringtone' | 'log'>('staff');
   const [uploading, setUploading] = useState(false);
-  const [soundReady, setSoundReady] = useState(isAudioReady());
 
   const sourceRef = useRef<EventSource | null>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
@@ -132,13 +123,6 @@ const AnnouncementBell = ({ apiBase, token }: Props) => {
     const timer = window.setInterval(() => void loadStatus(), 15000);
     return () => window.clearInterval(timer);
   }, [loadStatus]);
-
-  useEffect(() => {
-    // The MD may arrive on a saved session too, so the previews need the same
-    // first-click unlock the staff desk uses.
-    const disarm = armAudioUnlock(ready => setSoundReady(ready));
-    return disarm;
-  }, []);
 
   /* ---------- live acknowledgements ---------- */
 
@@ -281,9 +265,7 @@ const AnnouncementBell = ({ apiBase, token }: Props) => {
           staffIds: Array.from(selected),
           message: message.trim(),
           mode,
-          lang,
-          urgent,
-          durationMs
+          urgent
         })
       });
       const data = await res.json();
@@ -336,12 +318,12 @@ const AnnouncementBell = ({ apiBase, token }: Props) => {
       const res = await fetch(`${apiBase}/announce/speech`, {
         method: 'POST',
         headers: { ...authHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: `${SAMPLE_NAME}, ${draft}`, lang })
+        body: JSON.stringify({ text: `${SAMPLE_NAME}, ${draft}` })
       });
       const data = await res.json();
       if (!res.ok || !data?.audioContent) throw new Error('no audio');
 
-      if (!isAudioReady()) setSoundReady(await unlockAudio());
+      await unlockAudio();
       const played = await playSpeech(data.audioContent, { repeat: 1 });
       if (!played) throw new Error('blocked');
     } catch {
@@ -350,14 +332,26 @@ const AnnouncementBell = ({ apiBase, token }: Props) => {
   };
 
   const preview = async () => {
-    if (!isAudioReady()) {
-      const ok = await unlockAudio();
-      setSoundReady(ok);
-    }
+    await unlockAudio();
     previewTone(ringtone.tone, ringtone.customUrl);
   };
 
+  const handleTabKeys = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+    event.preventDefault();
+    const order: Array<'staff' | 'ringtone' | 'log'> = ['staff', 'ringtone', 'log'];
+    const current = order.indexOf(panel);
+    const direction = event.key === 'ArrowRight' ? 1 : -1;
+    const next = order[(current + direction + order.length) % order.length];
+    setPanel(next);
+    document.getElementById(`anb-tab-${next}`)?.focus();
+  };
+
   const onlineCount = staff.filter(s => s.online).length;
+  const currentToneName =
+    ringtone.tone === 'custom'
+      ? ringtone.customName || 'Custom tone'
+      : TONES.find(t => t.id === ringtone.tone)?.name || 'Telephone Ring';
 
   return (
     <div className="anb-page">
@@ -456,20 +450,6 @@ const AnnouncementBell = ({ apiBase, token }: Props) => {
                 ))}
               </div>
 
-              <label className="anb-label">Voice language</label>
-              <div className="anb-repeat">
-                {LANGUAGES.map(option => (
-                  <button
-                    key={option.id}
-                    type="button"
-                    className={lang === option.id ? 'on' : ''}
-                    onClick={() => setLang(option.id)}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-
               <div className="anb-tone-actions">
                 <button
                   type="button"
@@ -506,29 +486,11 @@ const AnnouncementBell = ({ apiBase, token }: Props) => {
             </button>
           </div>
 
-          {mode === 'ring' && (
-            <>
-              <label className="anb-label">Keep ringing for</label>
-              <div className="anb-repeat">
-                {[
-                  { ms: 15000, label: '15 sec' },
-                  { ms: 30000, label: '30 sec' },
-                  { ms: 60000, label: '1 min' },
-                  { ms: 120000, label: '2 min' }
-                ].map(option => (
-                  <button
-                    key={option.ms}
-                    type="button"
-                    className={durationMs === option.ms ? 'on' : ''}
-                    onClick={() => setDurationMs(option.ms)}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-              <p className="anb-hint">The ring stops as soon as the staff member answers it.</p>
-            </>
-          )}
+          <p className="anb-hint">
+            {mode === 'announce'
+              ? 'The announcement repeats every few seconds until the staff member answers it.'
+              : 'Their PC keeps ringing until they answer. It gives up on its own after 10 minutes.'}
+          </p>
 
           <button
             type="button"
@@ -550,136 +512,183 @@ const AnnouncementBell = ({ apiBase, token }: Props) => {
                 : `Ring the bell (${selected.size})`}
           </button>
 
-          {!soundReady && (
-            <button type="button" className="anb-ghost wide" onClick={() => void preview()}>
-              <Volume2 size={14} /> Test the sound on this PC
-            </button>
-          )}
         </section>
 
-        {/* ---------- the one office ringtone ---------- */}
-        <section className="anb-card anb-tone">
-          <h2>Office ringtone</h2>
-          <p className="anb-hint">
-            Every staff PC plays this same tone. Change it once here.
-          </p>
-
-          <div className="anb-tone-pick">
-            <Music4 size={16} />
-            <select
-              value={ringtone.tone}
-              onChange={e => void saveTone(e.target.value as ToneId)}
-            >
-              {TONES.map(tone => (
-                <option key={tone.id} value={tone.id}>
-                  {tone.name} — {tone.hint}
-                </option>
-              ))}
-              {ringtone.tone === 'custom' && (
-                <option value="custom">{ringtone.customName || 'Custom tone'} — your own file</option>
-              )}
-            </select>
-          </div>
-
-          <div className="anb-tone-actions">
-            <button type="button" className="anb-ghost" onClick={() => void preview()}>
-              <Play size={14} /> Listen
-            </button>
+        {/* ---------- one panel, three tabs ---------- */}
+        <section className="anb-card anb-panel">
+          <div className="anb-tabs" role="tablist" aria-label="Announcement settings" onKeyDown={handleTabKeys}>
             <button
+              id="anb-tab-staff"
               type="button"
-              className="anb-ghost"
-              onClick={() => uploadInputRef.current?.click()}
-              disabled={uploading}
+              role="tab"
+              aria-selected={panel === 'staff'}
+              aria-controls="anb-panel-staff"
+              tabIndex={panel === 'staff' ? 0 : -1}
+              className={panel === 'staff' ? 'on' : ''}
+              onClick={() => setPanel('staff')}
             >
-              {uploading ? <Loader2 size={14} className="anb-spin" /> : <Upload size={14} />}
-              {uploading ? 'Uploading...' : 'Upload your own mp3'}
+              <Users size={15} />
+              Who to ring
+              <em>{selected.size ? `${selected.size} picked` : `${onlineCount} online`}</em>
+            </button>
+
+            <button
+              id="anb-tab-ringtone"
+              type="button"
+              role="tab"
+              aria-selected={panel === 'ringtone'}
+              aria-controls="anb-panel-ringtone"
+              tabIndex={panel === 'ringtone' ? 0 : -1}
+              className={panel === 'ringtone' ? 'on' : ''}
+              onClick={() => setPanel('ringtone')}
+            >
+              <Music4 size={15} />
+              Office ringtone
+              <em>{currentToneName}</em>
+            </button>
+
+            <button
+              id="anb-tab-log"
+              type="button"
+              role="tab"
+              aria-selected={panel === 'log'}
+              aria-controls="anb-panel-log"
+              tabIndex={panel === 'log' ? 0 : -1}
+              className={panel === 'log' ? 'on' : ''}
+              onClick={() => setPanel('log')}
+            >
+              <History size={15} />
+              Recent announcements
+              <em>{log.length ? `${log.length} sent` : 'nothing yet'}</em>
             </button>
           </div>
 
-          {ringtone.tone === 'custom' && ringtone.customName && (
-            <p className="anb-hint">Currently using: <strong>{ringtone.customName}</strong></p>
-          )}
-        </section>
+          {panel === 'staff' && (
+            <div id="anb-panel-staff" className="anb-tab-body" role="tabpanel" aria-labelledby="anb-tab-staff">
+              <div className="anb-staff-head">
+                <p className="anb-hint">Tick everyone who should get this.</p>
+                <div className="anb-staff-actions">
+                  <button type="button" className="anb-ghost" onClick={selectOnline}>
+                    Select online
+                  </button>
+                  <button type="button" className="anb-ghost" onClick={toggleAll}>
+                    {allSelected ? 'Clear' : 'Select all'}
+                  </button>
+                </div>
+              </div>
 
-        {/* ---------- staff ---------- */}
-        <section className="anb-card anb-staff">
-          <div className="anb-staff-head">
-            <h2>Who to ring</h2>
-            <div className="anb-staff-actions">
-              <button type="button" className="anb-ghost" onClick={selectOnline}>
-                Select online
-              </button>
-              <button type="button" className="anb-ghost" onClick={toggleAll}>
-                {allSelected ? 'Clear' : 'Select all'}
-              </button>
+              {loading ? (
+                <p className="anb-empty">
+                  <Loader2 size={16} className="anb-spin" /> Loading...
+                </p>
+              ) : staff.length === 0 ? (
+                <p className="anb-empty">No staff found.</p>
+              ) : (
+                <ul className="anb-list">
+                  {staff.map(person => (
+                    <li key={person._id} className={selected.has(person._id) ? 'picked' : ''}>
+                      <label className="anb-person">
+                        <input
+                          type="checkbox"
+                          checked={selected.has(person._id)}
+                          onChange={() => toggle(person._id)}
+                        />
+                        <span className="anb-name">
+                          {person.name}
+                          <small>@{person.username}</small>
+                        </span>
+                        <span className={`anb-dot ${person.online ? 'on' : ''}`}>
+                          {person.online ? 'Online' : 'Offline'}
+                        </span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
-          </div>
+          )}
 
-          {loading ? (
-            <p className="anb-empty">
-              <Loader2 size={16} className="anb-spin" /> Loading...
-            </p>
-          ) : staff.length === 0 ? (
-            <p className="anb-empty">No staff found.</p>
-          ) : (
-            <ul className="anb-list">
-              {staff.map(person => (
-                <li key={person._id} className={selected.has(person._id) ? 'picked' : ''}>
-                  <label className="anb-person">
-                    <input
-                      type="checkbox"
-                      checked={selected.has(person._id)}
-                      onChange={() => toggle(person._id)}
-                    />
-                    <span className="anb-name">
-                      {person.name}
-                      <small>@{person.username}</small>
-                    </span>
-                    <span className={`anb-dot ${person.online ? 'on' : ''}`}>
-                      {person.online ? 'Online' : 'Offline'}
-                    </span>
-                  </label>
+          {panel === 'ringtone' && (
+            <div id="anb-panel-ringtone" className="anb-tab-body anb-ringtone-panel" role="tabpanel" aria-labelledby="anb-tab-ringtone">
+              <p className="anb-hint">Every staff PC plays this same tone.</p>
 
-                </li>
-              ))}
-            </ul>
+              <div className="anb-tone-pick">
+                <Music4 size={16} />
+                <select value={ringtone.tone} onChange={e => void saveTone(e.target.value as ToneId)}>
+                  {TONES.map(tone => (
+                    <option key={tone.id} value={tone.id}>
+                      {tone.name} — {tone.hint}
+                    </option>
+                  ))}
+                  {ringtone.tone === 'custom' && (
+                    <option value="custom">
+                      {ringtone.customName || 'Custom tone'} — your own file
+                    </option>
+                  )}
+                </select>
+              </div>
+
+              <div className="anb-tone-actions">
+                <button type="button" className="anb-ghost" onClick={() => void preview()}>
+                  <Play size={14} /> Listen
+                </button>
+                <button
+                  type="button"
+                  className="anb-ghost"
+                  onClick={() => uploadInputRef.current?.click()}
+                  disabled={uploading}
+                >
+                  {uploading ? <Loader2 size={14} className="anb-spin" /> : <Upload size={14} />}
+                  {uploading ? 'Uploading...' : 'Upload your own mp3'}
+                </button>
+              </div>
+
+              {ringtone.tone === 'custom' && ringtone.customName && (
+                <p className="anb-hint">
+                  Currently using: <strong>{ringtone.customName}</strong>
+                </p>
+              )}
+            </div>
+          )}
+
+          {panel === 'log' && (
+            <div id="anb-panel-log" className="anb-tab-body" role="tabpanel" aria-labelledby="anb-tab-log">
+              {log.length === 0 ? (
+                <p className="anb-empty">Nothing sent yet.</p>
+              ) : (
+                <ul className="anb-log-list">
+                  {log.map(entry => (
+                    <li key={entry.ringId}>
+                      <div className="anb-log-head">
+                        <strong>{entry.message || 'Bell with no message'}</strong>
+                        <span>{new Date(entry.sentAt).toLocaleString()}</span>
+                      </div>
+                      <div className="anb-log-targets">
+                        {entry.targets.map(target => (
+                          <span
+                            key={target.userId}
+                            className={`anb-chip ${
+                              target.acknowledgedAt ? 'ack' : target.online ? 'sent' : 'miss'
+                            }`}
+                          >
+                            {target.acknowledgedAt ? (
+                              <CheckCheck size={12} />
+                            ) : target.online ? (
+                              <Check size={12} />
+                            ) : null}
+                            {target.name}
+                          </span>
+                        ))}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           )}
         </section>
       </div>
 
-      {/* ---------- history ---------- */}
-      <section className="anb-card anb-log">
-        <h2>Recent announcements</h2>
-        {log.length === 0 ? (
-          <p className="anb-empty">No announcements yet.</p>
-        ) : (
-          <ul>
-            {log.map(entry => (
-              <li key={entry.ringId}>
-                <div className="anb-log-head">
-                  <strong>{entry.message || 'Bell with no message'}</strong>
-                  <span>{new Date(entry.sentAt).toLocaleString()}</span>
-                </div>
-                <div className="anb-log-targets">
-                  {entry.targets.map(target => (
-                    <span
-                      key={target.userId}
-                      className={`anb-chip ${target.acknowledgedAt ? 'ack' : target.online ? 'sent' : 'miss'}`}
-                    >
-                      {target.acknowledgedAt ? (
-                        <CheckCheck size={12} />
-                      ) : target.online ? (
-                        <Check size={12} />
-                      ) : null}
-                      {target.name}
-                    </span>
-                  ))}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
     </div>
   );
 };
