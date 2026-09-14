@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   BellRing,
+  Megaphone,
+  Sparkles,
   Check,
   CheckCheck,
   Loader2,
@@ -11,7 +13,15 @@ import {
   Users,
   Volume2
 } from 'lucide-react';
-import { TONES, previewTone, unlockAudio, isAudioReady, type ToneId } from '../utils/ringtones';
+import {
+  TONES,
+  previewTone,
+  playSpeech,
+  unlockAudio,
+  armAudioUnlock,
+  isAudioReady,
+  type ToneId
+} from '../utils/ringtones';
 import '../styles/AnnouncementBell.css';
 
 /**
@@ -19,24 +29,46 @@ import '../styles/AnnouncementBell.css';
  *
  * Delivery rides the same Server-Sent Events stream the staff listen on, so a
  * ring lands in a few hundred milliseconds. This page also keeps the stream
- * open for itself, which is how the "sun liya" ticks arrive live.
+ * open for itself, which is how the acknowledgement ticks arrive live.
  */
 
 const IMAGEKIT_PUBLIC_KEY = 'public_LB0AyCgim15VO491kDtVm0Fo798=';
+
+/** Stand-in name used only for the MD's own preview. */
+const SAMPLE_NAME = 'Deepa';
+
+/** Lines the office actually uses, so the MD rarely has to type. */
+const TEMPLATES = [
+  'MD sir is calling you to the office.',
+  'Please come to the meeting room now.',
+  'Please report to the MD cabin.',
+  'Please come to the accounts desk.',
+  'Please collect your work sheet from the front desk.'
+];
+
+const LANGUAGES: { id: 'en' | 'hi' | 'ta'; label: string }[] = [
+  { id: 'en', label: 'English' },
+  { id: 'hi', label: 'Hindi' },
+  { id: 'ta', label: 'Tamil' }
+];
 
 interface StaffRow {
   _id: string;
   name: string;
   username: string;
   online: boolean;
+}
+
+/** One ringtone for the whole office, chosen by the MD. */
+interface Ringtone {
   tone: ToneId;
-  customName?: string;
+  customUrl: string;
+  customName: string;
 }
 
 interface LogTarget {
   userId: string;
   name: string;
-  tone: string;
   online: boolean;
   acknowledgedAt: number | null;
 }
@@ -59,18 +91,20 @@ const AnnouncementBell = ({ apiBase, token }: Props) => {
   const [log, setLog] = useState<LogEntry[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState('');
-  const [speak, setSpeak] = useState(false);
+  const [mode, setMode] = useState<'ring' | 'announce'>('ring');
+  const [lang, setLang] = useState<'en' | 'hi' | 'ta'>('en');
+  const [polishing, setPolishing] = useState(false);
   const [urgent, setUrgent] = useState(false);
-  const [repeat, setRepeat] = useState(3);
+  const [ringtone, setRingtone] = useState<Ringtone>({ tone: 'telephone', customUrl: '', customName: '' });
+  const [durationMs, setDurationMs] = useState(30000);
   const [ringing, setRinging] = useState(false);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState('');
-  const [uploadingFor, setUploadingFor] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [soundReady, setSoundReady] = useState(isAudioReady());
 
   const sourceRef = useRef<EventSource | null>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
-  const uploadTargetRef = useRef<string | null>(null);
 
   const authHeaders = { Authorization: `Bearer ${token}` };
 
@@ -83,8 +117,9 @@ const AnnouncementBell = ({ apiBase, token }: Props) => {
       const data = await res.json();
       setStaff(Array.isArray(data.staff) ? data.staff : []);
       setLog(Array.isArray(data.log) ? data.log : []);
+      if (data.ringtone) setRingtone(data.ringtone);
     } catch {
-      setNotice('Status load nahi hua — dubara try kijiye.');
+      setNotice('Could not load the status — please try again.');
     } finally {
       setLoading(false);
     }
@@ -97,6 +132,13 @@ const AnnouncementBell = ({ apiBase, token }: Props) => {
     const timer = window.setInterval(() => void loadStatus(), 15000);
     return () => window.clearInterval(timer);
   }, [loadStatus]);
+
+  useEffect(() => {
+    // The MD may arrive on a saved session too, so the previews need the same
+    // first-click unlock the staff desk uses.
+    const disarm = armAudioUnlock(ready => setSoundReady(ready));
+    return disarm;
+  }, []);
 
   /* ---------- live acknowledgements ---------- */
 
@@ -176,30 +218,24 @@ const AnnouncementBell = ({ apiBase, token }: Props) => {
 
   /* ---------- ringtone assignment ---------- */
 
-  const saveTone = async (userId: string, tone: ToneId, customUrl = '', customName = '') => {
-    setStaff(prev => prev.map(s => (s._id === userId ? { ...s, tone, customName } : s)));
+  const saveTone = async (tone: ToneId, customUrl = '', customName = '') => {
+    setRingtone({ tone, customUrl, customName });
     try {
       const res = await fetch(`${apiBase}/announce/ringtones`, {
         method: 'PUT',
         headers: { ...authHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, tone, customUrl, customName })
+        body: JSON.stringify({ tone, customUrl, customName })
       });
       if (!res.ok) throw new Error('save failed');
     } catch {
-      setNotice('Ringtone save nahi hua.');
+      setNotice('Could not save the ringtone.');
       void loadStatus();
     }
   };
 
-  const openUpload = (userId: string) => {
-    uploadTargetRef.current = userId;
-    uploadInputRef.current?.click();
-  };
-
   const handleUpload = async (file: File | undefined) => {
-    const userId = uploadTargetRef.current;
-    if (!file || !userId) return;
-    setUploadingFor(userId);
+    if (!file) return;
+    setUploading(true);
     setNotice('');
     try {
       const authRes = await fetch(`${apiBase}/imagekit/auth`, { headers: authHeaders });
@@ -221,13 +257,12 @@ const AnnouncementBell = ({ apiBase, token }: Props) => {
       const uploaded = await uploadRes.json();
       if (!uploadRes.ok || !uploaded?.url) throw new Error('upload failed');
 
-      await saveTone(userId, 'custom', uploaded.url, file.name);
-      setNotice(`${file.name} set ho gaya.`);
+      await saveTone('custom', uploaded.url, file.name);
+      setNotice(`${file.name} is now the office ringtone.`);
     } catch {
-      setNotice('Upload nahi hua — mp3 file try kijiye.');
+      setNotice('Upload failed — try an mp3 file.');
     } finally {
-      setUploadingFor(null);
-      uploadTargetRef.current = null;
+      setUploading(false);
       if (uploadInputRef.current) uploadInputRef.current.value = '';
     }
   };
@@ -245,9 +280,10 @@ const AnnouncementBell = ({ apiBase, token }: Props) => {
         body: JSON.stringify({
           staffIds: Array.from(selected),
           message: message.trim(),
-          speak,
+          mode,
+          lang,
           urgent,
-          repeat
+          durationMs
         })
       });
       const data = await res.json();
@@ -255,23 +291,70 @@ const AnnouncementBell = ({ apiBase, token }: Props) => {
 
       setNotice(
         data.offline?.length
-          ? `${data.delivered} PC par baja. Offline: ${data.offline.join(', ')}`
-          : `${data.delivered} PC par baj gaya.`
+          ? `Rang on ${data.delivered} PC(s). Offline: ${data.offline.join(', ')}`
+          : `Rang on ${data.delivered} PC(s).`
       );
       void loadStatus();
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'Bell nahi baji.');
+      setNotice(error instanceof Error ? error.message : 'Could not ring.');
     } finally {
       setRinging(false);
     }
   };
 
-  const preview = async (tone: ToneId, customUrl = '') => {
+  /** Let Gemini turn a rough note into a clean announcement line. */
+  const polishMessage = async () => {
+    const draft = message.trim();
+    if (!draft || polishing) return;
+    setPolishing(true);
+    setNotice('');
+    try {
+      const res = await fetch(`${apiBase}/announce/polish`, {
+        method: 'POST',
+        headers: { ...authHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: draft })
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.reply) throw new Error(data?.message || 'no reply');
+      setMessage(String(data.reply));
+    } catch (error) {
+      setNotice(
+        error instanceof Error && error.message !== 'no reply'
+          ? error.message
+          : 'Could not improve the message — keeping what you wrote.'
+      );
+    } finally {
+      setPolishing(false);
+    }
+  };
+
+  /** Hear the announcement exactly as the staff will hear it. */
+  const previewAnnouncement = async () => {
+    const draft = message.trim();
+    if (!draft) return;
+    try {
+      const res = await fetch(`${apiBase}/announce/speech`, {
+        method: 'POST',
+        headers: { ...authHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: `${SAMPLE_NAME}, ${draft}`, lang })
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.audioContent) throw new Error('no audio');
+
+      if (!isAudioReady()) setSoundReady(await unlockAudio());
+      const played = await playSpeech(data.audioContent, { repeat: 1 });
+      if (!played) throw new Error('blocked');
+    } catch {
+      setNotice('Could not play the preview.');
+    }
+  };
+
+  const preview = async () => {
     if (!isAudioReady()) {
       const ok = await unlockAudio();
       setSoundReady(ok);
     }
-    previewTone(tone, customUrl);
+    previewTone(ringtone.tone, ringtone.customUrl);
   };
 
   const onlineCount = staff.filter(s => s.online).length;
@@ -291,7 +374,11 @@ const AnnouncementBell = ({ apiBase, token }: Props) => {
           <h1>
             Announcement <span>Bell</span>
           </h1>
-          <p>Staff select kijiye, bell dabaiye — unke PC par unka apna ringtone bajega.</p>
+          <p>
+            {mode === 'announce'
+              ? 'Pick the staff — a voice announces your message on their PC, name first.'
+              : 'Pick the staff, press the bell — their PC keeps ringing until they answer.'}
+          </p>
         </div>
         <div className="anb-head-stats">
           <span className="anb-pill online">
@@ -309,31 +396,103 @@ const AnnouncementBell = ({ apiBase, token }: Props) => {
       <div className="anb-grid">
         {/* ---------- compose ---------- */}
         <section className="anb-card anb-compose">
-          <h2>Ring karein</h2>
+          <h2>What do you want to send?</h2>
 
-          <label className="anb-label">Message (optional)</label>
+          <div className="anb-modes">
+            <button
+              type="button"
+              className={`anb-mode ${mode === 'ring' ? 'on' : ''}`}
+              onClick={() => setMode('ring')}
+            >
+              <BellRing size={20} />
+              <span>
+                Ringtone
+                <small>Their PC rings until they answer</small>
+              </span>
+            </button>
+
+            <button
+              type="button"
+              className={`anb-mode ${mode === 'announce' ? 'on' : ''}`}
+              onClick={() => setMode('announce')}
+            >
+              <Megaphone size={20} />
+              <span>
+                Announcement
+                <small>A voice calls them by name</small>
+              </span>
+            </button>
+          </div>
+
+          <label className="anb-label">
+            {mode === 'announce' ? 'What should be announced' : 'Message (optional)'}
+          </label>
           <textarea
             className="anb-textarea"
             value={message}
             onChange={e => setMessage(e.target.value)}
-            placeholder="e.g. Sab log meeting room me aaiye"
+            placeholder="e.g. MD sir is calling you to the office."
             rows={3}
             maxLength={400}
           />
 
-          <div className="anb-options">
-            <button
-              type="button"
-              className={`anb-switch ${speak ? 'on' : ''}`}
-              onClick={() => setSpeak(v => !v)}
-            >
-              <i />
-              <span>
-                Message bol kar sunaiye
-                <small>Ringtone ke baad awaaz me padha jayega</small>
-              </span>
-            </button>
+          {mode === 'announce' && (
+            <>
+              <p className="anb-hint">
+                Each person hears their own name first — <strong>"{SAMPLE_NAME}, {message.trim() || 'MD sir is calling you to the office.'}"</strong>
+              </p>
 
+              <label className="anb-label">Ready-made lines</label>
+              <div className="anb-templates">
+                {TEMPLATES.map(line => (
+                  <button
+                    key={line}
+                    type="button"
+                    className={message.trim() === line ? 'on' : ''}
+                    onClick={() => setMessage(line)}
+                  >
+                    {line}
+                  </button>
+                ))}
+              </div>
+
+              <label className="anb-label">Voice language</label>
+              <div className="anb-repeat">
+                {LANGUAGES.map(option => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    className={lang === option.id ? 'on' : ''}
+                    onClick={() => setLang(option.id)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="anb-tone-actions">
+                <button
+                  type="button"
+                  className="anb-ghost"
+                  onClick={() => void previewAnnouncement()}
+                  disabled={!message.trim()}
+                >
+                  <Play size={14} /> Hear it
+                </button>
+                <button
+                  type="button"
+                  className="anb-ghost"
+                  onClick={() => void polishMessage()}
+                  disabled={!message.trim() || polishing}
+                >
+                  {polishing ? <Loader2 size={14} className="anb-spin" /> : <Sparkles size={14} />}
+                  {polishing ? 'Improving...' : 'Improve with AI'}
+                </button>
+              </div>
+            </>
+          )}
+
+          <div className="anb-options">
             <button
               type="button"
               className={`anb-switch ${urgent ? 'on' : ''}`}
@@ -342,49 +501,113 @@ const AnnouncementBell = ({ apiBase, token }: Props) => {
               <i />
               <span>
                 Urgent
-                <small>Staff screen par laal alert dikhega</small>
+                <small>Shows a red alert on the staff screen</small>
               </span>
             </button>
           </div>
 
-          <label className="anb-label">Kitni baar bajega</label>
-          <div className="anb-repeat">
-            {[1, 3, 5, 8].map(n => (
-              <button
-                key={n}
-                type="button"
-                className={repeat === n ? 'on' : ''}
-                onClick={() => setRepeat(n)}
-              >
-                {n}x
-              </button>
-            ))}
-          </div>
+          {mode === 'ring' && (
+            <>
+              <label className="anb-label">Keep ringing for</label>
+              <div className="anb-repeat">
+                {[
+                  { ms: 15000, label: '15 sec' },
+                  { ms: 30000, label: '30 sec' },
+                  { ms: 60000, label: '1 min' },
+                  { ms: 120000, label: '2 min' }
+                ].map(option => (
+                  <button
+                    key={option.ms}
+                    type="button"
+                    className={durationMs === option.ms ? 'on' : ''}
+                    onClick={() => setDurationMs(option.ms)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              <p className="anb-hint">The ring stops as soon as the staff member answers it.</p>
+            </>
+          )}
 
           <button
             type="button"
             className={`anb-ring-btn ${urgent ? 'urgent' : ''}`}
             onClick={() => void ring()}
-            disabled={!selected.size || ringing}
+            disabled={!selected.size || ringing || (mode === 'announce' && !message.trim())}
           >
-            {ringing ? <Loader2 size={22} className="anb-spin" /> : <BellRing size={22} />}
-            {ringing ? 'Bhej raha hai...' : `Bell bajaiye (${selected.size})`}
+            {ringing ? (
+              <Loader2 size={22} className="anb-spin" />
+            ) : mode === 'announce' ? (
+              <Megaphone size={22} />
+            ) : (
+              <BellRing size={22} />
+            )}
+            {ringing
+              ? 'Sending...'
+              : mode === 'announce'
+                ? `Announce to ${selected.size}`
+                : `Ring the bell (${selected.size})`}
           </button>
 
           {!soundReady && (
-            <button type="button" className="anb-ghost wide" onClick={() => void preview('chime')}>
-              <Volume2 size={14} /> Is PC par sound test kijiye
+            <button type="button" className="anb-ghost wide" onClick={() => void preview()}>
+              <Volume2 size={14} /> Test the sound on this PC
             </button>
           )}
         </section>
 
-        {/* ---------- staff + tones ---------- */}
+        {/* ---------- the one office ringtone ---------- */}
+        <section className="anb-card anb-tone">
+          <h2>Office ringtone</h2>
+          <p className="anb-hint">
+            Every staff PC plays this same tone. Change it once here.
+          </p>
+
+          <div className="anb-tone-pick">
+            <Music4 size={16} />
+            <select
+              value={ringtone.tone}
+              onChange={e => void saveTone(e.target.value as ToneId)}
+            >
+              {TONES.map(tone => (
+                <option key={tone.id} value={tone.id}>
+                  {tone.name} — {tone.hint}
+                </option>
+              ))}
+              {ringtone.tone === 'custom' && (
+                <option value="custom">{ringtone.customName || 'Custom tone'} — your own file</option>
+              )}
+            </select>
+          </div>
+
+          <div className="anb-tone-actions">
+            <button type="button" className="anb-ghost" onClick={() => void preview()}>
+              <Play size={14} /> Listen
+            </button>
+            <button
+              type="button"
+              className="anb-ghost"
+              onClick={() => uploadInputRef.current?.click()}
+              disabled={uploading}
+            >
+              {uploading ? <Loader2 size={14} className="anb-spin" /> : <Upload size={14} />}
+              {uploading ? 'Uploading...' : 'Upload your own mp3'}
+            </button>
+          </div>
+
+          {ringtone.tone === 'custom' && ringtone.customName && (
+            <p className="anb-hint">Currently using: <strong>{ringtone.customName}</strong></p>
+          )}
+        </section>
+
+        {/* ---------- staff ---------- */}
         <section className="anb-card anb-staff">
           <div className="anb-staff-head">
-            <h2>Staff aur unke ringtone</h2>
+            <h2>Who to ring</h2>
             <div className="anb-staff-actions">
               <button type="button" className="anb-ghost" onClick={selectOnline}>
-                Online select
+                Select online
               </button>
               <button type="button" className="anb-ghost" onClick={toggleAll}>
                 {allSelected ? 'Clear' : 'Select all'}
@@ -394,10 +617,10 @@ const AnnouncementBell = ({ apiBase, token }: Props) => {
 
           {loading ? (
             <p className="anb-empty">
-              <Loader2 size={16} className="anb-spin" /> Load ho raha hai...
+              <Loader2 size={16} className="anb-spin" /> Loading...
             </p>
           ) : staff.length === 0 ? (
-            <p className="anb-empty">Koi staff nahi mila.</p>
+            <p className="anb-empty">No staff found.</p>
           ) : (
             <ul className="anb-list">
               {staff.map(person => (
@@ -417,45 +640,6 @@ const AnnouncementBell = ({ apiBase, token }: Props) => {
                     </span>
                   </label>
 
-                  <div className="anb-tone-row">
-                    <Music4 size={14} />
-                    <select
-                      value={person.tone}
-                      onChange={e => void saveTone(person._id, e.target.value as ToneId)}
-                    >
-                      {TONES.map(tone => (
-                        <option key={tone.id} value={tone.id}>
-                          {tone.name}
-                        </option>
-                      ))}
-                      {person.tone === 'custom' && (
-                        <option value="custom">{person.customName || 'Custom tone'}</option>
-                      )}
-                    </select>
-
-                    <button
-                      type="button"
-                      className="anb-icon-btn"
-                      title="Sun kar dekhiye"
-                      onClick={() => void preview(person.tone)}
-                    >
-                      <Play size={13} />
-                    </button>
-
-                    <button
-                      type="button"
-                      className="anb-icon-btn"
-                      title="Apni mp3 upload kijiye"
-                      onClick={() => openUpload(person._id)}
-                      disabled={uploadingFor === person._id}
-                    >
-                      {uploadingFor === person._id ? (
-                        <Loader2 size={13} className="anb-spin" />
-                      ) : (
-                        <Upload size={13} />
-                      )}
-                    </button>
-                  </div>
                 </li>
               ))}
             </ul>
@@ -465,15 +649,15 @@ const AnnouncementBell = ({ apiBase, token }: Props) => {
 
       {/* ---------- history ---------- */}
       <section className="anb-card anb-log">
-        <h2>Pichhli announcements</h2>
+        <h2>Recent announcements</h2>
         {log.length === 0 ? (
-          <p className="anb-empty">Abhi tak koi bell nahi baji.</p>
+          <p className="anb-empty">No announcements yet.</p>
         ) : (
           <ul>
             {log.map(entry => (
               <li key={entry.ringId}>
                 <div className="anb-log-head">
-                  <strong>{entry.message || 'Bina message ke bell'}</strong>
+                  <strong>{entry.message || 'Bell with no message'}</strong>
                   <span>{new Date(entry.sentAt).toLocaleString()}</span>
                 </div>
                 <div className="anb-log-targets">

@@ -527,3 +527,149 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ---------- the one office ringtone ---------- */
+
+.anb-hint {
+  margin: 0 0 12px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.anb-repeat + .anb-hint {
+  margin: 8px 0 0;
+}
+
+.anb-tone-pick {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--text-muted);
+}
+
+.anb-tone-pick select {
+  flex: 1;
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius-sm);
+  background: #ffffff;
+  font-family: var(--font-family);
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.anb-tone-pick select:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.anb-tone-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.anb-tone-actions .anb-ghost {
+  padding: 9px 15px;
+}
+
+.anb-tone-actions .anb-ghost:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.anb-tone strong {
+  color: var(--text-primary);
+}
+
+/* ---------- ringtone vs announcement ---------- */
+
+.anb-modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.anb-mode {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 13px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius-md);
+  background: #ffffff;
+  text-align: left;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.anb-mode:hover {
+  border-color: var(--glass-border-hover);
+}
+
+.anb-mode.on {
+  border-color: var(--accent-primary);
+  background: var(--bg-tertiary);
+  color: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.anb-mode span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.anb-mode small {
+  font-size: 0.73rem;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+
+.anb-templates {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.anb-templates button {
+  padding: 9px 12px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius-sm);
+  background: #ffffff;
+  text-align: left;
+  font-family: var(--font-family);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.anb-templates button:hover {
+  border-color: var(--glass-border-hover);
+}
+
+.anb-templates button.on {
+  border-color: var(--accent-primary);
+  background: var(--bg-tertiary);
+  color: var(--accent-primary);
+}
+
+@media (max-width: 520px) {
+  .anb-modes {
+    grid-template-columns: 1fr;
+  }
+}
