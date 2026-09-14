@@ -289,6 +289,8 @@ export default function App() {
   const adminValidTabs = ['notifications', 'dashboard', 'advances', 'advance-history', 'deleted-logs', 'ai-council', 'announcement-bell', 'reminders', 'tasks', 'chat', 'settings', 'profile'] as const;
   type AdminTabType = typeof adminValidTabs[number];
   const adminSavedTab = localStorage.getItem('admin_active_tab') as AdminTabType | null;
+  // The MD can hide the AI Council from Settings; the menu follows that.
+  const [aiCouncilHidden, setAiCouncilHidden] = useState(false);
   const [activeTab, setActiveTab] = useState<AdminTabType>(adminSavedTab && adminValidTabs.includes(adminSavedTab) ? adminSavedTab : 'dashboard');
   const [targetTaskId, setTargetTaskId] = useState<string | null>(null);
 
@@ -311,6 +313,39 @@ export default function App() {
       fetchAdvances();
     }
   };
+
+  // Follow the MD's own hide switch, and pick up a change made elsewhere.
+  useEffect(() => {
+    if (!token) return;
+
+    const check = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/ai/visibility`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        setAiCouncilHidden(Boolean(data.hidden));
+      } catch {
+        /* leave it visible if the check fails */
+      }
+    };
+
+    void check();
+    const timer = window.setInterval(check, 30000);
+
+    // Settings fires this the moment the MD flips the switch.
+    const onLocalChange = (event: Event) => {
+      const detail = (event as CustomEvent<{ hidden: boolean }>).detail;
+      if (detail) setAiCouncilHidden(Boolean(detail.hidden));
+    };
+    window.addEventListener('ai-council-visibility', onLocalChange);
+
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('ai-council-visibility', onLocalChange);
+    };
+  }, [token]);
 
   useEffect(() => {
     const createPremiumRipple = (event: PointerEvent) => {
@@ -1858,6 +1893,7 @@ export default function App() {
           />
         );
       case 'ai-council':
+        if (aiCouncilHidden) return <div className="page-empty">AI Council is hidden.</div>;
         return <AiCouncil apiBase={API_BASE} token={token} />;
       case 'announcement-bell':
         return <AnnouncementBell apiBase={API_BASE} token={token!} />;
@@ -2027,14 +2063,16 @@ export default function App() {
             <Trash2 size={18} />
             <span>Deleted History</span>
           </button>
-          <button
-            onClick={() => navigateTo('ai-council')}
-            className={`nav-link ${activeTab === 'ai-council' ? 'active' : ''}`}
-            aria-current={activeTab === 'ai-council' ? 'page' : undefined}
-          >
-            <Sparkles size={18} />
-            <span>AI Council</span>
-          </button>
+          {!aiCouncilHidden && (
+            <button
+              onClick={() => navigateTo('ai-council')}
+              className={`nav-link ${activeTab === 'ai-council' ? 'active' : ''}`}
+              aria-current={activeTab === 'ai-council' ? 'page' : undefined}
+            >
+              <Sparkles size={18} />
+              <span>AI Council</span>
+            </button>
+          )}
           <button
             onClick={() => navigateTo('announcement-bell')}
             className={`nav-link ${activeTab === 'announcement-bell' ? 'active' : ''}`}

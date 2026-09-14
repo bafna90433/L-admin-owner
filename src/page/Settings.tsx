@@ -53,7 +53,7 @@ interface SettingsProps {
 }
 
 type AiProviderId = 'gemini' | 'gpt' | 'claude';
-type AiProviderConfig = { configured: boolean; maskedKey: string; model: string; source: string | null };
+type AiProviderConfig = { configured: boolean; maskedKey: string; model: string; workspaceId?: string; source: string | null };
 
 const aiProviderMeta: Record<AiProviderId, { name: string; company: string; color: string; hint: string }> = {
   gemini: { name: 'Gemini', company: 'Google AI', color: '#4285f4', hint: 'AIza...' },
@@ -98,9 +98,19 @@ export default function Settings({
   const [aiConfig, setAiConfig] = useState<Record<AiProviderId, AiProviderConfig> | null>(null);
   const [aiKeys, setAiKeys] = useState<Record<AiProviderId, string>>({ gemini: '', gpt: '', claude: '' });
   const [aiModels, setAiModels] = useState<Record<AiProviderId, string>>({ gemini: '', gpt: '', claude: '' });
+  const [claudeWorkspaceId, setClaudeWorkspaceId] = useState('');
   const [visibleAiKeys, setVisibleAiKeys] = useState<Record<AiProviderId, boolean>>({ gemini: false, gpt: false, claude: false });
   const [aiConfigLoading, setAiConfigLoading] = useState(false);
   const [aiConfigSaving, setAiConfigSaving] = useState(false);
+  const [aiHidden, setAiHidden] = useState(false);
+  const [aiEnabled, setAiEnabled] = useState<Record<AiProviderId, boolean>>({
+    gemini: true,
+    gpt: true,
+    claude: true
+  });
+  const [aiCredit, setAiCredit] = useState<Record<string, { addedUsd: number; note: string }>>({});
+  const [aiRates, setAiRates] = useState<Record<string, { input: number; output: number; label: string }>>({});
+  const [aiMoneySaving, setAiMoneySaving] = useState(false);
   const [testingProvider, setTestingProvider] = useState<AiProviderId | null>(null);
 
   useEffect(() => {
@@ -115,6 +125,27 @@ export default function Settings({
     if (!token) return;
     setAiConfigLoading(true);
     try {
+      const [visible, usage] = await Promise.all([
+        fetch(`${apiBase}/ai/visibility`, { headers: { Authorization: `Bearer ${token}` } })
+          .then(r => (r.ok ? r.json() : null))
+          .catch(() => null),
+        fetch(`${apiBase}/ai/usage`, { headers: { Authorization: `Bearer ${token}` } })
+          .then(r => (r.ok ? r.json() : null))
+          .catch(() => null)
+      ]);
+      if (visible) {
+        setAiHidden(Boolean(visible.hidden));
+        if (visible.providers) setAiEnabled(visible.providers);
+      }
+      if (usage) {
+        setAiRates(usage.rates || {});
+        const credit: Record<string, { addedUsd: number; note: string }> = {};
+        for (const key of Object.keys(usage.balance || {})) {
+          credit[key] = { addedUsd: usage.balance[key].addedUsd || 0, note: usage.balance[key].note || '' };
+        }
+        setAiCredit(credit);
+      }
+
       const response = await fetch(`${apiBase}/ai/config`, { headers: { Authorization: `Bearer ${token}` } });
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || 'Could not load AI settings');
@@ -124,11 +155,76 @@ export default function Settings({
         gpt: data.providers.gpt.model,
         claude: data.providers.claude.model
       });
+      setClaudeWorkspaceId(data.providers.claude.workspaceId || '');
     } catch (error) {
       console.error(error);
       showToast(error instanceof Error ? error.message : 'Could not load AI settings', 'danger');
     } finally {
       setAiConfigLoading(false);
+    }
+  }
+
+  async function toggleAiHidden() {
+    const next = !aiHidden;
+    setAiHidden(next);
+    try {
+      const res = await fetch(`${apiBase}/ai/visibility`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hidden: next })
+      });
+      if (!res.ok) throw new Error('save failed');
+      // The sidebar polls slowly; this makes the menu react at once.
+      window.dispatchEvent(new CustomEvent('ai-council-visibility', { detail: { hidden: next } }));
+    } catch {
+      setAiHidden(!next);
+    }
+  }
+
+  /** Switch one provider on or off for the whole AI Council page. */
+  async function toggleAiProvider(provider: AiProviderId) {
+    const next = { ...aiEnabled, [provider]: !aiEnabled[provider] };
+    if (!Object.values(next).some(Boolean)) {
+      showToast('Keep at least one AI switched on.', 'warning');
+      return;
+    }
+
+    const previous = aiEnabled;
+    setAiEnabled(next);
+    try {
+      const res = await fetch(`${apiBase}/ai/visibility`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ providers: next })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Could not save');
+      setAiEnabled(data.providers);
+      window.dispatchEvent(
+        new CustomEvent('ai-council-visibility', { detail: { providers: data.providers } })
+      );
+    } catch (error) {
+      setAiEnabled(previous);
+      showToast(error instanceof Error ? error.message : 'Could not save', 'danger');
+    }
+  }
+
+  /** Save the rates and the credit the MD topped up, so the meter can count down. */
+  async function saveAiMoney() {
+    setAiMoneySaving(true);
+    try {
+      await fetch(`${apiBase}/ai/usage/rates`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rates: aiRates })
+      });
+      await fetch(`${apiBase}/ai/usage/credit`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credit: aiCredit })
+      });
+    } finally {
+      setAiMoneySaving(false);
     }
   }
 
@@ -138,7 +234,8 @@ export default function Settings({
     try {
       const body = Object.fromEntries((Object.keys(aiProviderMeta) as AiProviderId[]).map(provider => [provider, {
         apiKey: aiKeys[provider],
-        model: aiModels[provider]
+        model: aiModels[provider],
+        ...(provider === 'claude' ? { workspaceId: claudeWorkspaceId } : {})
       }]));
       const response = await fetch(`${apiBase}/ai/config`, {
         method: 'PUT',
@@ -606,6 +703,24 @@ export default function Settings({
           <div><strong>Your keys stay private</strong><span>Keys are encrypted on the server and are never sent back to this browser after saving.</span></div>
         </div>
 
+        <div className="ai-visibility-row">
+          <button
+            type="button"
+            className={`ai-visibility-toggle ${aiHidden ? 'on' : ''}`}
+            onClick={() => void toggleAiHidden()}
+          >
+            <i />
+            <span>
+              Hide AI Council from the menu
+              <small>
+                {aiHidden
+                  ? 'Hidden — the AI Council page does not appear for anyone.'
+                  : 'Visible to you and to staff who have the permission.'}
+              </small>
+            </span>
+          </button>
+        </div>
+
         <form className="ai-provider-form" onSubmit={saveAiSettings}>
           {aiConfigLoading && !aiConfig ? (
             <div className="ai-settings-loading"><Loader className="spinner" size={22} /> Loading AI providers...</div>
@@ -620,6 +735,19 @@ export default function Settings({
                   <span className={`ai-provider-status ${status?.configured ? 'connected' : ''}`}>
                     {status?.configured ? <><CheckCircle2 size={15} /> Connected</> : 'Not connected'}
                   </span>
+                  <button
+                    type="button"
+                    className={`ai-provider-switch ${aiEnabled[provider] ? 'on' : ''}`}
+                    onClick={() => void toggleAiProvider(provider)}
+                    title={
+                      aiEnabled[provider]
+                        ? `Hide ${meta.name} from the AI Council`
+                        : `Show ${meta.name} in the AI Council`
+                    }
+                  >
+                    <i />
+                    {aiEnabled[provider] ? 'Shown' : 'Hidden'}
+                  </button>
                 </div>
 
                 <div className="ai-provider-fields">
@@ -643,6 +771,19 @@ export default function Settings({
                     <span>Model</span>
                     <input className="ai-model-input" value={aiModels[provider]} onChange={event => setAiModels(current => ({ ...current, [provider]: event.target.value }))} />
                   </label>
+                  {provider === 'claude' && (
+                    <label className="ai-workspace-field">
+                      <span>Workspace ID</span>
+                      <input
+                        className="ai-model-input"
+                        value={claudeWorkspaceId}
+                        onChange={event => setClaudeWorkspaceId(event.target.value)}
+                        placeholder="wrkspc_..."
+                        autoComplete="off"
+                      />
+                      <small>Anthropic Console ke workspace settings se ID paste karein.</small>
+                    </label>
+                  )}
                 </div>
 
                 <div className="ai-provider-card-foot">
@@ -662,6 +803,84 @@ export default function Settings({
             </button>
           </div>
         </form>
+
+        {/* ---------- what it costs ---------- */}
+        <div className="ai-money">
+          <header>
+            <h2>Credit and rates</h2>
+            <p>
+              No provider tells us the balance left over the API, so the AI Council counts every
+              call. Enter what you topped up and it counts down from there. Rates are per million
+              tokens — correct them if your plan differs.
+            </p>
+          </header>
+
+          <div className="ai-money-grid">
+            {(Object.keys(aiProviderMeta) as AiProviderId[]).map(provider => {
+              const meta = aiProviderMeta[provider];
+              const rate = aiRates[provider] || { input: 0, output: 0, label: '' };
+              const credit = aiCredit[provider] || { addedUsd: 0, note: '' };
+              return (
+                <article key={provider} style={{ '--provider-color': meta.color } as React.CSSProperties}>
+                  <h3>{meta.name}</h3>
+                  <label>
+                    <span>Credit added (USD)</span>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={credit.addedUsd || ''}
+                      placeholder="e.g. 20"
+                      onChange={e =>
+                        setAiCredit(current => ({
+                          ...current,
+                          [provider]: { ...credit, addedUsd: Number(e.target.value) || 0 }
+                        }))
+                      }
+                    />
+                  </label>
+                  <div className="ai-money-rates">
+                    <label>
+                      <span>Input $/1M</span>
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={rate.input}
+                        onChange={e =>
+                          setAiRates(current => ({
+                            ...current,
+                            [provider]: { ...rate, input: Number(e.target.value) || 0 }
+                          }))
+                        }
+                      />
+                    </label>
+                    <label>
+                      <span>Output $/1M</span>
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={rate.output}
+                        onChange={e =>
+                          setAiRates(current => ({
+                            ...current,
+                            [provider]: { ...rate, output: Number(e.target.value) || 0 }
+                          }))
+                        }
+                      />
+                    </label>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+
+          <button type="button" onClick={() => void saveAiMoney()} disabled={aiMoneySaving}>
+            {aiMoneySaving ? <Loader className="spinner" size={17} /> : <Save size={17} />}
+            Save credit and rates
+          </button>
+        </div>
       </section>
 
       </div>

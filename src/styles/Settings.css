@@ -774,7 +774,9 @@
 .ai-provider-status { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; background: #f1f5f9; color: #64748b; font-size: .78rem; font-weight: 800; }
 .ai-provider-status.connected { background: #ecfdf5; color: #059669; }
 .ai-provider-fields { display: grid; grid-template-columns: minmax(300px,1.5fr) minmax(220px,.8fr); gap: 16px; padding: 0 20px 18px; }
+.ai-provider-fields:has(.ai-workspace-field) { grid-template-columns: minmax(300px,1.35fr) minmax(190px,.7fr) minmax(230px,.85fr); }
 .ai-provider-fields label { display: flex; flex-direction: column; gap: 7px; color: #334155; font-size: .82rem; font-weight: 800; }
+.ai-workspace-field small { color: #64748b; font-size: .72rem; font-weight: 500; line-height: 1.3; }
 .ai-key-input { display: flex; height: 46px; align-items: center; gap: 9px; padding: 0 8px 0 13px; border: 1px solid #cbd5e1; border-radius: 10px; color: #94a3b8; }
 .ai-key-input:focus-within { border-color: #818cf8; box-shadow: 0 0 0 3px rgba(99,102,241,.1); }
 .ai-key-input input { flex: 1; min-width: 0; height: 42px; border: 0 !important; outline: 0; background: transparent; box-shadow: none !important; font: inherit; font-weight: 500; }
@@ -794,7 +796,233 @@
 .ai-settings-actions button:disabled { cursor: wait; opacity: .65; }
 .ai-settings-loading { display: flex; min-height: 220px; align-items: center; justify-content: center; gap: 10px; border: 1px solid #d8e0eb; border-radius: 15px; background: #fff; color: #64748b; }
 @media (max-width: 760px) {
-  .ai-provider-fields { grid-template-columns: 1fr; }
+  .ai-provider-fields, .ai-provider-fields:has(.ai-workspace-field) { grid-template-columns: 1fr; }
   .ai-provider-card-foot, .ai-settings-actions { align-items: stretch; flex-direction: column; }
   .ai-provider-card-foot button { justify-content: center; }
+}
+
+/* ---------- hide the AI Council, and track what it costs ---------- */
+
+.ai-visibility-row {
+  margin-bottom: 18px;
+}
+
+.ai-visibility-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius-md);
+  background: #ffffff;
+  text-align: left;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.ai-visibility-toggle:hover {
+  border-color: var(--glass-border-hover);
+}
+
+.ai-visibility-toggle i {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 22px;
+  border-radius: 999px;
+  background: #d7dbe7;
+  position: relative;
+  transition: var(--transition-smooth);
+}
+
+.ai-visibility-toggle i::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #ffffff;
+  transition: var(--transition-smooth);
+}
+
+.ai-visibility-toggle.on i {
+  background: var(--color-danger);
+}
+
+.ai-visibility-toggle.on i::after {
+  transform: translateX(18px);
+}
+
+.ai-visibility-toggle span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.ai-visibility-toggle small {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.ai-money {
+  margin-top: 22px;
+  padding: 20px 22px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius-lg);
+  background: var(--glass-bg);
+}
+
+.ai-money header h2 {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.ai-money header p {
+  margin: 6px 0 16px;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  max-width: 70ch;
+}
+
+.ai-money-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.ai-money-grid article {
+  padding: 14px 16px;
+  border: 1px solid var(--glass-border);
+  border-top: 3px solid var(--provider-color, var(--accent-primary));
+  border-radius: var(--border-radius-md);
+  background: #ffffff;
+}
+
+.ai-money-grid h3 {
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 10px;
+}
+
+.ai-money-grid label {
+  display: block;
+  margin-bottom: 10px;
+}
+
+.ai-money-grid label span {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.ai-money-grid input {
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius-sm);
+  font-family: var(--font-family);
+  font-size: 0.88rem;
+  color: var(--text-primary);
+}
+
+.ai-money-grid input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.ai-money-rates {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+}
+
+.ai-money > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 20px;
+  border: none;
+  border-radius: var(--border-radius-sm);
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-violet));
+  color: #ffffff;
+  font-family: var(--font-family);
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ai-money > button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+/* Show or hide one provider inside the AI Council. */
+.ai-provider-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px 6px 8px;
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  background: #ffffff;
+  font-family: var(--font-family);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.ai-provider-switch:hover {
+  border-color: var(--glass-border-hover);
+}
+
+.ai-provider-switch i {
+  width: 30px;
+  height: 17px;
+  border-radius: 999px;
+  background: #d7dbe7;
+  position: relative;
+  transition: var(--transition-smooth);
+}
+
+.ai-provider-switch i::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #ffffff;
+  transition: var(--transition-smooth);
+}
+
+.ai-provider-switch.on {
+  border-color: var(--provider-color, var(--accent-primary));
+  color: var(--provider-color, var(--accent-primary));
+}
+
+.ai-provider-switch.on i {
+  background: var(--provider-color, var(--accent-primary));
+}
+
+.ai-provider-switch.on i::after {
+  transform: translateX(13px);
 }
