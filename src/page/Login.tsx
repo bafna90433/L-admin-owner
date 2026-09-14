@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import heroArtwork from '../assets/hero.png';
 import '../styles/Login.css';
+import { unlockAudio } from '../utils/ringtones';
 
 interface OwnerUser {
   role: string;
@@ -80,6 +81,8 @@ export default function Login({ apiBase, onLoginSuccess }: LoginProps) {
 
   const handleLogin = async (event: FormEvent) => {
     event.preventDefault();
+    // Clicking login is what lets this browser play the ringtone previews.
+    void unlockAudio();
     setLoginError('');
     setLoginLoading(true);
     try {

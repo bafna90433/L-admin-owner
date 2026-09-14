@@ -11,7 +11,8 @@ import {
   Loader,
   Trash2,
   Clock,
-  Sparkles
+  Sparkles,
+  BellRing
 } from 'lucide-react';
 
 // Import Modular Page Components
@@ -28,6 +29,7 @@ import Profile from './page/Profile';
 import AdvanceHistory from './page/AdvanceHistory';
 import DeletedLogs from './page/DeletedLogs';
 import AiCouncil from './page/AiCouncil';
+import AnnouncementBell from './page/AnnouncementBell';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'https://l-backend-production-ff32.up.railway.app/api';
 
@@ -284,7 +286,7 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
 
   // Router Tab
-  const adminValidTabs = ['notifications', 'dashboard', 'advances', 'advance-history', 'deleted-logs', 'ai-council', 'reminders', 'tasks', 'chat', 'settings', 'profile'] as const;
+  const adminValidTabs = ['notifications', 'dashboard', 'advances', 'advance-history', 'deleted-logs', 'ai-council', 'announcement-bell', 'reminders', 'tasks', 'chat', 'settings', 'profile'] as const;
   type AdminTabType = typeof adminValidTabs[number];
   const adminSavedTab = localStorage.getItem('admin_active_tab') as AdminTabType | null;
   const [activeTab, setActiveTab] = useState<AdminTabType>(adminSavedTab && adminValidTabs.includes(adminSavedTab) ? adminSavedTab : 'dashboard');
@@ -1857,6 +1859,8 @@ export default function App() {
         );
       case 'ai-council':
         return <AiCouncil apiBase={API_BASE} token={token} />;
+      case 'announcement-bell':
+        return <AnnouncementBell apiBase={API_BASE} token={token!} />;
       case 'reminders':
         return (
           <Reminders
@@ -2030,6 +2034,14 @@ export default function App() {
           >
             <Sparkles size={18} />
             <span>AI Council</span>
+          </button>
+          <button
+            onClick={() => navigateTo('announcement-bell')}
+            className={`nav-link ${activeTab === 'announcement-bell' ? 'active' : ''}`}
+            aria-current={activeTab === 'announcement-bell' ? 'page' : undefined}
+          >
+            <BellRing size={18} />
+            <span>Announcement Bell</span>
           </button>
         </nav>
 
