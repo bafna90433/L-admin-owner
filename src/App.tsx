@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   ArrowUpRight,
   TrendingUp,
+  Factory,
   LogOut,
   CheckCircle,
   Bell,
@@ -19,6 +20,7 @@ import {
 import Login from './page/Login';
 import Notifications, { type NotificationItem } from './page/Notifications';
 import Dashboard from './page/Dashboard';
+import Production from './page/Production';
 import Advances from './page/Advances';
 import Reminders from './page/Reminders';
 import Tasks from './page/Tasks';
@@ -286,7 +288,7 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
 
   // Router Tab
-  const adminValidTabs = ['notifications', 'dashboard', 'advances', 'advance-history', 'deleted-logs', 'ai-council', 'announcement-bell', 'reminders', 'tasks', 'chat', 'settings', 'profile'] as const;
+  const adminValidTabs = ['notifications', 'dashboard', 'production', 'advances', 'advance-history', 'deleted-logs', 'ai-council', 'announcement-bell', 'reminders', 'tasks', 'chat', 'settings', 'profile'] as const;
   type AdminTabType = typeof adminValidTabs[number];
   const adminSavedTab = localStorage.getItem('admin_active_tab') as AdminTabType | null;
   // The MD can hide the AI Council from Settings; the menu follows that.
@@ -1824,6 +1826,8 @@ export default function App() {
 
   const renderContent = () => {
     switch (activeTab) {
+      case 'production':
+        return <Production token={token} apiBase={API_BASE} />;
       case 'notifications':
         return (
           <Notifications
@@ -2025,6 +2029,16 @@ export default function App() {
           </button>
           <div className="sidebar-rule" aria-hidden="true" />
           <p className="sidebar-section-label">Operations</p>
+
+          <button
+            type="button"
+            onClick={() => navigateTo('production')}
+            className={`nav-link ${activeTab === 'production' ? 'active' : ''}`}
+            aria-current={activeTab === 'production' ? 'page' : undefined}
+          >
+            <Factory size={18} aria-hidden="true" />
+            <span>Production</span>
+          </button>
 
           <button
             onClick={() => navigateTo('advances')}
