@@ -20,7 +20,7 @@ import {
 import Login from './page/Login';
 import Notifications, { type NotificationItem } from './page/Notifications';
 import Dashboard from './page/Dashboard';
-import Production from './page/Production';
+import ProductionWorkspace from './page/ProductionWorkspace';
 import Advances from './page/Advances';
 import Reminders from './page/Reminders';
 import Tasks from './page/Tasks';
@@ -288,7 +288,7 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
 
   // Router Tab
-  const adminValidTabs = ['notifications', 'dashboard', 'production', 'advances', 'advance-history', 'deleted-logs', 'ai-council', 'announcement-bell', 'reminders', 'tasks', 'chat', 'settings', 'profile'] as const;
+  const adminValidTabs = ['notifications', 'dashboard', 'production', 'production-records', 'production-board', 'production-damage', 'advances', 'advance-history', 'deleted-logs', 'ai-council', 'announcement-bell', 'reminders', 'tasks', 'chat', 'settings', 'profile'] as const;
   type AdminTabType = typeof adminValidTabs[number];
   const adminSavedTab = localStorage.getItem('admin_active_tab') as AdminTabType | null;
   // The MD can hide the AI Council from Settings; the menu follows that.
@@ -1826,8 +1826,6 @@ export default function App() {
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'production':
-        return <Production token={token} apiBase={API_BASE} />;
       case 'notifications':
         return (
           <Notifications
@@ -1964,6 +1962,17 @@ export default function App() {
     }
   };
 
+  if (activeTab === 'production' || activeTab === 'production-records' || activeTab === 'production-board' || activeTab === 'production-damage') {
+    const workspacePages = { records: 'production-records', board: 'production-board', damage: 'production-damage', report: 'production' } as const;
+    return <ProductionWorkspace
+      token={token}
+      apiBase={API_BASE}
+      view={activeTab === 'production-records' ? 'records' : activeTab === 'production-board' ? 'board' : activeTab === 'production-damage' ? 'damage' : 'report'}
+      onView={next => navigateTo(workspacePages[next])}
+      onExit={() => navigateTo('dashboard')}
+    />;
+  }
+
   return (
     <div className="dashboard-layout animate-fade-in">
       {/* Sidebar */}
@@ -2033,8 +2042,7 @@ export default function App() {
           <button
             type="button"
             onClick={() => navigateTo('production')}
-            className={`nav-link ${activeTab === 'production' ? 'active' : ''}`}
-            aria-current={activeTab === 'production' ? 'page' : undefined}
+            className="nav-link"
           >
             <Factory size={18} aria-hidden="true" />
             <span>Production</span>

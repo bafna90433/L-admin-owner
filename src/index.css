@@ -1289,3 +1289,24 @@ h1, h2, h3, h4, h5, h6 {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Production Records sits under Production, so it reads as its child */
+.nav-link.nav-sublink {
+  min-height: 40px;
+  margin-left: 18px;
+  padding-left: 12px;
+  width: calc(100% - 18px);
+  font-size: 0.83rem;
+  font-weight: 520;
+  border-radius: 11px;
+}
+.nav-link.nav-sublink::before {
+  content: '';
+  position: absolute;
+  left: -10px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: #dfe4ec;
+}
+.nav-link.nav-sublink.active::before { background: var(--accent-primary, #5b5bd6); }
