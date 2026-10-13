@@ -33,7 +33,17 @@ import DeletedLogs from './page/DeletedLogs';
 import AiCouncil from './page/AiCouncil';
 import AnnouncementBell from './page/AnnouncementBell';
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'https://l-backend-production-ff32.up.railway.app/api';
+const isLocal = typeof window !== 'undefined' && (
+  window.location.hostname === 'localhost' ||
+  window.location.hostname === '127.0.0.1' ||
+  window.location.hostname.startsWith('192.168.') ||
+  window.location.hostname.startsWith('10.')
+);
+const API_BASE = import.meta.env.VITE_API_BASE || (
+  isLocal
+    ? `http://${window.location.hostname}:5000/api`
+    : 'https://l-backend-production-ff32.up.railway.app/api'
+);
 
 interface User {
   id: string;

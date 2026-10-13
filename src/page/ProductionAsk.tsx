@@ -105,7 +105,7 @@ export default function ProductionAsk({ token, apiBase }: { token: string | null
     const threadId = open?.id || `t${Date.now()}`;
     const turnId = `${Date.now()}`;
     // A follow-up should know what was already said in this thread.
-    const history = turns.filter(turn => !turn.failed).slice(-4).map(turn => ({ question: turn.question, answer: turn.answer }));
+    const history = turns.filter(turn => !turn.failed).slice(-6).map(turn => ({ question: turn.question, answer: turn.answer }));
     const place = (turn: Turn) => setThreads(all => {
       const existing = all.find(row => row.id === threadId);
       if (existing) return all.map(row => row.id === threadId ? { ...row, turns: [...row.turns, turn] } : row);

@@ -282,8 +282,18 @@ interface AiCouncilProps {
   token?: string | null;
 }
 
+const isLocal = typeof window !== 'undefined' && (
+  window.location.hostname === 'localhost' ||
+  window.location.hostname === '127.0.0.1' ||
+  window.location.hostname.startsWith('192.168.') ||
+  window.location.hostname.startsWith('10.')
+);
 const DEFAULT_API_BASE =
-  import.meta.env.VITE_API_BASE || 'https://l-backend-production-ff32.up.railway.app/api';
+  import.meta.env.VITE_API_BASE || (
+    isLocal
+      ? `http://${window.location.hostname}:5000/api`
+      : 'https://l-backend-production-ff32.up.railway.app/api'
+  );
 
 export default function AiCouncil({ apiBase, token }: AiCouncilProps = {}) {
   const base = apiBase || DEFAULT_API_BASE;
