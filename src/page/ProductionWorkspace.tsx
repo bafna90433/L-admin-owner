@@ -1,6 +1,7 @@
-import { ArrowLeft, ClipboardList, Factory, LayoutDashboard, PackageX, Trophy } from 'lucide-react';
+import { ArrowLeft, ClipboardList, Factory, LayoutDashboard, PackageX, Sparkles, Trophy } from 'lucide-react';
 import Production from './Production';
 import RecordBoard from './RecordBoard';
+import ProductionAsk from './ProductionAsk';
 import Damage from './Damage';
 
 /**
@@ -9,13 +10,14 @@ import Damage from './Damage';
  * dashboard's menu stays out of the way until you come back to it.
  */
 export default function ProductionWorkspace({ token, apiBase, view, onView, onExit }: {
-  token: string | null; apiBase: string; view: 'report' | 'records' | 'board' | 'damage';
-  onView: (next: 'report' | 'records' | 'board' | 'damage') => void; onExit: () => void;
+  token: string | null; apiBase: string; view: 'report' | 'records' | 'board' | 'damage' | 'ask';
+  onView: (next: 'report' | 'records' | 'board' | 'damage' | 'ask') => void; onExit: () => void;
 }) {
   const pages = [
     { id: 'report' as const, label: 'Overview', hint: 'Targets & performance', Icon: LayoutDashboard },
     { id: 'records' as const, label: 'Records', hint: 'Every saved work entry', Icon: ClipboardList },
     { id: 'board' as const, label: 'Record board', hint: 'Fastest ever, and who holds it', Icon: Trophy },
+    { id: 'ask' as const, label: 'Ask the factory', hint: 'Questions answered from the data', Icon: Sparkles },
     { id: 'damage' as const, label: 'Damage pcs', hint: 'Broken pieces from the app', Icon: PackageX }
   ];
   return <div className="factory-workspace">
@@ -33,6 +35,6 @@ export default function ProductionWorkspace({ token, apiBase, view, onView, onEx
       </nav>
       <p className="factory-foot">Owner view · read only<span>All times follow IST</span></p>
     </aside>
-    <main className="factory-main">{view === 'board' ? <RecordBoard token={token} apiBase={apiBase} /> : view === 'damage' ? <Damage token={token} apiBase={apiBase} /> : <Production token={token} apiBase={apiBase} view={view} />}</main>
+    <main className="factory-main">{view === 'board' ? <RecordBoard token={token} apiBase={apiBase} /> : view === 'ask' ? <ProductionAsk token={token} apiBase={apiBase} /> : view === 'damage' ? <Damage token={token} apiBase={apiBase} /> : <Production token={token} apiBase={apiBase} view={view} />}</main>
   </div>;
 }

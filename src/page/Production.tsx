@@ -46,20 +46,29 @@ const workerKey = (entry: ProductionEntry) => entry.labourId ? `id:${entry.labou
 const timeLabel = (minutes: number) => `${Math.floor(minutes / 60)} hr${minutes % 60 ? ` ${minutes % 60} min` : ''}`;
 const viewParams = () => new URL(window.location.href).searchParams;
 const viewDate = (key: string) => /^\d{4}-\d{2}-\d{2}$/.test(viewParams().get(key) || '') ? viewParams().get(key)! : today();
-interface WorkerRecords { key: string; name: string; entries: ProductionEntry[]; minutes: number; pieces: number; dates: string[]; trainingEntries: number }
+interface WorkerRecords { key: string; rowKey: string; date: string; name: string; entries: ProductionEntry[]; minutes: number; pieces: number; works: number; trainingEntries: number }
+/**
+ * One row per worker per day, because a shift is the unit the floor works in.
+ * Rolling several days into one row produced totals like "18 hr 30 min" that
+ * no eleven-hour shift could hold, and called a job on Monday and another on
+ * Tuesday "multi work".
+ */
 function groupWorkerRecords(entries: ProductionEntry[]): WorkerRecords[] {
-  const rows = new Map<string, WorkerRecords>();
+  const rows = new Map<string, WorkerRecords & { seen: Set<string> }>();
   for (const entry of entries) {
-    const key = workerKey(entry), row = rows.get(key) || { key, name: entry.workerName || 'Archived worker', entries: [], minutes: 0, pieces: 0, dates: [], trainingEntries: 0 };
+    const key = workerKey(entry), date = entry.date || '', rowKey = `${key}|${date}`;
+    const row = rows.get(rowKey) || { key, rowKey, date, name: entry.workerName || 'Archived worker', entries: [], minutes: 0, pieces: 0, works: 0, trainingEntries: 0, seen: new Set<string>() };
     row.entries.push(entry); row.minutes += entry.minutes; row.pieces += entry.pieces;
-    if (entry.date && !row.dates.includes(entry.date)) row.dates.push(entry.date);
+    row.seen.add(`${entry.toyName}|${entry.processId || entry.processName}`);
+    row.works = row.seen.size;
     if (entry.isTraining) row.trainingEntries++;
-    rows.set(key, row);
+    rows.set(rowKey, row);
   }
-  return [...rows.values()].sort((a, b) => a.name.localeCompare(b.name));
+  return [...rows.values()].sort((a, b) => b.date.localeCompare(a.date) || a.name.localeCompare(b.name));
 }
+
 function WorkerRecordTable({ rows, onOpen }: { rows: WorkerRecords[]; onOpen: (row: WorkerRecords) => void }) {
-  return rows.length ? <div className="production-table-wrap" role="region" aria-label="Production records by worker" tabIndex={0}><table><thead><tr>{['Worker', 'Work entries', 'Total time', 'Process pcs', 'Production type', 'Details'].map(label => <th scope="col" key={label}>{label}</th>)}</tr></thead><tbody>{rows.map(row => <tr key={row.key}><th scope="row"><button type="button" className="production-worker-name" onClick={() => onOpen(row)} aria-label={`View work details for ${row.name}`}>{row.name}</button></th><td>{row.entries.length}{row.entries.length > 1 && <span className="production-work-count">Multi work</span>}</td><td>{timeLabel(row.minutes)}</td><td>{number(row.pieces)}</td><td>{row.trainingEntries === 0 ? 'Regular' : row.trainingEntries === row.entries.length ? 'Training' : 'Regular + Training'}</td><td><button type="button" className="production-detail-button" onClick={() => onOpen(row)} aria-label={`Open production details for ${row.name}`}>View details <ArrowRight size={16} aria-hidden="true" /></button></td></tr>)}</tbody></table></div> : <p className="production-empty">No production records for this selection.</p>;
+  return rows.length ? <div className="production-table-wrap" role="region" aria-label="Production records by worker" tabIndex={0}><table><thead><tr>{['Date', 'Worker', 'Work entries', 'Shift time', 'Process pcs', 'Production type', 'Details'].map(label => <th scope="col" key={label}>{label}</th>)}</tr></thead><tbody>{rows.map(row => <tr key={row.rowKey}><td>{row.date ? dateLabel(row.date) : '—'}</td><th scope="row"><button type="button" className="production-worker-name" onClick={() => onOpen({ ...row, key: row.rowKey })} aria-label={`View work details for ${row.name} on ${row.date || 'this date'}`}>{row.name}</button></th><td>{row.entries.length}{row.works > 1 && <span className="production-work-count" title={`${row.works} different jobs in this shift`}>Multi work</span>}</td><td>{timeLabel(row.minutes)}</td><td>{number(row.pieces)}</td><td>{row.trainingEntries === 0 ? 'Regular' : row.trainingEntries === row.entries.length ? 'Training' : 'Regular + Training'}</td><td><button type="button" className="production-detail-button" onClick={() => onOpen({ ...row, key: row.rowKey })} aria-label={`Open production details for ${row.name} on ${row.date || 'this date'}`}>View details <ArrowRight size={16} aria-hidden="true" /></button></td></tr>)}</tbody></table></div> : <p className="production-empty">No production records for this selection.</p>;
 }
 
 // Each resource refreshes independently, so an audit failure does not hide production.
@@ -318,7 +327,13 @@ export default function Production({ token, apiBase, view = 'report' }: { token:
   const records = viewScope === 'day' ? dayEntries : report;
   const entries = viewScope === 'day' ? (dayEntries.data?.entries || []).map(entry => ({ ...entry, date: entry.date || date })) : report.data?.entries || [];
   const workerRows = groupWorkerRecords(entries);
-  const detailWorker = workerRows.find(row => row.key === selectedWorker);
+  // A row opened from the records table is one shift; one opened from the
+  // ranking is the whole period, so every day of that worker is merged.
+  const detailRows = workerRows.filter(row => row.rowKey === selectedWorker || row.key === selectedWorker);
+  const detailWorker = detailRows.length ? detailRows.reduce((all, row) => ({
+    ...row, entries: [...all.entries, ...row.entries], minutes: all.minutes + row.minutes,
+    pieces: all.pieces + row.pieces, trainingEntries: all.trainingEntries + row.trainingEntries
+  }), { ...detailRows[0], entries: [], minutes: 0, pieces: 0, trainingEntries: 0 }) : undefined;
   useEffect(() => {
     const onPop = () => {
       const params = viewParams(), key = params.get('productionWorker') || '';
