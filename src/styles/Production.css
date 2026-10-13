@@ -119,6 +119,8 @@
 .production-page .production-worker-name:hover { text-decoration: underline; }
 .production-page .production-detail-button { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px 12px; border: 1px solid var(--glass-border-hover); border-radius: 8px; background: var(--bg-secondary); color: var(--accent-primary); font: inherit; font-weight: 600; cursor: pointer; }
 .production-page .production-work-count { display: inline-block; margin-left: 10px; padding: 3px 8px; background: var(--bg-tertiary); border-radius: 6px; color: var(--accent-primary); font-size: .75rem; }
+.production-page .production-performer-identity { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; }
+.production-page .production-performer-identity .production-work-count { margin-left: 0; white-space: nowrap; }
 .production-page .production-back { margin-bottom: 18px; }
 .production-page.production-worker-detail .production-metric strong { font-size: clamp(1.2rem, 2.2vw, 1.7rem); }
 .production-page .production-entry-cards { display: none; }

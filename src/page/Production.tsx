@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Activity, AlertTriangle, ArrowLeft, ArrowRight, Clock, Factory, Lightbulb, RefreshCw, Trophy, Users } from 'lucide-react';
+import { Activity, ArrowLeft, ArrowRight, Clock, Factory, Lightbulb, RefreshCw, Trophy, Users } from 'lucide-react';
 import '../styles/Production.css';
 
 interface ProductionEntry {
@@ -8,10 +8,10 @@ interface ProductionEntry {
   isTraining?: boolean; workType?: string; createdAt?: string; updatedAt?: string;
 }
 interface ProductionMasters { processes: { id: string; targetPerHour?: number; target8h?: number; target12h?: number }[] }
-interface LeaderRow { id: string; name: string; pieces: number; hours: number; expected: number; percent: number | null; untargetedHours: number; works: { label: string; pieces: number }[] }
+interface LeaderRow { id: string; name: string; entryCount: number; pieces: number; hours: number; expected: number; percent: number | null; untargetedHours: number; works: { label: string; pieces: number }[] }
 interface ProductionWorker {
   id: string; name: string; pieces: number; hours: number; perHour: number;
-  daysWorked: number; loggedPercent: number | null;
+  daysWorked: number;
   training?: ProductionSubtotal; regular?: ProductionSubtotal;
 }
 interface ProductionFlag {
@@ -32,10 +32,6 @@ interface ProductionReport {
   entries?: ProductionEntry[];
   trainingTotals?: ProductionSubtotal; regularTotals?: ProductionSubtotal;
   trainingWorkers?: (ProductionSubtotal & { id: string; name: string; trainingStart: string; trainingEnd: string })[];
-}
-interface ProductionDay {
-  entries: ProductionEntry[];
-  workers: { id: string; name: string; status: string; inTime: string; outTime: string; availableMinutes: number; workedMinutes: number; note: string }[];
 }
 
 export const number = (value: number) => Number(value || 0).toLocaleString('en-IN', { maximumFractionDigits: 1 });
@@ -117,7 +113,7 @@ export function useProductionRead<T>(url: string, token: string | null, refresh:
 }
 
 interface BreakdownRow { id: string; name: string; sub?: string; pieces: number; minutes?: number; hours: number; perHour: number }
-function WorkStepOutput({ rows, days, entries, targets }: { rows: BreakdownRow[]; days: ProductionTrend[]; entries: ProductionEntry[]; targets: Map<string, number> }) {
+function WorkStepOutput({ rows, entries, targets }: { rows: BreakdownRow[]; entries: ProductionEntry[]; targets: Map<string, number> }) {
   const [search, setSearch] = useState('');
   // Pieces alone say which step is busiest, not which one is going well. The
   // step's own target, the people on it and the records behind it do.
@@ -136,7 +132,7 @@ function WorkStepOutput({ rows, days, entries, targets }: { rows: BreakdownRow[]
   const sorted = [...rows].sort((a, b) => b.pieces - a.pieces || a.name.localeCompare(b.name));
   const shown = sorted.filter(row => `${row.name} ${row.sub || ''}`.toLowerCase().includes(search.trim().toLowerCase()));
   const total = rows.reduce((sum, row) => ({ pieces: sum.pieces + row.pieces, minutes: sum.minutes + (row.minutes ?? Math.round(row.hours * 60)) }), { pieces: 0, minutes: 0 });
-  const max = Math.max(1, ...rows.map(row => row.pieces)), worked = days.filter(row => row.pieces > 0);
+  const max = Math.max(1, ...rows.map(row => row.pieces));
   return <section className="production-card production-work-output" aria-labelledby="work-output-title">
     <div className="production-section-heading"><div><h2 id="work-output-title">Output by work step</h2><p>Every work step against the target it was due in the time recorded, with the people behind it. Largest output first.</p></div><Factory size={22} aria-hidden="true" /></div>
     <div className="production-output-summary">{[{ label:'Work steps', value:rows.length },{ label:'Total pcs', value:number(total.pieces) },{ label:'Recorded time', value:timeLabel(total.minutes) }].map(metric=><div key={metric.label}><span>{metric.label}</span><strong>{metric.value}</strong></div>)}</div>
@@ -166,12 +162,6 @@ function WorkStepOutput({ rows, days, entries, targets }: { rows: BreakdownRow[]
       </li>;
     })}</ol> : <p className="production-empty">{rows.length ? 'No work steps match this search.' : 'No work step output recorded in this period.'}</p>}
     {!!search&&<p className="production-output-match" role="status">{shown.length} of {rows.length} work steps</p>}
-    <details className="production-chart-data"><summary>Day by day · {worked.length} {worked.length === 1 ? 'day' : 'days'} with production</summary>
-      {worked.length ? <div className="production-table-wrap" tabIndex={0} role="region" aria-label="Day by day totals"><table>
-        <thead><tr><th scope="col">Date</th><th scope="col">Process pcs</th><th scope="col">Hours</th><th scope="col">Pcs/hour</th></tr></thead>
-        <tbody>{worked.map(row => <tr key={row.date}><td>{dateLabel(row.date)}</td><td>{number(row.pieces)}</td><td>{number(row.hours)}</td><td>{rateLabel(row.perHour)}</td></tr>)}</tbody>
-      </table></div> : <p className="production-empty">Nothing was recorded on any day in this period.</p>}
-    </details>
   </section>;
 }
 
@@ -322,11 +312,11 @@ export default function Production({ token, apiBase, view = 'report' }: { token:
   }, [selectedWorker, detailSource]);
   const [refresh, setRefresh] = useState(0);
   const report = useProductionRead<ProductionReport>(`${apiBase}/production/report?days=${days}&to=${to}`, token, refresh);
-  const day = useProductionRead<ProductionDay>(`${apiBase}/production/day?date=${date}`, token, refresh);
   const masters = useProductionRead<ProductionMasters>(`${apiBase}/production/masters`, token, refresh);
+  const dayEntries = useProductionRead<{ entries: ProductionEntry[] }>(`${apiBase}/production/day?date=${date}`, token, refresh);
   const viewScope = selectedWorker && detailSource === 'leaders' ? 'period' : recordScope;
-  const records = viewScope === 'day' ? day : report;
-  const entries = viewScope === 'day' ? (day.data?.entries || []).map(entry => ({ ...entry, date: entry.date || date })) : report.data?.entries || [];
+  const records = viewScope === 'day' ? dayEntries : report;
+  const entries = viewScope === 'day' ? (dayEntries.data?.entries || []).map(entry => ({ ...entry, date: entry.date || date })) : report.data?.entries || [];
   const workerRows = groupWorkerRecords(entries);
   const detailWorker = workerRows.find(row => row.key === selectedWorker);
   useEffect(() => {
@@ -362,8 +352,8 @@ export default function Production({ token, apiBase, view = 'report' }: { token:
     for (const entry of report.data?.entries || []) {
       if (entry.isTraining) continue;
       const key = workerKey(entry);
-      const row = rows.get(key) || { id: key, name: entry.workerName || 'Archived worker', pieces: 0, hours: 0, expected: 0, percent: null, untargetedHours: 0, targetedPieces: 0, work: new Map<string, number>() };
-      row.pieces += entry.pieces; row.hours += entry.minutes / 60;
+      const row = rows.get(key) || { id: key, name: entry.workerName || 'Archived worker', entryCount: 0, pieces: 0, hours: 0, expected: 0, percent: null, untargetedHours: 0, targetedPieces: 0, work: new Map<string, number>() };
+      row.entryCount++; row.pieces += entry.pieces; row.hours += entry.minutes / 60;
       const label = `${entry.toyName || 'Toy not recorded'} — ${entry.processName || 'Work step not recorded'}`;
       row.work.set(label, (row.work.get(label) || 0) + entry.pieces);
       const perHour = rate.get(entry.processId || '') || 0;
@@ -394,7 +384,6 @@ export default function Production({ token, apiBase, view = 'report' }: { token:
     {records.busy && !records.data ? <p className="production-empty" role="status">Loading worker details…</p> : detailWorker ? <>
       <div className="production-metrics">{[{ label: 'Total work entries', value: detailWorker.entries.length },{ label: 'Total recorded time', value: timeLabel(detailWorker.minutes) },{ label: 'Total pcs', value: number(detailWorker.pieces) },{ label: 'Training entries', value: detailWorker.trainingEntries }].map(metric => <div key={metric.label} className="production-card production-metric"><span>{metric.label}</span><strong>{metric.value}</strong></div>)}</div>
       <section className="production-card"><h2>All work details</h2><p>Toy, work step, time, pieces against the work step's target, entry by and remarks for every saved work.</p><EntryTable entries={detailWorker.entries} hideWorker targets={rate} token={token} apiBase={apiBase} /></section>
-      {viewScope === 'day' && day.data && day.data.workers.filter(worker => `id:${worker.id}` === selectedWorker).map(worker => <section key={worker.id} className="production-card"><h2>Attendance & time</h2><p>{worker.status} · {worker.inTime || '—'} — {worker.outTime || '—'} · {timeLabel(worker.availableMinutes)} available · {timeLabel(worker.workedMinutes)} recorded</p>{worker.note && <p>{worker.note}</p>}</section>)}
     </> : <section className="production-card"><h2>No work records in this selection</h2><p>The records may have been removed or changed. Return to production records to choose another worker or date.</p></section>}
   </div>;
   return <div className="production-page">
@@ -402,11 +391,13 @@ export default function Production({ token, apiBase, view = 'report' }: { token:
       <div><span className="production-eyebrow"><Factory size={16} aria-hidden="true" /> Owner overview · Read only</span><h1>{view === 'records' ? 'Production records' : 'Production'}</h1><p>{view === 'records' ? 'Every worker’s saved work for the chosen day or period. Click a name for the full detail.' : 'Output, worker performance and the record of every change.'}</p></div>
       <button type="button" className="production-refresh" onClick={() => setRefresh(value => value + 1)}><RefreshCw size={17} aria-hidden="true" />Refresh</button>
     </header>
+    {view === 'report' && <>
     <div className="production-filters production-card">
       <label>Report period<select value={period} onChange={event => choosePeriod(event.target.value)}><option value="today">Today</option><option value="yesterday">Yesterday</option><option value="day">Single day</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option></select></label>
       <label>{days === '1' ? 'Date' : 'Period ending'}<input type="date" value={to} max={todayKey} onChange={event => dateChange(event.target.value, setTo)} /></label>
       <div className="production-sync" role="status" aria-live="polite">{report.busy ? 'Updating report…' : report.updatedAt ? `Updated ${report.updatedAt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}` : 'Report unavailable'}<span>Refreshes every 30 seconds and on focus</span></div>
     </div>
+    </>}
     <p className="production-explanation">All quantities are <strong>process pieces</strong>. A toy can pass through multiple work steps; these totals do not count finished toys.</p>
     {report.error && <p className="production-error" role="alert">{report.error} {report.data && 'Showing the last successful report; it may be out of date.'} Use Refresh to retry.</p>}
     {view === 'report' && report.data && <>
@@ -417,7 +408,7 @@ export default function Production({ token, apiBase, view = 'report' }: { token:
           <button type="button" className="production-performer" aria-label={`View performance details for ${row.name}`} onClick={() => openWorker({ key: row.id }, 'leaders')}>
           <span className="production-rank">{index + 1}</span>
           <span className="production-board-body">
-            <span className="production-board-name"><strong>{row.name}</strong>{row.percent === null ? <em>No target set for this work</em> : <b>{number(row.percent)}%</b>}</span>
+            <span className="production-board-name"><span className="production-performer-identity"><strong>{row.name}</strong>{row.entryCount > 1 && <span className="production-work-count" title={`${row.entryCount} regular work entries in this report period`}>Multi work</span>}</span>{row.percent === null ? <em>No target set for this work</em> : <b>{number(row.percent)}%</b>}</span>
             {row.works.length ? <span className="production-board-work">{row.works.slice(0, 3).map(work => work.label).join(' · ')}{row.works.length > 3 ? ` · +${row.works.length - 3} more` : ''}</span> : null}
             <span className="production-board-track"><span className="production-board-fill" style={{ width: `${Math.max(2, capped(row.percent) ?? 0)}%` }} /></span>
             <small>{number(row.pieces)} pcs · {number(row.hours)} hr{row.expected ? ` · target ${number(Math.round(row.expected))} pcs` : ''}{row.untargetedHours ? ` · ${number(row.untargetedHours)} hr not compared` : ''}</small>
@@ -434,30 +425,13 @@ export default function Production({ token, apiBase, view = 'report' }: { token:
         ].map(({ label, value, Icon, whole }) => <div className="production-card production-metric" key={label}><Icon size={20} aria-hidden="true" /><span>{label}</span><strong>{whole ? rateLabel(value) : number(value)}</strong></div>)}
       </div>
       <section className="production-card"><h2>Training production</h2><p>Included in factory output. Training records are excluded from rankings, performance flags and their baseline.</p><strong>{number(report.data.trainingTotals?.pieces || 0)} pcs · {number(report.data.trainingTotals?.hours || 0)} hours · {report.data.trainingTotals?.entries || 0} entries</strong>{!!report.data.trainingWorkers?.length&&<div className="production-table-wrap" role="region" aria-label="Training production" tabIndex={0}><table><thead><tr><th>Worker</th><th>Training dates</th><th>Pcs</th><th>Hours</th></tr></thead><tbody>{report.data.trainingWorkers.map(worker=><tr key={worker.id}><th scope="row">{worker.name}</th><td>{dateLabel(worker.trainingStart)} — {dateLabel(worker.trainingEnd)}</td><td>{number(worker.pieces)}</td><td>{number(worker.hours)}</td></tr>)}</tbody></table></div>}</section>
-      <WorkStepOutput rows={(report.data.processes || []).map(row => ({ ...row, sub: row.toyName }))} days={report.data.trend} entries={report.data.entries || []} targets={rate} />
-      <section className="production-card">
-        <div className="production-section-heading"><div><h2>Performance flags</h2><p>Lower output per hour versus the weighted rate across earlier days for the same worker, toy and work step. Review the context with the supervisor.</p></div><AlertTriangle size={22} aria-hidden="true" /></div>
-        {report.data.flags.length ? <div className="production-flags">{report.data.flags.map((flag, index) => <article className="production-flag" key={`${flag.date}-${flag.workerId}-${index}`}>
-          <div><strong>{flag.workerName || 'Archived worker'}</strong><span>{dateLabel(flag.date)}</span></div>
-          <p>{flag.toyName || 'Toy not recorded'} · {flag.processName || 'Work step not recorded'}</p>
-          <div className="production-flag-rates"><strong>{number(flag.drop)}% below baseline</strong><span>{number(flag.rate)} pcs/hour · prior {number(flag.usualRate)} pcs/hour</span></div>
-          {flag.baselineDate && <small>Baseline through {dateLabel(flag.baselineDate)}</small>}
-          {flag.baselineDays != null && <small>Compared with {flag.baselineDays} prior comparable {flag.baselineDays === 1 ? 'day' : 'days'}</small>}
-        </article>)}</div> : <p className="production-empty">No performance flags in this period. Flags require prior comparable work records.</p>}
-      </section>
-      <section className="production-card"><h2>Worker performance</h2><p>Rates span recorded work steps and can vary with the task mix. Time coverage is recorded production time as a share of available attendance time.</p>
-        {report.data.workers.length ? <div className="production-table-wrap" tabIndex={0} role="region" aria-label="Worker performance"><table>
-          <thead><tr>{['Worker', 'All process pcs', 'All hours', 'Regular pcs/hour', 'Training pcs / hours', 'Days recorded', 'Time coverage'].map(label => <th key={label} scope="col">{label}</th>)}</tr></thead>
-          <tbody>{report.data.workers.map(worker => <tr key={worker.id}><th scope="row">{worker.name || 'Archived worker'}</th><td>{number(worker.pieces)}</td><td>{number(worker.hours)}</td><td>{worker.regular?.entries === 0 ? 'Training only' : rateLabel(worker.regular?.perHour ?? worker.perHour)}</td><td>{number(worker.training?.pieces || 0)} / {number(worker.training?.hours || 0)}</td><td>{worker.daysWorked}</td><td>{worker.loggedPercent === null ? 'Not available' : `${number(worker.loggedPercent)}%`}</td></tr>)}</tbody>
-        </table></div> : <p className="production-empty">No workers with production records in this period.</p>}
-      </section>
+      <WorkStepOutput rows={(report.data.processes || []).map(row => ({ ...row, sub: row.toyName }))} entries={report.data.entries || []} targets={rate} />
     </>}
     {view === 'records' && <section className="production-card">
       <div className="production-section-heading"><div><h2 ref={recordsHeading} tabIndex={-1}>Production records</h2><p>One row per worker. Click a name to see all their work details.</p></div><span className="production-count">{workerRows.length} workers · {entries.length} work entries</span></div>
-      <div className="production-record-filters"><label>Show records<select aria-label="Show records" value={recordScope} onChange={event => setRecordScope(event.target.value)}><option value="day">Selected day</option><option value="period">Report period</option></select></label>{recordScope === 'day' && <label>Record date<input type="date" value={date} onChange={event => dateChange(event.target.value, setDate)} /></label>}</div>
+      <div className="production-record-filters"><label>Show records<select aria-label="Show records" value={recordScope} onChange={event => setRecordScope(event.target.value)}><option value="day">Selected day</option><option value="period">Report period</option></select></label>{recordScope === 'day' && <label>Record date<input type="date" value={date} onChange={event => dateChange(event.target.value, setDate)} /></label>}{recordScope === 'period' && <><label>Days<select value={days} onChange={event => setDays(event.target.value)}><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option>{days === '1' && <option value="1">Single day</option>}</select></label><label>Ending date<input type="date" value={to} max={todayKey} onChange={event => dateChange(event.target.value, setTo)} /></label></>}</div>
       {records.error && <p className="production-error" role="alert">{records.error} {records.data && 'Records may be out of date.'} Use Refresh to retry.</p>}
       {records.busy && !records.data ? <p className="production-empty" role="status">Loading records…</p> : <WorkerRecordTable rows={workerRows} onOpen={openWorker} />}
-      {recordScope === 'day' && day.data && <details className="production-attendance"><summary>Attendance and time coverage · {dateLabel(date)}</summary><div className="production-table-wrap" tabIndex={0} role="region" aria-label="Daily attendance"><table><thead><tr>{['Worker', 'Status', 'In', 'Out', 'Available hours', 'Recorded hours', 'Note'].map(label => <th scope="col" key={label}>{label}</th>)}</tr></thead><tbody>{day.data.workers.map(worker => <tr key={worker.id}><th scope="row">{worker.name}</th><td>{worker.status.replaceAll('_', ' ')}</td><td>{worker.inTime || '—'}</td><td>{worker.outTime || '—'}</td><td>{number(worker.availableMinutes / 60)}</td><td>{number(worker.workedMinutes / 60)}</td><td className="production-note">{worker.note || '—'}</td></tr>)}</tbody></table></div></details>}
     </section>}
   </div>;
 }
