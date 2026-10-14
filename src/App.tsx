@@ -917,11 +917,15 @@ export default function App() {
         } else {
           setUser(data.user);
         }
-      } else {
+      } else if (res.status === 401 || res.status === 403) {
+        // Only a refused token ends the session. A 500 or a dropped connection
+        // was signing the MD out mid-work for a blip that fixes itself.
         handleLogout();
+      } else {
+        showToast('Could not reach the server just now. Still signed in.', 'warning');
       }
     } catch (err) {
-      handleLogout();
+      showToast('Could not reach the server just now. Still signed in.', 'warning');
     }
   };
 

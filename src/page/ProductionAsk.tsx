@@ -36,15 +36,45 @@ const EXAMPLES = [
   'Kis worker ko kaunsa kaam dena chahiye?'
 ];
 
-/** A sheet per table, because one flat sheet of everything is nobody's report. */
-function toWorkbook(data: Record<string, unknown>) {
-  const book = XLSX.utils.book_new();
+/**
+ * The answer's own tables, turned into sheets.
+ *
+ * The workbook used to hold the whole data pack whatever was asked, so the
+ * damage question and the worker question downloaded the same file. What the
+ * reader wants is the table they are looking at, which the answer already
+ * contains.
+ */
+const plain = (cell: string) => cell.replace(/\*\*/g, '').replace(/`/g, '').trim();
+function tablesFromAnswer(answer: string) {
+  const lines = answer.split('\n');
+  const tables: { title: string; rows: string[][] }[] = [];
+  let heading = '';
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index].trim();
+    if (/^#{1,6}\s/.test(line)) { heading = plain(line.replace(/^#+\s*/, '')); continue; }
+    if (/^\*\*[^*]+\*\*:?$/.test(line)) { heading = plain(line.replace(/:$/, '')); continue; }
+    const divider = (lines[index + 1] || '').trim();
+    const isTableStart = line.startsWith('|') && /^\|[\s:|-]+\|$/.test(divider);
+    if (!isTableStart) continue;
+    const cells = (row: string) => row.trim().replace(/^\||\|$/g, '').split('|').map(plain);
+    const rows = [cells(line)];
+    let cursor = index + 2;
+    while (cursor < lines.length && lines[cursor].trim().startsWith('|')) rows.push(cells(lines[cursor++]));
+    tables.push({ title: heading || `Table ${tables.length + 1}`, rows });
+    index = cursor - 1;
+    heading = '';
+  }
+  return tables;
+}
+
+/** Whatever the data pack holds, for when the answer carried no table. */
+function packSheets(book: XLSX.WorkBook, data: Record<string, unknown>) {
   const add = (name: string, rows: unknown) => {
     if (!Array.isArray(rows) || !rows.length) return;
     XLSX.utils.book_append_sheet(book, XLSX.utils.json_to_sheet(rows as object[]), name.slice(0, 31));
   };
-  const totals = data.totals as Record<string, unknown> | undefined;
   const damage = data.damage as Record<string, unknown> | undefined;
+  const totals = data.totals as Record<string, unknown> | undefined;
   if (totals) add('Totals', [totals]);
   add('Day by day', data.dailyTotals);
   add('Workers', data.workers);
@@ -53,12 +83,48 @@ function toWorkbook(data: Record<string, unknown>) {
   add('Review flags', data.reviewFlags);
   add('Records broken', data.recordsBroken);
   add('Standing records', data.standingRecords);
-  if (damage) {
-    add('Damage by toy', damage.byToy);
-    add('Damage by part', damage.byPart);
+  if (damage) { add('Damage by toy', damage.byToy); add('Damage by part', damage.byPart); }
+}
+
+function toWorkbook(turn: { question: string; answer: string; data?: Record<string, unknown> | null }) {
+  const book = XLSX.utils.book_new();
+  const used = new Set<string>();
+  for (const table of tablesFromAnswer(turn.answer)) {
+    let name = (table.title || 'Table').slice(0, 28).replace(/[\/?*[\]:]/g, ' ').trim() || 'Table';
+    let n = 2;
+    while (used.has(name)) name = `${name.slice(0, 26)} ${n++}`;
+    used.add(name);
+    XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet(table.rows), name);
   }
+  // No table in the answer, so give the figures it was drawn from instead.
+  if (!book.SheetNames.length && turn.data) packSheets(book, turn.data);
+  if (!book.SheetNames.length) XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([['Question', turn.question], ['Answer', turn.answer]]), 'Answer');
   return book;
 }
+
+/**
+ * Models sometimes wrap figures in LaTeX — \( 1,234 \), $19,740$ — which the
+ * markdown renderer shows raw. The numbers are plain numbers, so the wrappers
+ * come off.
+ */
+const cleanMath = (text: string) => text
+  .replace(/\\\((.+?)\\\)/gs, '$1')
+  .replace(/\\\[(.+?)\\\]/gs, '$1')
+  .replace(/\$\$(.+?)\$\$/gs, '$1')
+  .replace(/\$([^$\n]{1,80})\$/g, '$1')
+  .replace(/\\text\{(.*?)\}/g, '$1')
+  .replace(/\\times/g, '×')
+  .replace(/\\approx/g, '≈');
+
+/** Did the question actually ask for a file? */
+const wantsFile = (text: string) => /(excel|xlsx|spreadsheet|sheet|csv|file|download)/i.test(text) || /(file|sheet|excel)\s*(me|mein|banake|bana ke|bana do|chahiye|chaiye|chaye|do)/i.test(text);
+/**
+ * The answer counts too: when it says "the Excel button is below this message",
+ * there had better be one. Tying the button to both halves means the promise
+ * and the button can never disagree.
+ */
+const offersFile = (turn: { question: string; answer: string }) =>
+  wantsFile(turn.question) || /(excel|xlsx|spreadsheet|download)/i.test(turn.answer);
 
 /**
  * Threads are kept in this browser so the history is still there tomorrow.
@@ -105,7 +171,8 @@ export default function ProductionAsk({ token, apiBase }: { token: string | null
     const threadId = open?.id || `t${Date.now()}`;
     const turnId = `${Date.now()}`;
     // A follow-up should know what was already said in this thread.
-    const history = turns.filter(turn => !turn.failed).slice(-6).map(turn => ({ question: turn.question, answer: turn.answer }));
+    // The whole thread goes along; the server decides how much of it fits.
+    const history = turns.filter(turn => !turn.failed).map(turn => ({ question: turn.question, answer: turn.answer }));
     const place = (turn: Turn) => setThreads(all => {
       const existing = all.find(row => row.id === threadId);
       if (existing) return all.map(row => row.id === threadId ? { ...row, turns: [...row.turns, turn] } : row);
@@ -132,9 +199,10 @@ export default function ProductionAsk({ token, apiBase }: { token: string | null
   };
 
   const download = (turn: Turn) => {
-    if (!turn.data) return;
-    const period = turn.data.period as { from: string; to: string } | undefined;
-    XLSX.writeFile(toWorkbook(turn.data), `bafna-production-${period?.from || 'report'}-to-${period?.to || ''}.xlsx`);
+    const period = turn.data?.period as { from: string; to: string } | undefined;
+    // Named after what was asked, so two downloads are never the same file.
+    const name = turn.question.replace(/[^a-z0-9]+/gi, '-').slice(0, 44).replace(/^-|-$/g, '').toLowerCase() || 'answer';
+    XLSX.writeFile(toWorkbook(turn), `bafna-${name}-${period?.to || ''}.xlsx`);
   };
   const when = (iso: string) => new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 
@@ -180,10 +248,10 @@ export default function ProductionAsk({ token, apiBase }: { token: string | null
             <div className="ask-reply-body">
               {turn.failed
                 ? <p className="ask-failed-text">{turn.answer}</p>
-                : <div className="ask-answer"><ReactMarkdown remarkPlugins={[remarkGfm]}>{turn.answer}</ReactMarkdown></div>}
+                : <div className="ask-answer"><ReactMarkdown remarkPlugins={[remarkGfm]}>{cleanMath(turn.answer)}</ReactMarkdown></div>}
               <div className="ask-reply-foot">
                 {!turn.failed && <span>{turn.model} · {when(turn.at)}</span>}
-                {turn.data && <button type="button" onClick={() => download(turn)}><Download size={15} aria-hidden="true" />Excel</button>}
+                {!turn.failed && offersFile(turn) && <button type="button" onClick={() => download(turn)}><Download size={15} aria-hidden="true" />Download Excel</button>}
               </div>
             </div>
           </div>

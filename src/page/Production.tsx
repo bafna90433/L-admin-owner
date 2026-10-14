@@ -324,6 +324,16 @@ export default function Production({ token, apiBase, view = 'report' }: { token:
   const masters = useProductionRead<ProductionMasters>(`${apiBase}/production/masters`, token, refresh);
   const dayEntries = useProductionRead<{ entries: ProductionEntry[] }>(`${apiBase}/production/day?date=${date}`, token, refresh);
   const viewScope = selectedWorker && detailSource === 'leaders' ? 'period' : recordScope;
+  // Moving between Overview and Records should show that page, not whichever
+  // worker was open when you left. The first run is skipped so a link that
+  // carries a worker in the URL still opens on them.
+  const lastView = useRef(view);
+  useEffect(() => {
+    if (lastView.current === view) return;
+    lastView.current = view;
+    setSelectedWorker('');
+    setOpenedHere(false);
+  }, [view]);
   const records = viewScope === 'day' ? dayEntries : report;
   const entries = viewScope === 'day' ? (dayEntries.data?.entries || []).map(entry => ({ ...entry, date: entry.date || date })) : report.data?.entries || [];
   const workerRows = groupWorkerRecords(entries);
