@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, ArrowRight, Check, Flag, MessageSquare, Plus, Repeat, RotateCcw, Search, Send, Trash2, X } from 'lucide-react';
+import '../styles/Tasks.css';
 import '../styles/Operations.css';
 
 interface Hop {
@@ -318,41 +319,85 @@ export default function Operations({ token, apiBase, showToast }: {
     </section>
 
     {chat && <div className="ops-modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setChatId(''); }}>
-      <div className="ops-modal" role="dialog" aria-modal="true" aria-label={`Discussion on ${chat.title}`}>
-        <header>
-          <div>
-            <strong><MessageSquare size={15} aria-hidden="true" /> {chat.title}</strong>
-            <small>{chatWith.length ? `Direct line with ${chatWith.join(', ')}` : 'Nobody on this work yet'}</small>
-          </div>
-          <span className="ops-count-pill">{(chat.messages || []).length} {(chat.messages || []).length === 1 ? 'message' : 'messages'}</span>
-          <button type="button" onClick={() => setChatId('')} aria-label="Close"><X size={17} /></button>
-        </header>
-
-        <div className="ops-feed" ref={feed}>
-          <div className="ops-feed-mark"><span>Discussion history</span></div>
-          {(chat.messages || []).length ? (chat.messages || []).map((line, index) => (
-            <div key={`${line.at}-${index}`} className={`ops-bubble ${line.byRole === 'owner' ? 'is-me' : ''}`}>
-              <strong>{line.byName}{line.byRole === 'owner' ? ' (you)' : ''}</strong>
-              <p>{line.text}</p>
-              <small>{when(line.at)}</small>
+      {/* The same messenger the task discussion uses, so both read alike. */}
+      <div className="task-chat-card ops-chat-card" role="dialog" aria-modal="true" aria-label={`Discussion on ${chat.title}`}>
+        <div className="task-chat-header">
+          <div className="task-chat-header-info">
+            <div className="task-chat-avatar-stack">
+              <div className="chat-avatar-pill avatar-md" title="Managing Director (You)">👑</div>
+              <div className="chat-avatar-pill avatar-staff" title={chat.assignedToName || 'Staff'}>
+                {(chat.assignedToName || 'S').charAt(0).toUpperCase()}
+              </div>
             </div>
-          )) : <p className="ops-feed-empty">No discussion notes yet. Send a message below to give instructions, check status, or guide staff.</p>}
+            <div>
+              <div className="task-chat-title">
+                <span>{chat.title}</span>
+                <span className="task-chat-live-pulse" />
+              </div>
+              <div className="task-chat-subtitle">
+                {chatWith.length ? `Direct line with ${chatWith.join(', ')}` : 'Nobody on this work yet'}
+              </div>
+            </div>
+          </div>
+          <span className="task-chat-counter-pill">
+            {(chat.messages || []).length} {(chat.messages || []).length === 1 ? 'message' : 'messages'}
+          </span>
+          <button type="button" className="ops-chat-close" onClick={() => setChatId('')} aria-label="Close"><X size={17} /></button>
         </div>
 
-        <form onSubmit={event => {
+        <div className="task-chat-feed" ref={feed}>
+          <div className="task-chat-date-divider"><span>Where it has been</span></div>
+          <ol className="ops-chat-trail">
+            {(chat.assignments || []).map((hop, index) => <li key={`${hop.at}-${index}`}>
+              <strong>{hop.fromName} <ArrowRight size={12} aria-hidden="true" /> {hop.toName}</strong>
+              <small>{when(hop.at)}{hop.byName && hop.byName !== hop.fromName ? ` · moved by ${hop.byName}` : ''}</small>
+              <span>{hop.reason}</span>
+            </li>)}
+          </ol>
+
+          <div className="task-chat-date-divider"><span>Discussion History</span></div>
+          {(chat.messages || []).length ? (chat.messages || []).map((line, index) => {
+            const fromMD = line.byRole === 'owner';
+            return <div key={`${line.at}-${index}`} className={`task-chat-row ${fromMD ? 'row-owner' : 'row-staff'}`}>
+              {!fromMD && <div className="chat-bubble-avatar"><span>{(line.byName || 'S').charAt(0).toUpperCase()}</span></div>}
+              <div className={fromMD ? 'task-chat-bubble-owner' : 'task-chat-bubble-staff'}>
+                {!fromMD && <div className="bubble-meta-header"><span className="bubble-author-name">{line.byName || 'Staff'}</span></div>}
+                <p className="bubble-text">{line.text}</p>
+                <div className="bubble-meta-footer">
+                  <span className="bubble-timestamp">{when(line.at)}</span>
+                  {fromMD && <span className="bubble-ticks" title="Sent"><Check size={14} /></span>}
+                </div>
+              </div>
+            </div>;
+          }) : (
+            <div className="task-chat-empty-state">
+              <div className="chat-empty-icon">💬</div>
+              <div className="chat-empty-title">No discussion notes yet</div>
+              <div className="chat-empty-desc">Send a message below to give instructions, check status, or guide staff.</div>
+            </div>
+          )}
+        </div>
+
+        <form className="task-chat-dock" onSubmit={event => {
           event.preventDefault();
           const text = draft.trim();
           if (!text) return;
           void call(`/${chat._id}/message`, 'POST', { text }).then(ok => { if (ok) setDraft(''); });
         }}>
-          <input
-            autoFocus
-            maxLength={1000}
-            value={draft}
-            placeholder={`Type a message to ${chatWith[0] || 'the team'}… (Press Enter to send)`}
-            onChange={event => setDraft(event.target.value)}
-          />
-          <button type="submit" className="ops-primary" disabled={busy || !draft.trim()}><Send size={15} />Send</button>
+          <div className="chat-input-wrapper">
+            <input
+              autoFocus
+              type="text"
+              className="task-chat-input"
+              maxLength={1000}
+              value={draft}
+              placeholder={`Type a message to ${chatWith[0] || 'the team'}... (Press Enter to send)`}
+              onChange={event => setDraft(event.target.value)}
+            />
+            <button type="submit" className="task-chat-send-btn" disabled={busy || !draft.trim()} title="Send message">
+              <Send size={15} /><span>Send</span>
+            </button>
+          </div>
         </form>
       </div>
     </div>}

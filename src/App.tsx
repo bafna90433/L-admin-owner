@@ -2053,7 +2053,7 @@ export default function App() {
             aria-current={activeTab === 'operations' ? 'page' : undefined}
           >
             <Repeat size={18} />
-            <span>Operations</span>
+            <span>Operations Hub</span>
           </button>
           <button
             onClick={() => navigateTo('chat')}
