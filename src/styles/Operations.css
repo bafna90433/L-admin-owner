@@ -110,3 +110,7 @@
 .ops-status.is-waiting { display: inline-flex; align-items: center; gap: 5px; background: #fef3c7; color: #92400e; }
 .ops-ghost.is-confirm { border-color: #bbf7d0; background: #f0fdf4; color: #166534; }
 .ops-ghost.is-confirm:hover:not(:disabled) { background: #dcfce7; border-color: #86efac; color: #166534; }
+
+/* The follow-up cell carries the chaser's own note under the date. */
+.ops-followup { white-space: normal; max-width: 240px; }
+.ops-followup small { display: block; margin-top: 3px; color: var(--text-secondary); font-size: .76rem; line-height: 1.45; }

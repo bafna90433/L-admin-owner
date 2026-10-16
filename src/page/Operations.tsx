@@ -22,6 +22,7 @@ interface Operation {
   assignments?: Hop[];
   messages?: Line[];
   nextFollowup?: string;
+  followupNote?: string;
   createdByName?: string;
   doneByName?: string;
   doneRequestedByName?: string;
@@ -252,7 +253,7 @@ export default function Operations({ token, apiBase, showToast }: {
                   <td>{moves ? <>{row.assignedToName || '—'}<small>from {last?.fromName}</small></> : '—'}</td>
                   <td>{moves === 0 ? '—' : `${moves} ${moves === 1 ? 'time' : 'times'}`}</td>
                   <td>{moves ? <>{when(last?.at)}<small>by {last?.byName || last?.fromName}</small></> : '—'}</td>
-                  <td>{row.nextFollowup || '—'}</td>
+                  <td className="ops-followup">{row.nextFollowup || '—'}{row.followupNote && <small>{row.followupNote}</small>}</td>
                   <td>
                     <button type="button" className="ops-chat-count" onClick={() => { setChatId(row._id); setDraft(''); }} title="Open the conversation on this work">
                       <MessageSquare size={14} aria-hidden="true" />{(row.messages || []).length || 0}
