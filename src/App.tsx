@@ -13,7 +13,8 @@ import {
   Trash2,
   Clock,
   Sparkles,
-  BellRing
+  BellRing,
+  Repeat
 } from 'lucide-react';
 
 // Import Modular Page Components
@@ -24,6 +25,7 @@ import ProductionWorkspace from './page/ProductionWorkspace';
 import Advances from './page/Advances';
 import Reminders from './page/Reminders';
 import Tasks from './page/Tasks';
+import Operations from './page/Operations';
 import Chat from './page/Chat';
 import TaskDetailModal from './page/TaskDetailModal';
 import Settings from './page/Settings';
@@ -298,7 +300,7 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
 
   // Router Tab
-  const adminValidTabs = ['notifications', 'dashboard', 'production', 'production-records', 'production-board', 'production-ask', 'production-damage', 'advances', 'advance-history', 'deleted-logs', 'ai-council', 'announcement-bell', 'reminders', 'tasks', 'chat', 'settings', 'profile'] as const;
+  const adminValidTabs = ['notifications', 'dashboard', 'production', 'production-records', 'production-board', 'production-ask', 'production-damage', 'advances', 'advance-history', 'deleted-logs', 'ai-council', 'announcement-bell', 'reminders', 'tasks', 'operations', 'chat', 'settings', 'profile'] as const;
   type AdminTabType = typeof adminValidTabs[number];
   const adminSavedTab = localStorage.getItem('admin_active_tab') as AdminTabType | null;
   // The MD can hide the AI Council from Settings; the menu follows that.
@@ -1940,6 +1942,14 @@ export default function App() {
             onClearTargetTaskId={() => setTargetTaskId(null)}
           />
         );
+      case 'operations':
+        return (
+          <Operations
+            token={token}
+            apiBase={API_BASE}
+            showToast={showToast}
+          />
+        );
       case 'chat':
         return (
           <Chat
@@ -2036,6 +2046,14 @@ export default function App() {
                 {tasks.filter(t => t.status === 'pending').length}
               </span>
             )}
+          </button>
+          <button
+            onClick={() => navigateTo('operations')}
+            className={`nav-link ${activeTab === 'operations' ? 'active' : ''}`}
+            aria-current={activeTab === 'operations' ? 'page' : undefined}
+          >
+            <Repeat size={18} />
+            <span>Operations</span>
           </button>
           <button
             onClick={() => navigateTo('chat')}
