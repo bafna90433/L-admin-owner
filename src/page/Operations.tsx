@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AlertTriangle, ArrowRight, Check, Flag, MessageSquare, Plus, Repeat, RotateCcw, Search, Send, Trash2, X } from 'lucide-react';
 import '../styles/Tasks.css';
 import '../styles/Operations.css';
@@ -318,7 +319,7 @@ export default function Operations({ token, apiBase, showToast }: {
       {!loading && !shown.length && <p className="ops-empty"><AlertTriangle size={16} aria-hidden="true" /> {rows.length ? 'Nothing matches this selection.' : 'No work handed out yet. Use the form above.'}</p>}
     </section>
 
-    {chat && <div className="ops-modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setChatId(''); }}>
+    {chat && createPortal(<div className="ops-modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setChatId(''); }}>
       {/* The same messenger the task discussion uses, so both read alike. */}
       <div className="task-chat-card ops-chat-card" role="dialog" aria-modal="true" aria-label={`Discussion on ${chat.title}`}>
         <div className="task-chat-header">
@@ -400,6 +401,6 @@ export default function Operations({ token, apiBase, showToast }: {
           </div>
         </form>
       </div>
-    </div>}
+    </div>, document.body)}
   </div>;
 }
