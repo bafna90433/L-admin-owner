@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { AlertTriangle, ArrowRight, Check, Flag, MessageSquare, Plus, Repeat, RotateCcw, Search, Send, Trash2, X } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Check, Clock3, Flag, MessageSquare, Plus, Repeat, RotateCcw, Search, Send, Trash2, Undo2, X } from 'lucide-react';
 import '../styles/Tasks.css';
 import '../styles/Operations.css';
 
@@ -24,6 +24,8 @@ interface Operation {
   nextFollowup?: string;
   createdByName?: string;
   doneByName?: string;
+  doneRequestedByName?: string;
+  doneRequestedAt?: string | null;
   doneAt?: string | null;
   createdAt: string;
 }
@@ -59,7 +61,7 @@ export default function Operations({ token, apiBase, showToast }: {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const [filter, setFilter] = useState<'all' | 'open' | 'urgent' | 'moved' | 'done'>('open');
+  const [filter, setFilter] = useState<'all' | 'open' | 'urgent' | 'moved' | 'waiting' | 'done'>('open');
   const [who, setWho] = useState('');
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState('');
@@ -118,6 +120,7 @@ export default function Operations({ token, apiBase, showToast }: {
     if (filter === 'done' && row.status !== 'done') return false;
     if (filter === 'urgent' && !(row.urgent && row.status === 'open')) return false;
     if (filter === 'moved' && !handovers(row)) return false;
+    if (filter === 'waiting' && !(row.status === 'open' && row.doneRequestedByName)) return false;
     if (who && row.assignedTo !== who && !hops(row).some(hop => hop.from === who || hop.to === who)) return false;
     const text = `${row.title} ${row.details || ''} ${row.assignedToName || ''} ${hops(row).map(hop => `${hop.fromName} ${hop.toName}`).join(' ')}`.toLowerCase();
     return !search.trim() || text.includes(search.trim().toLowerCase());
@@ -128,6 +131,7 @@ export default function Operations({ token, apiBase, showToast }: {
     urgent: rows.filter(row => row.urgent && row.status === 'open').length,
     moved: rows.filter(row => handovers(row)).length,
     done: rows.filter(row => row.status === 'done').length,
+    waiting: rows.filter(row => row.status === 'open' && row.doneRequestedByName).length,
     busiest: (() => {
       const tally = new Map<string, number>();
       for (const row of rows) for (const hop of hops(row).slice(1)) if (hop.fromName) tally.set(hop.fromName, (tally.get(hop.fromName) || 0) + 1);
@@ -162,6 +166,7 @@ export default function Operations({ token, apiBase, showToast }: {
     <div className="ops-metrics">
       <div className="ops-metric"><span>Open</span><strong>{counts.open}</strong></div>
       <div className="ops-metric is-urgent"><span><Flag size={14} aria-hidden="true" /> Urgent open</span><strong>{counts.urgent}</strong></div>
+      <div className="ops-metric is-waiting"><span><Clock3 size={14} aria-hidden="true" /> Says done</span><strong>{counts.waiting}</strong></div>
       <div className="ops-metric"><span>Handed over</span><strong>{counts.moved}</strong></div>
       <div className="ops-metric"><span>Hands over most</span><strong className="ops-name">{counts.busiest}</strong></div>
     </div>
@@ -194,7 +199,7 @@ export default function Operations({ token, apiBase, showToast }: {
 
     <div className="ops-filters">
       <div className="ops-scope" role="group" aria-label="Which work to show">
-        {([['open', `Open (${counts.open})`], ['urgent', `Urgent (${counts.urgent})`], ['moved', `Handed over (${counts.moved})`], ['done', `Done (${counts.done})`], ['all', `All (${rows.length})`]] as const).map(([key, label]) => (
+        {([['open', `Open (${counts.open})`], ['waiting', `Says done (${counts.waiting})`], ['urgent', `Urgent (${counts.urgent})`], ['moved', `Handed over (${counts.moved})`], ['done', `Done (${counts.done})`], ['all', `All (${rows.length})`]] as const).map(([key, label]) => (
           <button key={key} type="button" className={filter === key ? 'on' : ''} onClick={() => setFilter(key)}>{label}</button>
         ))}
       </div>
@@ -254,8 +259,11 @@ export default function Operations({ token, apiBase, showToast }: {
                     </button>
                   </td>
                   <td>
-                    <span className={`ops-status is-${row.status}`}>{row.status === 'done' ? 'Done' : 'Open'}</span>
+                    {row.status === 'open' && row.doneRequestedByName
+                      ? <span className="ops-status is-waiting"><Clock3 size={12} aria-hidden="true" /> Says done</span>
+                      : <span className={`ops-status is-${row.status}`}>{row.status === 'done' ? 'Done' : 'Open'}</span>}
                     {row.status === 'done' && row.doneByName && <small>by {row.doneByName}</small>}
+                    {row.status === 'open' && row.doneRequestedByName && <small>{row.doneRequestedByName} · {when(row.doneRequestedAt)}</small>}
                   </td>
                   <td>
                     <div className="ops-row-actions">
@@ -267,7 +275,12 @@ export default function Operations({ token, apiBase, showToast }: {
                         onClick={() => { setMoving(moving === row._id ? '' : row._id); setMoveTo(''); setReason(''); }}>
                         <Send size={15} />
                       </button>}
-                      <button type="button" className="ops-ghost" disabled={busy} title={row.status === 'done' ? 'Open it again' : 'Mark as done'}
+                      {row.status === 'open' && row.doneRequestedByName && <button type="button" className="ops-ghost" disabled={busy}
+                        title={`${row.doneRequestedByName} says it is finished — put it back as open`}
+                        onClick={() => void call(`/${row._id}`, 'PUT', { doneRequested: false }, 'Put back as open.')}>
+                        <Undo2 size={15} />
+                      </button>}
+                      <button type="button" className={`ops-ghost ${row.status === 'open' && row.doneRequestedByName ? 'is-confirm' : ''}`} disabled={busy} title={row.status === 'done' ? 'Open it again' : row.doneRequestedByName ? `Close it — ${row.doneRequestedByName} says it is finished` : 'Mark as done'}
                         onClick={() => void call(`/${row._id}`, 'PUT', { status: row.status === 'done' ? 'open' : 'done' }, row.status === 'done' ? 'Opened again.' : 'Marked done.')}>
                         {row.status === 'done' ? <RotateCcw size={15} /> : <Check size={15} />}
                       </button>

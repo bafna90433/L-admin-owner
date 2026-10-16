@@ -103,3 +103,10 @@
 .ops-chat-trail strong { display: inline-flex; align-items: center; gap: 6px; color: #0f172a; }
 .ops-chat-trail small { color: #64748b; font-size: .71rem; }
 .ops-chat-trail span { color: #334155; }
+
+/* Work the floor says is finished, waiting for the MD to close it. */
+.ops-metric.is-waiting { border-color: #fde68a; background: #fffbeb; }
+.ops-metric.is-waiting span, .ops-metric.is-waiting strong { color: #92400e; }
+.ops-status.is-waiting { display: inline-flex; align-items: center; gap: 5px; background: #fef3c7; color: #92400e; }
+.ops-ghost.is-confirm { border-color: #bbf7d0; background: #f0fdf4; color: #166534; }
+.ops-ghost.is-confirm:hover:not(:disabled) { background: #dcfce7; border-color: #86efac; color: #166534; }
