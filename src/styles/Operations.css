@@ -92,7 +92,7 @@
 /* The discussion, opened from a row. The card itself is the task messenger's
    own markup, so both conversations look and read the same; only the shell it
    floats in and the trail above the messages belong to this page. */
-.ops-modal-backdrop { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 20px; background: rgba(15, 23, 42, .45); backdrop-filter: blur(2px); }
+.ops-modal-backdrop { position: fixed; inset: 0; z-index: 99999; display: grid; place-items: center; padding: 20px; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
 .ops-chat-card { position: relative; width: min(820px, 100%); max-height: min(80vh, 760px); display: flex; flex-direction: column; }
 .ops-chat-card .task-chat-feed { flex: 1; min-height: 240px; }
 .ops-chat-close { position: absolute; top: 14px; right: 14px; display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid var(--glass-border-hover); border-radius: 9px; background: var(--bg-secondary); color: var(--text-secondary); cursor: pointer; z-index: 2; }
