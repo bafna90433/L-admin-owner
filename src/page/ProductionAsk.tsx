@@ -226,9 +226,11 @@ export default function ProductionAsk({ token, apiBase }: { token: string | null
     <section className="ask-main">
       <header className="ask-bar">
         <h1>Ask the factory</h1>
-        <button type="button" className={`ask-lang ${hinglish ? 'on' : ''}`} onClick={() => setHinglish(value => !value)}>
-          <Languages size={15} aria-hidden="true" />{hinglish ? 'Replies in Hinglish' : 'Replies in English'}
-        </button>
+        <div className="ask-languages" role="group" aria-label="Reply language">
+          <Languages size={15} aria-hidden="true" />
+          <button type="button" className={`ask-lang ${!hinglish ? 'on' : ''}`} aria-pressed={!hinglish} onClick={() => setHinglish(false)}>English</button>
+          <button type="button" className={`ask-lang ${hinglish ? 'on' : ''}`} aria-pressed={hinglish} onClick={() => setHinglish(true)}>Hinglish</button>
+        </div>
       </header>
 
       <div className="ask-thread" ref={thread}>

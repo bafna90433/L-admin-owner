@@ -32,8 +32,10 @@
 .ask-side-foot { margin-top: auto; font-size: .7rem; line-height: 1.6; color: var(--text-secondary); }
 
 .ask-main { display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
-.ask-bar { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 22px; border-bottom: 1px solid var(--glass-border); }
+.ask-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 22px; border-bottom: 1px solid var(--glass-border); }
 .ask-bar h1 { font-size: 1.05rem; margin: 0; }
+.ask-languages { display: flex; align-items: center; gap: 8px; color: var(--text-secondary); }
+.ask-languages .ask-lang { min-height: 44px; justify-content: center; }
 .ask-lang { display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; border: 1px solid var(--glass-border-hover); border-radius: 999px; background: var(--bg-secondary); font: inherit; font-size: .79rem; font-weight: 600; color: var(--text-secondary); cursor: pointer; }
 .ask-lang.on { border-color: var(--accent-primary); color: var(--accent-primary); background: color-mix(in srgb, var(--accent-primary) 10%, transparent); }
 

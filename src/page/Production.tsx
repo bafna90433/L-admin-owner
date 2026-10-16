@@ -3,7 +3,7 @@ import { Activity, ArrowLeft, ArrowRight, Clock, Factory, Lightbulb, RefreshCw, 
 import '../styles/Production.css';
 
 interface ProductionEntry {
-  id: string; date?: string; labourId?: string; processId?: string; workerName: string; toyName: string; processName: string;
+  id: string; date?: string; labourId?: string; processId?: string; workerName: string; typeName?: string; toyName: string; processName: string;
   minutes: number; pieces: number; enteredByName: string; note: string;
   isTraining?: boolean; workType?: string; createdAt?: string; updatedAt?: string;
 }
@@ -31,7 +31,7 @@ interface ProductionReport {
   toys?: BreakdownRow[]; processes?: (BreakdownRow & { toyName?: string })[];
   entries?: ProductionEntry[];
   trainingTotals?: ProductionSubtotal; regularTotals?: ProductionSubtotal;
-  trainingWorkers?: (ProductionSubtotal & { id: string; name: string; trainingStart: string; trainingEnd: string })[];
+  trainingWorkers?: (ProductionSubtotal & { id: string; name: string; trainingStart?: string; trainingEnd?: string })[];
 }
 
 export const number = (value: number) => Number(value || 0).toLocaleString('en-IN', { maximumFractionDigits: 1 });
@@ -41,7 +41,14 @@ export const rateLabel = (value: number) => Math.round(Number(value) || 0).toLoc
 const band = (percent: number | null) => percent === null ? '' : percent >= 90 ? 'is-good' : percent >= 70 ? 'is-mid' : 'is-low';
 export const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 const shiftDay = (key: string, days: number) => new Date(new Date(`${key}T00:00:00Z`).getTime() + days * 86400000).toISOString().slice(0, 10);
-export const dateLabel = (value: string) => new Date(`${value.slice(0, 10)}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+// A date can be missing — training is now also marked on the entry itself, with
+// no dates behind it — and a missing date must read as a dash, never take the
+// whole page down.
+export const dateLabel = (value?: string | null) => {
+  const day = String(value || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return '—';
+  return new Date(`${day}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+};
 const workerKey = (entry: ProductionEntry) => entry.labourId ? `id:${entry.labourId}` : `name:${entry.workerName || 'Archived worker'}`;
 const timeLabel = (minutes: number) => `${Math.floor(minutes / 60)} hr${minutes % 60 ? ` ${minutes % 60} min` : ''}`;
 const viewParams = () => new URL(window.location.href).searchParams;
@@ -216,19 +223,27 @@ function EntryTable({ entries, hideWorker = false, targets, token, apiBase }: { 
     return perHour ? Math.round(perHour * entry.minutes / 60) : null;
   };
   const total = entries.reduce((sum, entry) => ({ minutes: sum.minutes + entry.minutes, pieces: sum.pieces + entry.pieces, target: sum.target + (targetFor(entry) || 0) }), { minutes: 0, pieces: 0, target: 0 });
+  // On one worker's own page the share says how the day was split between jobs.
+  // Across workers it would compare people's days, which means nothing, so the
+  // column only appears on the detail. One date behind it makes it a shift.
+  const oneDay = new Set(entries.map(entry => entry.date || '')).size === 1;
+  const showShare = hideWorker;
+  const share = (entry: ProductionEntry) => total.minutes ? Math.round(entry.minutes / total.minutes * 100) : 0;
   return entries.length ? <><div className="production-table-wrap production-work-table" tabIndex={0} role="region" aria-label="Production records, scroll for all columns"><table>
-    <thead><tr>{['Date', ...(hideWorker ? [] : ['Worker']), 'Toy', 'Work step', 'Time', 'Process pcs', 'Target pcs', 'Pcs/hour', 'Production type', 'Entry by', 'Note'].map(label => <th key={label} scope="col">{label}</th>)}</tr></thead>
-    <tbody>{entries.flatMap(entry => [<tr key={entry.id} className={editedAt(entry) ? 'is-edited' : ''}>
+    <thead><tr>{['#', 'Date', ...(hideWorker ? [] : ['Worker']), 'Category', 'Toy', 'Work step', 'Time', ...(showShare ? [oneDay ? 'Share of shift' : 'Share of time'] : []), 'Process pcs', 'Target pcs', 'Pcs/hour', 'Production type', 'Entry by', 'Note'].map(label => <th key={label} scope="col">{label}</th>)}</tr></thead>
+    <tbody>{entries.flatMap((entry, index) => [<tr key={entry.id} className={editedAt(entry) ? 'is-edited' : ''}>
+      <td>{index + 1}</td>
       <td>{entry.date ? dateLabel(entry.date) : '—'}{editedAt(entry) && apiBase ? <button type="button" className="production-edited" aria-expanded={open === entry.id} onClick={() => setOpen(open === entry.id ? '' : entry.id)}>Edited {whenLabel(editedAt(entry))}</button> : null}</td>{!hideWorker && <th scope="row">{entry.workerName || 'Archived worker'}</th>}
-      <td>{entry.toyName || '—'}</td><td>{entry.processName || '—'}</td><td>{timeLabel(entry.minutes)}</td>
+      <td>{entry.typeName || '—'}</td><td>{entry.toyName || '—'}</td><td>{entry.processName || '—'}</td><td>{timeLabel(entry.minutes)}</td>
+      {showShare && <td><span className="production-share"><span className="production-share-bar" aria-hidden="true"><span style={{ width: `${Math.max(2, share(entry))}%` }} /></span><small>{share(entry)}%</small></span></td>}
       <td>{number(entry.pieces)}</td><td>{targetFor(entry) === null ? '—' : number(targetFor(entry)!)}</td><td>{rateLabel(entry.minutes > 0 ? entry.pieces * 60 / entry.minutes : 0)}</td>
       <td>{entry.isTraining ? 'Training' : entry.workType === 'cover' ? 'Cover' : 'Regular'}</td>
       <td>{entry.enteredByName || 'Not recorded'}</td><td className="production-note">{entry.note || '—'}</td>
     </tr>,
-    ...(open === entry.id && apiBase ? [<tr key={`${entry.id}-changes`} className="production-change-row"><td colSpan={hideWorker ? 10 : 11}><EntryChanges entry={entry} token={token ?? null} apiBase={apiBase} /></td></tr>] : [])
+    ...(open === entry.id && apiBase ? [<tr key={`${entry.id}-changes`} className="production-change-row"><td colSpan={12 + (hideWorker ? 0 : 1) + (showShare ? 1 : 0)}><EntryChanges entry={entry} token={token ?? null} apiBase={apiBase} /></td></tr>] : [])
     ])}</tbody>
-    <tfoot><tr><th scope="row" colSpan={hideWorker ? 3 : 4}>Total</th><td>{timeLabel(total.minutes)}</td><td><strong>{number(total.pieces)} pcs</strong></td><td>{total.target ? `${number(total.target)} pcs` : '—'}</td><td>{rateLabel(total.minutes > 0 ? total.pieces * 60 / total.minutes : 0)}</td><td colSpan={3}>{entries.length} work entries</td></tr></tfoot>
-  </table></div><div className="production-entry-cards" role="list" aria-label="Worker work entries">{entries.map(entry => <article className="production-entry-card" key={entry.id} role="listitem"><header><strong>{entry.toyName || 'Toy not recorded'}</strong><span>{entry.date ? dateLabel(entry.date) : '—'}</span></header><p>{entry.processName || 'Work step not recorded'}</p><dl><div><dt>Time</dt><dd>{timeLabel(entry.minutes)}</dd></div><div><dt>Process pcs</dt><dd>{number(entry.pieces)}</dd></div><div><dt>Target pcs</dt><dd>{targetFor(entry) === null ? 'Not set' : number(targetFor(entry)!)}</dd></div><div><dt>Pcs/hour</dt><dd>{rateLabel(entry.minutes > 0 ? entry.pieces * 60 / entry.minutes : 0)}</dd></div></dl><p>{entry.isTraining ? 'Training' : 'Regular'} · Entry by {entry.enteredByName || 'Not recorded'}</p>{entry.note && <p className="production-note">{entry.note}</p>}</article>)}</div><p className="production-entry-total">Total: {number(total.pieces)} pcs · {timeLabel(total.minutes)} · {entries.length} work entries</p></> : <p className="production-empty">No production records for this selection.</p>;
+    <tfoot><tr><th scope="row" colSpan={hideWorker ? 5 : 6}>Total</th><td>{timeLabel(total.minutes)}</td>{showShare && <td>100%</td>}<td><strong>{number(total.pieces)} pcs</strong></td><td>{total.target ? `${number(total.target)} pcs` : '—'}</td><td>{rateLabel(total.minutes > 0 ? total.pieces * 60 / total.minutes : 0)}</td><td colSpan={3}>{entries.length} work entries</td></tr></tfoot>
+  </table></div><div className="production-entry-cards" role="list" aria-label="Worker work entries">{entries.map(entry => <article className="production-entry-card" key={entry.id} role="listitem"><header><strong>{entry.toyName || 'Toy not recorded'}</strong><span>{entry.date ? dateLabel(entry.date) : '—'}</span></header><p>{entry.typeName ? `${entry.typeName} · ` : ''}{entry.processName || 'Work step not recorded'}</p><dl><div><dt>Time</dt><dd>{timeLabel(entry.minutes)}</dd></div><div><dt>Process pcs</dt><dd>{number(entry.pieces)}</dd></div><div><dt>Target pcs</dt><dd>{targetFor(entry) === null ? 'Not set' : number(targetFor(entry)!)}</dd></div><div><dt>Pcs/hour</dt><dd>{rateLabel(entry.minutes > 0 ? entry.pieces * 60 / entry.minutes : 0)}</dd></div></dl><p>{entry.isTraining ? 'Training' : 'Regular'} · Entry by {entry.enteredByName || 'Not recorded'}</p>{entry.note && <p className="production-note">{entry.note}</p>}</article>)}</div><p className="production-entry-total">Total: {number(total.pieces)} pcs · {timeLabel(total.minutes)} · {entries.length} work entries</p></> : <p className="production-empty">No production records for this selection.</p>;
 }
 
 interface Suggestion {
@@ -449,7 +464,7 @@ export default function Production({ token, apiBase, view = 'report' }: { token:
           { label: 'Workers with records', value: report.data.totals.workers, Icon: Users }
         ].map(({ label, value, Icon, whole }) => <div className="production-card production-metric" key={label}><Icon size={20} aria-hidden="true" /><span>{label}</span><strong>{whole ? rateLabel(value) : number(value)}</strong></div>)}
       </div>
-      <section className="production-card"><h2>Training production</h2><p>Included in factory output. Training records are excluded from rankings, performance flags and their baseline.</p><strong>{number(report.data.trainingTotals?.pieces || 0)} pcs · {number(report.data.trainingTotals?.hours || 0)} hours · {report.data.trainingTotals?.entries || 0} entries</strong>{!!report.data.trainingWorkers?.length&&<div className="production-table-wrap" role="region" aria-label="Training production" tabIndex={0}><table><thead><tr><th>Worker</th><th>Training dates</th><th>Pcs</th><th>Hours</th></tr></thead><tbody>{report.data.trainingWorkers.map(worker=><tr key={worker.id}><th scope="row">{worker.name}</th><td>{dateLabel(worker.trainingStart)} — {dateLabel(worker.trainingEnd)}</td><td>{number(worker.pieces)}</td><td>{number(worker.hours)}</td></tr>)}</tbody></table></div>}</section>
+      <section className="production-card"><h2>Training production</h2><p>Included in factory output. Training records are excluded from rankings, performance flags and their baseline.</p><strong>{number(report.data.trainingTotals?.pieces || 0)} pcs · {number(report.data.trainingTotals?.hours || 0)} hours · {report.data.trainingTotals?.entries || 0} entries</strong>{!!report.data.trainingWorkers?.length&&<div className="production-table-wrap" role="region" aria-label="Training production" tabIndex={0}><table><thead><tr><th>Worker</th><th>Training dates</th><th>Pcs</th><th>Hours</th></tr></thead><tbody>{report.data.trainingWorkers.map(worker=><tr key={worker.id}><th scope="row">{worker.name}</th><td>{worker.trainingStart || worker.trainingEnd ? `${dateLabel(worker.trainingStart)} — ${dateLabel(worker.trainingEnd)}` : 'Marked on the entry'}</td><td>{number(worker.pieces)}</td><td>{number(worker.hours)}</td></tr>)}</tbody></table></div>}</section>
       <WorkStepOutput rows={(report.data.processes || []).map(row => ({ ...row, sub: row.toyName }))} entries={report.data.entries || []} targets={rate} />
     </>}
     {view === 'records' && <section className="production-card">

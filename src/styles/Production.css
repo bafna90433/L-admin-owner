@@ -262,3 +262,10 @@
 .production-page .production-change-fields dd s { color: var(--text-secondary); }
 .production-page .production-change-fields dd b { color: #b91c1c; }
 .production-page .production-change-note { margin-top: 8px; font-size: .82rem; }
+
+/* The share of the day a job took — a bar, because a bare percentage hides how
+   uneven a shift was. Shown only on one worker's own page. */
+.production-page .production-share { display: flex; align-items: center; gap: 8px; min-width: 120px; }
+.production-page .production-share-bar { flex: 1; height: 8px; border-radius: 999px; background: color-mix(in srgb, var(--accent-primary) 14%, transparent); overflow: hidden; }
+.production-page .production-share-bar span { display: block; height: 100%; border-radius: 999px; background: var(--accent-primary); }
+.production-page .production-share small { flex: none; font-variant-numeric: tabular-nums; color: var(--text-secondary); }
