@@ -1,11 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowRight, Check, Flag, Plus, Repeat, RotateCcw, Search, Send, Trash2, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AlertTriangle, ArrowRight, Check, Flag, MessageSquare, Plus, Repeat, RotateCcw, Search, Send, Trash2, X } from 'lucide-react';
 import '../styles/Operations.css';
 
 interface Hop {
   from?: string; fromName?: string; fromRole?: string;
   to?: string; toName?: string; reason?: string; at?: string;
+  /** Who made the move, which is not always who the work came from. */
+  byName?: string; byRole?: string;
 }
+interface Line { by?: string; byName?: string; byRole?: string; text?: string; at?: string }
 interface Operation {
   _id: string;
   title: string;
@@ -15,6 +18,7 @@ interface Operation {
   assignedTo?: string;
   assignedToName?: string;
   assignments?: Hop[];
+  messages?: Line[];
   nextFollowup?: string;
   createdByName?: string;
   doneByName?: string;
@@ -62,6 +66,9 @@ export default function Operations({ token, apiBase, showToast }: {
   const [reason, setReason] = useState('');
 
   const [form, setForm] = useState({ title: '', details: '', assignedTo: '', nextFollowup: '', urgent: false });
+  const [chatId, setChatId] = useState('');
+  const [draft, setDraft] = useState('');
+  const feed = useRef<HTMLDivElement>(null);
 
   const headers = useMemo(() => ({ 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }), [token]);
 
@@ -126,6 +133,13 @@ export default function Operations({ token, apiBase, showToast }: {
       return top ? `${top[0]} (${top[1]})` : 'Nobody yet';
     })()
   };
+
+  const chat = rows.find(row => row._id === chatId);
+  // Who is on this work: everyone the trail names, newest holder first.
+  const chatWith = chat ? [...new Set([chat.assignedToName, ...(chat.assignments || []).map(hop => hop.toName)].filter(Boolean))] as string[] : [];
+  useEffect(() => {
+    if (chat) feed.current?.scrollTo({ top: feed.current.scrollHeight });
+  }, [chat, chat?.messages?.length]);
 
   const create = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -201,13 +215,13 @@ export default function Operations({ token, apiBase, showToast }: {
           <thead>
             <tr>
               <th scope="col">Date</th>
-              <th scope="col">Work</th>
-              <th scope="col">Handed out by</th>
-              <th scope="col">First given to</th>
-              <th scope="col">Now with</th>
+              <th scope="col">Task</th>
+              <th scope="col">Assign</th>
+              <th scope="col">Reassign</th>
               <th scope="col">Hands</th>
-              <th scope="col">Last moved</th>
+              <th scope="col">Last assign</th>
               <th scope="col">Next follow-up</th>
+              <th scope="col">Updates</th>
               <th scope="col">Status</th>
               <th scope="col"><span className="ops-sr-only">Actions</span></th>
             </tr>
@@ -227,12 +241,16 @@ export default function Operations({ token, apiBase, showToast }: {
                     </button>
                     {row.details && <small className="ops-details">{row.details}</small>}
                   </th>
-                  <td>{trail[0]?.fromName || row.createdByName || '—'}</td>
-                  <td>{trail[0]?.toName || '—'}</td>
-                  <td>{row.assignedToName || '—'}{moves > 0 && <ArrowRight size={13} className="ops-moved-mark" aria-label="moved from the first person" />}</td>
+                  <td>{trail[0]?.toName || '—'}<small>by {trail[0]?.fromName || row.createdByName || '—'}</small></td>
+                  <td>{moves ? <>{row.assignedToName || '—'}<small>from {last?.fromName}</small></> : '—'}</td>
                   <td>{moves === 0 ? '—' : `${moves} ${moves === 1 ? 'time' : 'times'}`}</td>
-                  <td>{moves ? <>{when(last?.at)}<small>by {last?.fromName}</small></> : '—'}</td>
+                  <td>{moves ? <>{when(last?.at)}<small>by {last?.byName || last?.fromName}</small></> : '—'}</td>
                   <td>{row.nextFollowup || '—'}</td>
+                  <td>
+                    <button type="button" className="ops-chat-count" onClick={() => { setChatId(row._id); setDraft(''); }} title="Open the conversation on this work">
+                      <MessageSquare size={14} aria-hidden="true" />{(row.messages || []).length || 0}
+                    </button>
+                  </td>
                   <td>
                     <span className={`ops-status is-${row.status}`}>{row.status === 'done' ? 'Done' : 'Open'}</span>
                     {row.status === 'done' && row.doneByName && <small>by {row.doneByName}</small>}
@@ -259,7 +277,7 @@ export default function Operations({ token, apiBase, showToast }: {
                   </td>
                 </tr>
                 {moving === row._id && <tr key={`${row._id}-move`} className="ops-sub">
-                  <td colSpan={10}>
+                  <td colSpan={11}>
                     <form className="ops-move" onSubmit={event => { event.preventDefault(); void call(`/${row._id}/reassign`, 'POST', { to: moveTo, reason }, 'Handed over.').then(ok => { if (ok) { setMoving(''); setMoveTo(''); setReason(''); } }); }}>
                       <label className="ops-field"><span>Hand over to</span>
                         <select required value={moveTo} onChange={event => setMoveTo(event.target.value)}>
@@ -276,13 +294,14 @@ export default function Operations({ token, apiBase, showToast }: {
                   </td>
                 </tr>}
                 {open === row._id && <tr key={`${row._id}-trail`} className="ops-sub">
-                  <td colSpan={10}>
+                  <td colSpan={11}>
+                    <h3>Where it has been</h3>
                     {trail.length ? <ol className="ops-trail">
                       {trail.map((hop, index) => <li key={`${hop.at}-${index}`}>
                         <span className="ops-trail-mark">{index + 1}</span>
                         <div>
                           <strong>{hop.fromName || 'Not recorded'} <ArrowRight size={13} aria-hidden="true" /> {hop.toName || 'Not recorded'}</strong>
-                          <small>{when(hop.at)}{hop.fromRole === 'owner' ? ' · by you' : ''}</small>
+                          <small>{when(hop.at)}{hop.byName && hop.byName !== hop.fromName ? ` · moved by ${hop.byName}` : ''}</small>
                           <p>{hop.reason || 'No reason given'}</p>
                         </div>
                       </li>)}
@@ -297,5 +316,45 @@ export default function Operations({ token, apiBase, showToast }: {
       {loading && !rows.length && <p className="ops-empty">Loading…</p>}
       {!loading && !shown.length && <p className="ops-empty"><AlertTriangle size={16} aria-hidden="true" /> {rows.length ? 'Nothing matches this selection.' : 'No work handed out yet. Use the form above.'}</p>}
     </section>
+
+    {chat && <div className="ops-modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setChatId(''); }}>
+      <div className="ops-modal" role="dialog" aria-modal="true" aria-label={`Discussion on ${chat.title}`}>
+        <header>
+          <div>
+            <strong><MessageSquare size={15} aria-hidden="true" /> {chat.title}</strong>
+            <small>{chatWith.length ? `Direct line with ${chatWith.join(', ')}` : 'Nobody on this work yet'}</small>
+          </div>
+          <span className="ops-count-pill">{(chat.messages || []).length} {(chat.messages || []).length === 1 ? 'message' : 'messages'}</span>
+          <button type="button" onClick={() => setChatId('')} aria-label="Close"><X size={17} /></button>
+        </header>
+
+        <div className="ops-feed" ref={feed}>
+          <div className="ops-feed-mark"><span>Discussion history</span></div>
+          {(chat.messages || []).length ? (chat.messages || []).map((line, index) => (
+            <div key={`${line.at}-${index}`} className={`ops-bubble ${line.byRole === 'owner' ? 'is-me' : ''}`}>
+              <strong>{line.byName}{line.byRole === 'owner' ? ' (you)' : ''}</strong>
+              <p>{line.text}</p>
+              <small>{when(line.at)}</small>
+            </div>
+          )) : <p className="ops-feed-empty">No discussion notes yet. Send a message below to give instructions, check status, or guide staff.</p>}
+        </div>
+
+        <form onSubmit={event => {
+          event.preventDefault();
+          const text = draft.trim();
+          if (!text) return;
+          void call(`/${chat._id}/message`, 'POST', { text }).then(ok => { if (ok) setDraft(''); });
+        }}>
+          <input
+            autoFocus
+            maxLength={1000}
+            value={draft}
+            placeholder={`Type a message to ${chatWith[0] || 'the team'}… (Press Enter to send)`}
+            onChange={event => setDraft(event.target.value)}
+          />
+          <button type="submit" className="ops-primary" disabled={busy || !draft.trim()}><Send size={15} />Send</button>
+        </form>
+      </div>
+    </div>}
   </div>;
 }
