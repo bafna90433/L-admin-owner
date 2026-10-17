@@ -229,7 +229,7 @@ export default function Operations({ token, apiBase, showToast }: {
               <th scope="col">Hands</th>
               <th scope="col">Last assign</th>
               <th scope="col">Next follow-up</th>
-              <th scope="col">Updates</th>
+              <th scope="col">Chat</th>
               <th scope="col">Status</th>
               <th scope="col"><span className="ops-sr-only">Actions</span></th>
             </tr>
