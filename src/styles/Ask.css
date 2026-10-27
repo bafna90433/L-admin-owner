@@ -60,7 +60,11 @@
 .ask-answer p { margin: 0 0 11px; }
 .ask-answer ul, .ask-answer ol { margin: 0 0 11px 20px; }
 .ask-answer li { margin-bottom: 5px; }
-.ask-answer table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: .84rem; }
+.ask-table-wrap { margin: 12px 0; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.ask-table-wrap:focus-visible { outline: 2px solid var(--accent, #6366f1); outline-offset: 2px; border-radius: 8px; }
+/* Fits when it can, scrolls when it cannot, rather than squeezing a sentence
+   into a column two words wide. */
+.ask-answer table { width: 100%; min-width: 560px; border-collapse: collapse; font-size: .84rem; }
 .ask-answer th, .ask-answer td { padding: 8px 11px; border-bottom: 1px solid var(--glass-border); text-align: left; }
 .ask-answer th { font-weight: 700; color: var(--text-secondary); }
 .ask-answer code { padding: 1px 6px; border-radius: 5px; background: var(--bg-tertiary); font-size: .86em; }

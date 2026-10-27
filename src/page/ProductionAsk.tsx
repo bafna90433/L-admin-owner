@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Children, cloneElement, isValidElement, useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import { AlertTriangle, Download, Languages, Loader2, Plus, Send, Sparkles, Trash2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -115,6 +115,41 @@ const cleanMath = (text: string) => text
   .replace(/\\text\{(.*?)\}/g, '$1')
   .replace(/\\times/g, '×')
   .replace(/\\approx/g, '≈');
+
+/**
+ * Names, in capitals.
+ *
+ * The catalogue is typed by many hands — "Fighter Jet", "FIGHTER-JET", "Manash",
+ * "SURJYA" — so a table of them reads like two different factories. A cell that
+ * is a name is shown in capitals, numbers in it and all — "2196 PULLBACK CAR".
+ * Only a cell that is purely a figure, whose words are units, is left as it was
+ * written, so "-180.0 pcs/hr" never starts shouting.
+ */
+const UNITS = /^(pcs?|hrs?|hours?|mins?|secs?|kg|g|per|rs)$/i;
+/** A figure is a cell whose only words are units — "12.0 hrs", "-180.0 pcs/hr". */
+const isFigure = (text: string) => (text.match(/[a-z]+/gi) || []).every(word => UNITS.test(word));
+const shout = (children: ReactNode): ReactNode => Children.map(children, child => {
+  if (typeof child === 'string') return isFigure(child) ? child : child.toUpperCase();
+  if (isValidElement(child)) {
+    const element = child as ReactElement<{ children?: ReactNode }>;
+    return cloneElement(element, {}, shout(element.props.children));
+  }
+  return child;
+});
+
+/**
+ * Table cells carry the names, so they are the ones put in capitals. The table
+ * itself gets a scroller: an answer with eight columns is wider than the
+ * reading column, and a table that is cut off at the edge hides the very column
+ * the question was about.
+ */
+const askTable = {
+  table: ({ children, ...rest }: { children?: ReactNode }) => (
+    <div className="ask-table-wrap" tabIndex={0} role="region" aria-label="Table"><table {...rest}>{children}</table></div>
+  ),
+  th: ({ children, ...rest }: { children?: ReactNode }) => <th {...rest}>{shout(children)}</th>,
+  td: ({ children, ...rest }: { children?: ReactNode }) => <td {...rest}>{shout(children)}</td>
+};
 
 /** Did the question actually ask for a file? */
 const wantsFile = (text: string) => /(excel|xlsx|spreadsheet|sheet|csv|file|download)/i.test(text) || /(file|sheet|excel)\s*(me|mein|banake|bana ke|bana do|chahiye|chaiye|chaye|do)/i.test(text);
@@ -250,7 +285,7 @@ export default function ProductionAsk({ token, apiBase }: { token: string | null
             <div className="ask-reply-body">
               {turn.failed
                 ? <p className="ask-failed-text">{turn.answer}</p>
-                : <div className="ask-answer"><ReactMarkdown remarkPlugins={[remarkGfm]}>{cleanMath(turn.answer)}</ReactMarkdown></div>}
+                : <div className="ask-answer"><ReactMarkdown remarkPlugins={[remarkGfm]} components={askTable}>{cleanMath(turn.answer)}</ReactMarkdown></div>}
               <div className="ask-reply-foot">
                 {!turn.failed && <span>{turn.model} · {when(turn.at)}</span>}
                 {!turn.failed && offersFile(turn) && <button type="button" onClick={() => download(turn)}><Download size={15} aria-hidden="true" />Download Excel</button>}
