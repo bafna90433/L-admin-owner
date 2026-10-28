@@ -4,6 +4,7 @@ import { number, useProductionRead } from './Production';
 
 interface Step { id: string; name: string; under: string; underType: string; imageUrl: string; pieces: number }
 interface Waiting { after: string; before: string; pieces: number }
+interface Broken { name: string; qty: number }
 interface Card {
   id: string;
   name: string;
@@ -16,6 +17,8 @@ interface Card {
   intakeFrom: string;
   ready: number;
   damage: number;
+  /** What broke, part by part, largest first. */
+  damageParts: Broken[];
   notStarted: number | null;
   waiting: Waiting[];
   steps: Step[];
@@ -40,6 +43,7 @@ const share = (value: number, of: number) => (of > 0 ? Math.min(100, Math.round(
 export default function Tracking({ token, apiBase }: { token: string | null; apiBase: string }) {
   const [refresh, setRefresh] = useState(0);
   const [open, setOpen] = useState<string>('');
+  const [broken, setBroken] = useState<string>('');
   const [search, setSearch] = useState('');
   const tracking = useProductionRead<{ toys: Card[] }>(`${apiBase}/production/tracking`, token, refresh);
 
@@ -119,8 +123,24 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
                 this model at all. The rest of the line is read off the steps
                 above and the breakdown below. */}
             <div><span>Ready{made ? ` · ${sentence(made.name)}` : ''}</span><strong>{number(made?.pieces || 0)}</strong></div>
-            <div><span>Damage</span><strong>{number(card.damage)}</strong></div>
+            {card.damage > 0 && card.damageParts.length
+              ? <button type="button" className="track-damage" aria-expanded={broken === card.id} onClick={() => setBroken(broken === card.id ? '' : card.id)}>
+                  <span>Damage{card.damageParts.length > 1 ? ` · ${card.damageParts.length} parts` : ''}</span>
+                  <strong>{number(card.damage)}</strong>
+                </button>
+              : <div><span>Damage</span><strong>{number(card.damage)}</strong></div>}
           </div>
+
+          {broken === card.id && <table className="track-gaps">
+            <tbody>
+              {card.damageParts.map(part => <tr key={part.name}>
+                <th scope="row">{sentence(part.name)}</th>
+                <td>reported broken</td>
+                <td>{number(part.qty)}</td>
+              </tr>)}
+              <tr className="track-gaps-total"><th scope="row">Total</th><td /><td>{number(card.damage)}</td></tr>
+            </tbody>
+          </table>}
 
           {(card.waiting.length > 0 || card.notStarted) ? <>
             <button type="button" className="track-open" onClick={() => setOpen(showing ? '' : card.id)} aria-expanded={showing}>

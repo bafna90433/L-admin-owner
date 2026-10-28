@@ -327,3 +327,12 @@
   .production-page .track-steps li { grid-template-columns: 1fr auto; }
   .production-page .track-bar { grid-column: 1 / -1; }
 }
+/* The damage figure opens into the parts behind it, so it stays a tile that
+   happens to be a button rather than growing a separate link. */
+.production-page .track-damage {
+  display: block; width: 100%; text-align: left; cursor: pointer;
+  padding: 10px 12px; border: none; border-radius: 12px; background: var(--bg-tertiary); font: inherit;
+}
+.production-page .track-damage span { display: block; font-size: .72rem; color: var(--text-secondary); }
+.production-page .track-damage strong { font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.production-page .track-damage:hover { background: color-mix(in srgb, var(--accent-primary) 10%, var(--bg-tertiary)); }
