@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { AlertTriangle, ImageOff, PackageSearch, RefreshCw } from 'lucide-react';
 import { number, useProductionRead } from './Production';
 
-interface Step { id: string; name: string; under: string; imageUrl: string; pieces: number }
+interface Step { id: string; name: string; under: string; underType: string; imageUrl: string; pieces: number }
 interface Waiting { after: string; before: string; pieces: number }
 interface Card {
   id: string;
@@ -100,7 +100,7 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
               <li key={step.id}>
                 <span className="track-step-name">
                   {sentence(step.name)}
-                  {step.under && <em>in {sentence(step.under)}</em>}
+                  {step.under && <em>in {sentence(step.under)}{step.underType ? ` · ${sentence(step.underType)}` : ''}</em>}
                 </span>
                 <span className="track-bar"><span style={{ width: `${Math.max(2, share(step.pieces, top))}%` }} /></span>
                 <span className="track-step-pcs">{number(step.pieces)}<small>{card.intake ? `${share(step.pieces, card.intake)}%` : ''}</small></span>
