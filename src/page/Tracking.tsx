@@ -50,7 +50,14 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
   const cards = (tracking.data?.toys || [])
     .filter(card => card.isModel)
     .filter(card => !search.trim() || `${card.name} ${card.typeName}`.toLowerCase().includes(search.trim().toLowerCase()))
-    .sort((a, b) => (b.intake || 0) - (a.intake || 0) || b.ready - a.ready || a.name.localeCompare(b.name));
+    // Tallest first. A model with ten work steps makes a card three times the
+    // height of one with a single step, and mixing them leaves holes down the
+    // grid; sorted by height they pack, and the models with the most going on
+    // are the ones worth seeing first anyway.
+    .sort((a, b) => b.steps.length - a.steps.length
+      || (b.intake || 0) - (a.intake || 0)
+      || b.ready - a.ready
+      || a.name.localeCompare(b.name));
 
   return <div className="production-page">
     <header className="production-header">
