@@ -73,6 +73,14 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
         // What the breakdown adds up to: pieces waiting between steps, parts
         // never started, and anything reported broken.
         const total = card.waiting.reduce((sum, row) => sum + row.pieces, 0) + (card.notStarted || 0) + card.damage;
+        // How many pieces of this model exist at all. Assembly is where a toy
+        // becomes the toy, so that is the step to read — but only if it has
+        // been recorded. Where it has not, the busiest of the model's own steps
+        // says it instead, named so the figure explains itself.
+        const own = card.steps.filter(step => !step.under);
+        const assembled = own.find(step => /assembl/i.test(step.name) && step.pieces > 0);
+        const busiest = own.reduce<Step | undefined>((best, step) => (!best || step.pieces > best.pieces ? step : best), undefined);
+        const made = assembled || (busiest && busiest.pieces > 0 ? busiest : first);
         const top = Math.max(card.intake || 0, ...card.steps.map(step => step.pieces), 1);
         const showing = open === card.id;
         return <article className="production-card track-card" key={card.id}>
@@ -111,7 +119,7 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
             {/* Ready is what the first step has made — the pieces that exist as
                 this model at all. The rest of the line is read off the steps
                 above and the breakdown below. */}
-            <div><span>Ready{first ? ` · ${sentence(first.name)}` : ''}</span><strong>{number(first?.pieces || 0)}</strong></div>
+            <div><span>Ready{made ? ` · ${sentence(made.name)}` : ''}</span><strong>{number(made?.pieces || 0)}</strong></div>
             <div><span>Damage</span><strong>{number(card.damage)}</strong></div>
           </div>
 
