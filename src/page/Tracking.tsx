@@ -24,6 +24,8 @@ interface Card {
   steps: Step[];
   /** Shared by the models that go into one packet, so their cards sit together. */
   pairKey: string;
+  /** True when a step has been marked as finishing the toy, so the line ends there. */
+  markedEnd: boolean;
 }
 
 const sentence = (text: string) => (text ? text.charAt(0).toUpperCase() + text.slice(1).toLowerCase() : text);
@@ -170,8 +172,13 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
         // not a gap to paper over: a hen with heads joined and legs gummed is
         // still not a hen until it is assembled. Models with no assembly step
         // of their own fall back to their first step, named on the tile.
+        // Where the floor has said a step finishes the toy, that step is the
+        // answer. Otherwise assembly is, because that is where the parts become
+        // the model — a hen with its heads joined is still not a hen.
         const own = card.steps.filter(step => !step.under);
-        const made = own.find(step => /assembl/i.test(step.name)) || first;
+        const made = card.markedEnd
+          ? card.steps[card.steps.length - 1]
+          : own.find(step => /assembl/i.test(step.name)) || first;
         const top = Math.max(card.intake || 0, ...card.steps.map(step => step.pieces), 1);
         const showing = open === card.id;
         return <article className="production-card track-card" key={card.id}>
