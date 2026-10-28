@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Activity, ArrowLeft, ArrowRight, Clock, Factory, Lightbulb, RefreshCw, Trophy, Users } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Factory, Lightbulb, RefreshCw, Trophy } from 'lucide-react';
 import '../styles/Production.css';
 
 interface ProductionEntry {
@@ -456,14 +456,6 @@ export default function Production({ token, apiBase, view = 'report' }: { token:
         </li>)}</ol> : <p className="production-empty">No regular production to rank in this period. Training output is shown separately above.</p>}
       </section>
       <WorkSuggestions entries={report.data.entries || []} targets={rate} />
-      <div className="production-metrics">
-        {[
-          { label: 'Process pcs', value: report.data.totals.pieces, Icon: Factory },
-          { label: 'Recorded hours', value: report.data.totals.hours, Icon: Clock },
-          { label: 'Process pcs/hour', value: report.data.totals.perHour, Icon: Activity, whole: true },
-          { label: 'Workers with records', value: report.data.totals.workers, Icon: Users }
-        ].map(({ label, value, Icon, whole }) => <div className="production-card production-metric" key={label}><Icon size={20} aria-hidden="true" /><span>{label}</span><strong>{whole ? rateLabel(value) : number(value)}</strong></div>)}
-      </div>
       <section className="production-card"><h2>Training production</h2><p>Included in factory output. Training records are excluded from rankings, performance flags and their baseline.</p><strong>{number(report.data.trainingTotals?.pieces || 0)} pcs · {number(report.data.trainingTotals?.hours || 0)} hours · {report.data.trainingTotals?.entries || 0} entries</strong>{!!report.data.trainingWorkers?.length&&<div className="production-table-wrap" role="region" aria-label="Training production" tabIndex={0}><table><thead><tr><th>Worker</th><th>Training dates</th><th>Pcs</th><th>Hours</th></tr></thead><tbody>{report.data.trainingWorkers.map(worker=><tr key={worker.id}><th scope="row">{worker.name}</th><td>{worker.trainingStart || worker.trainingEnd ? `${dateLabel(worker.trainingStart)} — ${dateLabel(worker.trainingEnd)}` : 'Marked on the entry'}</td><td>{number(worker.pieces)}</td><td>{number(worker.hours)}</td></tr>)}</tbody></table></div>}</section>
       <WorkStepOutput rows={(report.data.processes || []).map(row => ({ ...row, sub: row.toyName }))} entries={report.data.entries || []} targets={rate} />
     </>}
