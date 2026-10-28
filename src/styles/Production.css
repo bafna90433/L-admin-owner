@@ -269,3 +269,61 @@
 .production-page .production-share-bar { flex: 1; height: 8px; border-radius: 999px; background: color-mix(in srgb, var(--accent-primary) 14%, transparent); overflow: hidden; }
 .production-page .production-share-bar span { display: block; height: 100%; border-radius: 999px; background: var(--accent-primary); }
 .production-page .production-share small { flex: none; font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+
+/* ---------- Toy tracking: one card per model ----------
+   The card answers a question that is read top to bottom — what came in, how
+   far each step has got, what is left over — so it is a column, not a table.
+   Cards sit on a grid that keeps them wide enough for a bar to mean something
+   and narrow enough that several models fit on one screen. */
+.production-page .track-grid {
+  display: grid; gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  align-items: start;
+}
+.production-page .track-card { display: flex; flex-direction: column; gap: 14px; }
+.production-page .track-card > header { display: flex; align-items: center; gap: 14px; }
+.production-page .track-card > header img,
+.production-page .track-nophoto {
+  width: 76px; height: 76px; flex: none; object-fit: cover;
+  border-radius: 14px; border: 1px solid var(--glass-border); background: var(--bg-tertiary);
+}
+.production-page .track-nophoto { display: grid; place-items: center; border-style: dashed; color: var(--text-secondary); }
+.production-page .track-card h2 { margin: 0; font-size: 1.05rem; }
+.production-page .track-card > header p { margin: 2px 0 0; font-size: .82rem; color: var(--text-secondary); }
+.production-page .track-intake { margin-left: auto; text-align: right; }
+.production-page .track-intake strong { display: block; font-size: 1.3rem; font-weight: 800; letter-spacing: -.02em; }
+.production-page .track-intake small { display: block; font-size: .72rem; color: var(--text-secondary); }
+.production-page .track-intake em { font-size: .78rem; font-style: normal; color: var(--text-secondary); }
+.production-page .track-limit { margin: -4px 0 0; font-size: .78rem; color: var(--text-secondary); }
+
+.production-page .track-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 9px; }
+.production-page .track-steps li { display: grid; grid-template-columns: minmax(96px, 1.1fr) minmax(0, 2fr) auto; align-items: center; gap: 10px; }
+.production-page .track-step-name { font-size: .84rem; font-weight: 600; overflow-wrap: break-word; }
+.production-page .track-step-name em { display: block; font-style: normal; font-size: .72rem; color: var(--text-secondary); }
+.production-page .track-bar { height: 10px; border-radius: 999px; background: color-mix(in srgb, var(--accent-primary) 12%, transparent); overflow: hidden; }
+.production-page .track-bar span { display: block; height: 100%; border-radius: 999px; background: var(--accent-primary); }
+.production-page .track-step-pcs { font-variant-numeric: tabular-nums; font-weight: 700; text-align: right; font-size: .88rem; }
+.production-page .track-step-pcs small { display: block; font-weight: 600; font-size: .7rem; color: var(--text-secondary); }
+.production-page .track-none { font-size: .82rem; color: var(--text-secondary); display: block; }
+
+.production-page .track-totals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.production-page .track-totals div { padding: 10px 12px; border-radius: 12px; background: var(--bg-tertiary); }
+.production-page .track-totals span { display: block; font-size: .72rem; color: var(--text-secondary); }
+.production-page .track-totals strong { font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.production-page .track-totals div:first-child strong { color: var(--success, #16a34a); }
+
+.production-page .track-open {
+  align-self: flex-start; border: none; background: none; cursor: pointer; padding: 0;
+  font: inherit; font-size: .84rem; font-weight: 700; color: var(--accent-primary);
+}
+.production-page .track-gaps { width: 100%; border-collapse: collapse; font-size: .82rem; }
+.production-page .track-gaps th, .production-page .track-gaps td { padding: 7px 0; text-align: left; border-top: 1px solid var(--glass-border); }
+.production-page .track-gaps td:last-child { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
+.production-page .track-gaps td:nth-child(2) { color: var(--text-secondary); }
+.production-page .track-gaps-total th, .production-page .track-gaps-total td { font-weight: 800; }
+
+@media (max-width: 520px) {
+  .production-page .track-grid { grid-template-columns: 1fr; }
+  .production-page .track-steps li { grid-template-columns: 1fr auto; }
+  .production-page .track-bar { grid-column: 1 / -1; }
+}
