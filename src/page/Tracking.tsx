@@ -120,10 +120,17 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
           <option value="custom">Pick the dates</option>
         </select>
       </label>
-      {period === 'custom' && <>
-        <label>From<input type="date" value={from} max={to} onChange={event => { if (event.target.value) setFrom(event.target.value); }} /></label>
-        <label>To<input type="date" value={to} min={from} onChange={event => { if (event.target.value) setTo(event.target.value); }} /></label>
-      </>}
+      {/* The two dates are always here, showing whatever the choice above works
+          out to. Typing in one is itself the choice: it switches to the dates
+          picked rather than making the owner find the option first. */}
+      <label>From
+        <input type="date" value={span.from} max={span.to || undefined}
+          onChange={event => { if (event.target.value) { setFrom(event.target.value); setTo(span.to || today()); setPeriod('custom'); } }} />
+      </label>
+      <label>To
+        <input type="date" value={span.to} min={span.from || undefined}
+          onChange={event => { if (event.target.value) { setTo(event.target.value); setFrom(span.from || event.target.value); setPeriod('custom'); } }} />
+      </label>
       <label>Category
         <select value={category} onChange={event => setCategory(event.target.value)}>
           <option value="">Every category</option>
