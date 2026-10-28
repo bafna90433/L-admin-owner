@@ -327,5 +327,3 @@
   .production-page .track-steps li { grid-template-columns: 1fr auto; }
   .production-page .track-bar { grid-column: 1 / -1; }
 }
-.production-page .track-switch { display: inline-flex; align-items: center; gap: 8px; font-size: .84rem; color: var(--text-secondary); cursor: pointer; }
-.production-page .track-switch input { width: 16px; height: 16px; accent-color: var(--accent-primary); }

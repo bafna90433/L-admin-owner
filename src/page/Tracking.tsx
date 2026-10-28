@@ -41,13 +41,10 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
   const [refresh, setRefresh] = useState(0);
   const [open, setOpen] = useState<string>('');
   const [search, setSearch] = useState('');
-  const [benches, setBenches] = useState(false);
   const tracking = useProductionRead<{ toys: Card[] }>(`${apiBase}/production/tracking`, token, refresh);
 
-  const all = tracking.data?.toys || [];
-  const hidden = all.filter(card => !card.isModel).length;
-  const cards = all
-    .filter(card => benches || card.isModel)
+  const cards = (tracking.data?.toys || [])
+    .filter(card => card.isModel)
     .filter(card => !search.trim() || `${card.name} ${card.typeName}`.toLowerCase().includes(search.trim().toLowerCase()))
     .sort((a, b) => (b.intake || 0) - (a.intake || 0) || b.ready - a.ready || a.name.localeCompare(b.name));
 
@@ -63,11 +60,7 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
 
     <div className="production-filters production-card">
       <label>Find a model<input value={search} placeholder="Bird, fighter-jet, packing…" onChange={event => setSearch(event.target.value)} /></label>
-      <label className="track-switch">
-        <input type="checkbox" checked={benches} onChange={event => setBenches(event.target.checked)} />
-        Show packing and checking benches{hidden ? ` (${hidden})` : ''}
-      </label>
-      <span className="production-count">{cards.length} {cards.length === 1 ? 'card' : 'cards'}</span>
+      <span className="production-count">{cards.length} {cards.length === 1 ? 'model' : 'models'}</span>
     </div>
 
     {tracking.error && <p className="production-error" role="alert"><AlertTriangle size={16} aria-hidden="true" /> {tracking.error} Use Refresh to retry.</p>}
