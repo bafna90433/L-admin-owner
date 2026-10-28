@@ -22,6 +22,8 @@ interface Card {
   notStarted: number | null;
   waiting: Waiting[];
   steps: Step[];
+  /** Shared by the models that go into one packet, so their cards sit together. */
+  pairKey: string;
 }
 
 const sentence = (text: string) => (text ? text.charAt(0).toUpperCase() + text.slice(1).toLowerCase() : text);
@@ -49,17 +51,23 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
   const [search, setSearch] = useState('');
   const tracking = useProductionRead<{ toys: Card[] }>(`${apiBase}/production/tracking`, token, refresh);
 
-  const cards = (tracking.data?.toys || [])
+  const shown = (tracking.data?.toys || [])
     .filter(card => card.isModel)
-    .filter(card => !search.trim() || `${card.name} ${card.typeName}`.toLowerCase().includes(search.trim().toLowerCase()))
-    // Tallest first. A model with ten work steps makes a card three times the
-    // height of one with a single step, and mixing them leaves holes down the
-    // grid; sorted by height they pack, and the models with the most going on
-    // are the ones worth seeing first anyway.
-    .sort((a, b) => b.steps.length - a.steps.length
-      || (b.intake || 0) - (a.intake || 0)
-      || b.ready - a.ready
-      || a.name.localeCompare(b.name));
+    .filter(card => !search.trim() || `${card.name} ${card.typeName}`.toLowerCase().includes(search.trim().toLowerCase()));
+  // Models packed together are read together, so they travel as one block —
+  // a helicopter and the plane that shares its packet sit side by side. The
+  // blocks themselves go tallest first, because a card with ten work steps is
+  // three times the height of one with a single step and mixing the two leaves
+  // holes down the grid.
+  const group = (card: Card) => card.pairKey || card.id;
+  const tallest = new Map<string, number>();
+  for (const card of shown) tallest.set(group(card), Math.max(tallest.get(group(card)) || 0, card.steps.length));
+  const cards = [...shown].sort((a, b) =>
+    (tallest.get(group(b)) || 0) - (tallest.get(group(a)) || 0)
+    || group(a).localeCompare(group(b))
+    || b.steps.length - a.steps.length
+    || (b.intake || 0) - (a.intake || 0)
+    || a.name.localeCompare(b.name));
 
   return <div className="production-page">
     <header className="production-header">
