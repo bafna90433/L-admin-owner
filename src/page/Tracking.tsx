@@ -70,11 +70,9 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
     <div className="track-grid">
       {cards.map(card => {
         const first = card.steps[0];
-        // Pieces that started and have not come out the other end. What is
-        // still on the shelf has not started, so it is shown in the breakdown
-        // rather than counted as work in progress.
-        const stuck = card.waiting.reduce((sum, row) => sum + row.pieces, 0);
-        const total = stuck + (card.notStarted || 0) + card.damage;
+        // What the breakdown adds up to: pieces waiting between steps, parts
+        // never started, and anything reported broken.
+        const total = card.waiting.reduce((sum, row) => sum + row.pieces, 0) + (card.notStarted || 0) + card.damage;
         const top = Math.max(card.intake || 0, ...card.steps.map(step => step.pieces), 1);
         const showing = open === card.id;
         return <article className="production-card track-card" key={card.id}>
@@ -110,8 +108,10 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
           </ol>
 
           <div className="track-totals">
-            <div><span>Ready</span><strong>{number(card.ready)}</strong></div>
-            <div><span>In the line</span><strong>{number(stuck)}</strong></div>
+            {/* Ready is what the first step has made — the pieces that exist as
+                this model at all. The rest of the line is read off the steps
+                above and the breakdown below. */}
+            <div><span>Ready{first ? ` · ${sentence(first.name)}` : ''}</span><strong>{number(first?.pieces || 0)}</strong></div>
             <div><span>Damage</span><strong>{number(card.damage)}</strong></div>
           </div>
 

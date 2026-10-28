@@ -306,7 +306,7 @@
 .production-page .track-step-pcs small { display: block; font-weight: 600; font-size: .7rem; color: var(--text-secondary); }
 .production-page .track-none { font-size: .82rem; color: var(--text-secondary); display: block; }
 
-.production-page .track-totals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.production-page .track-totals { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 .production-page .track-totals div { padding: 10px 12px; border-radius: 12px; background: var(--bg-tertiary); }
 .production-page .track-totals span { display: block; font-size: .72rem; color: var(--text-secondary); }
 .production-page .track-totals strong { font-size: 1.05rem; font-variant-numeric: tabular-nums; }
