@@ -70,7 +70,11 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
     <div className="track-grid">
       {cards.map(card => {
         const first = card.steps[0];
-        const stuck = card.waiting.reduce((sum, row) => sum + row.pieces, 0) + (card.notStarted || 0);
+        // Pieces that started and have not come out the other end. What is
+        // still on the shelf has not started, so it is shown in the breakdown
+        // rather than counted as work in progress.
+        const stuck = card.waiting.reduce((sum, row) => sum + row.pieces, 0);
+        const total = stuck + (card.notStarted || 0) + card.damage;
         const top = Math.max(card.intake || 0, ...card.steps.map(step => step.pieces), 1);
         const showing = open === card.id;
         return <article className="production-card track-card" key={card.id}>
@@ -135,7 +139,7 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
                 <tr className="track-gaps-total">
                   <th scope="row">Total</th>
                   <td />
-                  <td>{number(stuck + card.damage)}</td>
+                  <td>{number(total)}</td>
                 </tr>
               </tbody>
             </table>}
