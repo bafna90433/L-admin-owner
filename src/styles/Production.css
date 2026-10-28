@@ -277,9 +277,11 @@
    and narrow enough that several models fit on one screen. */
 .production-page .track-grid {
   display: grid; gap: 16px;
-  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: start;
 }
+@media (max-width: 1380px) { .production-page .track-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 880px) { .production-page .track-grid { grid-template-columns: minmax(0, 1fr); } }
 .production-page .track-card { display: flex; flex-direction: column; gap: 14px; }
 .production-page .track-card > header { display: flex; align-items: center; gap: 14px; }
 .production-page .track-card > header img,
@@ -297,7 +299,7 @@
 .production-page .track-limit { margin: -4px 0 0; font-size: .78rem; color: var(--text-secondary); }
 
 .production-page .track-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 9px; }
-.production-page .track-steps li { display: grid; grid-template-columns: minmax(96px, 1.1fr) minmax(0, 2fr) auto; align-items: center; gap: 10px; }
+.production-page .track-steps li { display: grid; grid-template-columns: minmax(140px, 1.3fr) minmax(70px, 1fr) auto; align-items: center; gap: 12px; }
 .production-page .track-step-name { font-size: .84rem; font-weight: 600; overflow-wrap: break-word; }
 .production-page .track-step-name em { display: block; font-style: normal; font-size: .72rem; color: var(--text-secondary); }
 .production-page .track-bar { height: 10px; border-radius: 999px; background: color-mix(in srgb, var(--accent-primary) 12%, transparent); overflow: hidden; }

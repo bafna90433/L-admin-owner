@@ -25,6 +25,8 @@ interface Card {
 }
 
 const sentence = (text: string) => (text ? text.charAt(0).toUpperCase() + text.slice(1).toLowerCase() : text);
+/** Names are typed by many hands, so compare them bare. */
+const flat = (text: string) => String(text || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 const share = (value: number, of: number) => (of > 0 ? Math.min(100, Math.round((value / of) * 100)) : 0);
 
 /**
@@ -112,16 +114,25 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
           {card.intakeFrom && <p className="track-limit">Limited by <strong>{card.intakeFrom}</strong> — the part that runs out first.</p>}
 
           <ol className="track-steps">
-            {card.steps.map(step => (
+            {card.steps.map(step => {
+              // A bench step is named after the model it is doing, so printing
+              // both reads "Fish in Bopp checking" four lines deep. The bench
+              // and its job say it in two words; a step named something else
+              // keeps its own name and says where it is done.
+              const echo = flat(step.name) === flat(card.name);
+              const title = step.under && echo ? sentence(step.under) : sentence(step.name);
+              const where = step.under ? (echo ? sentence(step.underType) : `in ${sentence(step.under)}`) : '';
+              return (
               <li key={step.id}>
                 <span className="track-step-name">
-                  {sentence(step.name)}
-                  {step.under && <em>in {sentence(step.under)}{step.underType ? ` · ${sentence(step.underType)}` : ''}</em>}
+                  {title}
+                  {where && <em>{where}</em>}
                 </span>
                 <span className="track-bar"><span style={{ width: `${Math.max(2, share(step.pieces, top))}%` }} /></span>
                 <span className="track-step-pcs">{number(step.pieces)}<small>{card.intake ? `${share(step.pieces, card.intake)}%` : ''}</small></span>
               </li>
-            ))}
+              );
+            })}
             {!card.steps.length && <li className="track-none">No work steps set up for this model yet.</li>}
           </ol>
 
