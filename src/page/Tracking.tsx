@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { AlertTriangle, ImageOff, PackageSearch, RefreshCw } from 'lucide-react';
-import { number, useProductionRead } from './Production';
+import { number, today, useProductionRead } from './Production';
 
 interface Step { id: string; name: string; under: string; underType: string; imageUrl: string; pieces: number }
 interface Waiting { after: string; before: string; pieces: number }
@@ -30,6 +30,7 @@ const sentence = (text: string) => (text ? text.charAt(0).toUpperCase() + text.s
 /** Names are typed by many hands, so compare them bare. */
 const flat = (text: string) => String(text || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 const share = (value: number, of: number) => (of > 0 ? Math.min(100, Math.round((value / of) * 100)) : 0);
+const shiftDay = (key: string, days: number) => new Date(new Date(`${key}T00:00:00Z`).getTime() + days * 86400000).toISOString().slice(0, 10);
 
 /**
  * Where every model's work has got to.
@@ -52,7 +53,24 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
   const [category, setCategory] = useState('');
   const [doing, setDoing] = useState<'all' | 'working' | 'idle'>('all');
   const [order, setOrder] = useState<'line' | 'ready' | 'name'>('line');
-  const tracking = useProductionRead<{ toys: Card[] }>(`${apiBase}/production/tracking`, token, refresh);
+  // When the owner asks about a stretch of days rather than the whole story.
+  const [period, setPeriod] = useState<'all' | 'today' | 'yesterday' | '7' | '30' | 'custom'>('all');
+  const [from, setFrom] = useState(() => shiftDay(today(), -29));
+  const [to, setTo] = useState(today);
+  const span = (() => {
+    const day = today();
+    if (period === 'today') return { from: day, to: day };
+    if (period === 'yesterday') return { from: shiftDay(day, -1), to: shiftDay(day, -1) };
+    if (period === '7') return { from: shiftDay(day, -6), to: day };
+    if (period === '30') return { from: shiftDay(day, -29), to: day };
+    if (period === 'custom') return { from, to };
+    return { from: '', to: '' };
+  })();
+  const tracking = useProductionRead<{ toys: Card[] }>(
+    `${apiBase}/production/tracking${span.from ? `?from=${span.from}&to=${span.to}` : ''}`,
+    token,
+    refresh
+  );
 
   const models = (tracking.data?.toys || []).filter(card => card.isModel);
   const categories = [...new Set(models.map(card => card.typeName).filter(Boolean))].sort();
@@ -85,13 +103,27 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
       <div>
         <span className="production-eyebrow"><PackageSearch size={16} aria-hidden="true" /> Owner overview · Read only</span>
         <h1>Toy tracking</h1>
-        <p>One card per model: what the parts could make, how far down the line it has got, and what is waiting in between. Counted from the beginning, not over a period.</p>
+        <p>One card per model: what the parts could make, how far down the line it has got, and what is waiting in between. {span.from ? `Counting ${span.from === span.to ? span.from : `${span.from} to ${span.to}`} only — parts and pieces from before it are left out.` : 'Counted from the beginning.'}</p>
       </div>
       <button type="button" className="production-refresh" onClick={() => setRefresh(value => value + 1)}><RefreshCw size={17} aria-hidden="true" />Refresh</button>
     </header>
 
     <div className="production-filters production-card">
       <label>Find a model<input value={search} placeholder="Bird, fighter-jet, packing…" onChange={event => setSearch(event.target.value)} /></label>
+      <label>Dates
+        <select value={period} onChange={event => setPeriod(event.target.value as typeof period)}>
+          <option value="all">From the beginning</option>
+          <option value="today">Today</option>
+          <option value="yesterday">Yesterday</option>
+          <option value="7">Last 7 days</option>
+          <option value="30">Last 30 days</option>
+          <option value="custom">Pick the dates</option>
+        </select>
+      </label>
+      {period === 'custom' && <>
+        <label>From<input type="date" value={from} max={to} onChange={event => { if (event.target.value) setFrom(event.target.value); }} /></label>
+        <label>To<input type="date" value={to} min={from} onChange={event => { if (event.target.value) setTo(event.target.value); }} /></label>
+      </>}
       <label>Category
         <select value={category} onChange={event => setCategory(event.target.value)}>
           <option value="">Every category</option>
@@ -112,7 +144,7 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
           <option value="name">Name A–Z</option>
         </select>
       </label>
-      {(search || category || doing !== 'all' || order !== 'line') && <button type="button" className="track-clear" onClick={() => { setSearch(''); setCategory(''); setDoing('all'); setOrder('line'); }}>Clear</button>}
+      {(search || category || doing !== 'all' || order !== 'line' || period !== 'all') && <button type="button" className="track-clear" onClick={() => { setSearch(''); setCategory(''); setDoing('all'); setOrder('line'); setPeriod('all'); }}>Clear</button>}
       <span className="production-count">{cards.length} of {models.length} {models.length === 1 ? 'model' : 'models'}</span>
     </div>
 
