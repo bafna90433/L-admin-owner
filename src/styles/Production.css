@@ -338,3 +338,4 @@
 .production-page .track-damage span { display: block; font-size: .72rem; color: var(--text-secondary); }
 .production-page .track-damage strong { font-size: 1.05rem; font-variant-numeric: tabular-nums; }
 .production-page .track-damage:hover { background: color-mix(in srgb, var(--accent-primary) 10%, var(--bg-tertiary)); }
+.production-page .track-clear { border: none; background: none; padding: 0; cursor: pointer; font: inherit; font-size: .84rem; font-weight: 700; color: var(--accent-primary); align-self: end; margin-bottom: 9px; }

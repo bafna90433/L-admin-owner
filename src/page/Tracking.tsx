@@ -49,10 +49,18 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
   const [open, setOpen] = useState<string>('');
   const [broken, setBroken] = useState<string>('');
   const [search, setSearch] = useState('');
+  const [category, setCategory] = useState('');
+  const [doing, setDoing] = useState<'all' | 'working' | 'idle'>('all');
+  const [order, setOrder] = useState<'line' | 'ready' | 'name'>('line');
   const tracking = useProductionRead<{ toys: Card[] }>(`${apiBase}/production/tracking`, token, refresh);
 
-  const shown = (tracking.data?.toys || [])
-    .filter(card => card.isModel)
+  const models = (tracking.data?.toys || []).filter(card => card.isModel);
+  const categories = [...new Set(models.map(card => card.typeName).filter(Boolean))].sort();
+  /** Pieces recorded anywhere on this model's line — what "working" means here. */
+  const done = (card: Card) => card.steps.reduce((sum, step) => sum + step.pieces, 0);
+  const shown = models
+    .filter(card => !category || card.typeName === category)
+    .filter(card => (doing === 'all' ? true : doing === 'working' ? done(card) > 0 : done(card) === 0))
     .filter(card => !search.trim() || `${card.name} ${card.typeName}`.toLowerCase().includes(search.trim().toLowerCase()));
   // Models packed together are read together, so they travel as one block —
   // a helicopter and the plane that shares its packet sit side by side. The
@@ -62,12 +70,15 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
   const group = (card: Card) => card.pairKey || card.id;
   const tallest = new Map<string, number>();
   for (const card of shown) tallest.set(group(card), Math.max(tallest.get(group(card)) || 0, card.steps.length));
-  const cards = [...shown].sort((a, b) =>
-    (tallest.get(group(b)) || 0) - (tallest.get(group(a)) || 0)
-    || group(a).localeCompare(group(b))
-    || b.steps.length - a.steps.length
-    || (b.intake || 0) - (a.intake || 0)
-    || a.name.localeCompare(b.name));
+  const cards = [...shown].sort((a, b) => {
+    if (order === 'name') return a.name.localeCompare(b.name);
+    if (order === 'ready') return done(b) - done(a) || a.name.localeCompare(b.name);
+    return (tallest.get(group(b)) || 0) - (tallest.get(group(a)) || 0)
+      || group(a).localeCompare(group(b))
+      || b.steps.length - a.steps.length
+      || (b.intake || 0) - (a.intake || 0)
+      || a.name.localeCompare(b.name);
+  });
 
   return <div className="production-page">
     <header className="production-header">
@@ -81,7 +92,28 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
 
     <div className="production-filters production-card">
       <label>Find a model<input value={search} placeholder="Bird, fighter-jet, packing…" onChange={event => setSearch(event.target.value)} /></label>
-      <span className="production-count">{cards.length} {cards.length === 1 ? 'model' : 'models'}</span>
+      <label>Category
+        <select value={category} onChange={event => setCategory(event.target.value)}>
+          <option value="">Every category</option>
+          {categories.map(name => <option key={name} value={name}>{sentence(name)}</option>)}
+        </select>
+      </label>
+      <label>Show
+        <select value={doing} onChange={event => setDoing(event.target.value as 'all' | 'working' | 'idle')}>
+          <option value="all">All models</option>
+          <option value="working">Work recorded</option>
+          <option value="idle">Nothing recorded yet</option>
+        </select>
+      </label>
+      <label>Order
+        <select value={order} onChange={event => setOrder(event.target.value as 'line' | 'ready' | 'name')}>
+          <option value="line">Longest line first</option>
+          <option value="ready">Most made first</option>
+          <option value="name">Name A–Z</option>
+        </select>
+      </label>
+      {(search || category || doing !== 'all' || order !== 'line') && <button type="button" className="track-clear" onClick={() => { setSearch(''); setCategory(''); setDoing('all'); setOrder('line'); }}>Clear</button>}
+      <span className="production-count">{cards.length} of {models.length} {models.length === 1 ? 'model' : 'models'}</span>
     </div>
 
     {tracking.error && <p className="production-error" role="alert"><AlertTriangle size={16} aria-hidden="true" /> {tracking.error} Use Refresh to retry.</p>}
