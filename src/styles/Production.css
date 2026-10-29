@@ -117,7 +117,7 @@
 .production-page .production-leader-card:hover { border-color: var(--board); box-shadow: 0 2px 8px rgba(15, 23, 42, .08); }
 .production-page .production-leader-card.is-mid { --board: #b45309; --board-bar: #f59e0b; --board-soft: rgba(217, 119, 6, .16); --board-tint: rgba(217, 119, 6, .07); }
 .production-page .production-leader-card.is-low { --board: #b91c1c; --board-bar: #ef4444; --board-soft: rgba(185, 28, 28, .14); --board-tint: rgba(185, 28, 28, .06); }
-.production-page .production-leader-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.production-page .production-leader-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
 .production-page .production-leader-card-name { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 .production-page .production-leader-card-name strong { font-size: 1.08rem; font-weight: 700; color: var(--text-primary); overflow-wrap: anywhere; }
 .production-page .production-leader-card-head > b { flex: none; color: var(--board); font-size: 1.35rem; font-weight: 800; letter-spacing: -.01em; }
@@ -125,15 +125,15 @@
 .production-page .production-leader-card-total { display: block; margin-top: 7px; font-size: .76rem; color: var(--text-secondary); }
 /* The jobs under a card read like a small table: a header row naming the
    columns, then one row per job lined up under it. */
-.production-page .production-leader-card-jobs { margin: 10px 0 0; border-top: 1px solid var(--glass-border); }
+.production-page .production-leader-card-jobs { margin: 4px 0 0; border-top: 1px solid var(--glass-border); }
 .production-page .production-leader-card-jobs-head,
 .production-page .production-leader-card-job {
   display: grid; grid-template-columns: minmax(0, 1fr) 96px 96px; gap: 4px 12px; align-items: baseline;
 }
 .production-page .production-leader-card-jobs-head {
-  padding: 0 0 9px; margin-bottom: 2px; border-bottom: 2px solid var(--glass-border-hover, var(--glass-border));
-  font-size: .74rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase;
-  color: var(--text-secondary);
+  padding: 0 0 7px; border-bottom: 1px solid var(--glass-border);
+  font-size: .74rem; font-weight: 700; letter-spacing: .02em; text-transform: uppercase;
+  color: var(--text-tertiary, var(--text-secondary));
 }
 .production-page .production-leader-card-jobs-head > span:not(:first-child),
 .production-page .production-leader-card-job .production-figure,
