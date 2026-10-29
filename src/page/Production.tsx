@@ -435,9 +435,7 @@ export default function Production({ token, apiBase, view = 'report' }: { token:
       <section className="production-card"><h2>All work details</h2><p>Toy, work step, time, pieces against the work step's target, entry by and remarks for every saved work.</p><EntryTable entries={detailWorker.entries} hideWorker targets={rate} token={token} apiBase={apiBase} /></section>
     </> : <section className="production-card"><h2>No work records in this selection</h2><p>The records may have been removed or changed. Return to production records to choose another worker or date.</p></section>}
   </div>;
-  // Records is a sheet of rows, so it sits on white rather than the tinted
-  // workspace the cards elsewhere need to stand out from.
-  return <div className={`production-page${view === 'records' ? ' production-on-white' : ''}`}>
+  return <div className="production-page">
     {/* Records is a working screen, not a page to be introduced: the sidebar
         already says where you are, so it opens straight on the rows and keeps
         only the button that does something. */}

@@ -498,19 +498,15 @@
 .production-page .production-flat thead th { padding: 11px 14px; }
 .production-page .production-flat .production-work-count { font-size: .7rem; }
 
-/* Records on white: the rows are the page, so nothing tints behind them. */
-.production-page.production-on-white { background: #fff; margin: -26px clamp(-34px, -3vw, -16px) -40px; padding: 26px clamp(16px, 3vw, 34px) 40px; min-height: 100vh; }
-.production-page.production-on-white .production-flat thead th { background: #fff; border-bottom: 1px solid var(--glass-border); }
-.production-page.production-on-white .production-search,
-.production-page.production-on-white select,
-.production-page.production-on-white input[type="date"] { background: #fff; }
 
-/* With the page white too, the sidebar's edge disappeared: give the content a
-   line of its own and a faint tint behind the menu so the two read apart. */
-.production-page.production-on-white { border-left: 1px solid var(--glass-border); }
-.factory-workspace:has(.production-on-white) .factory-side { background: var(--bg-tertiary, #f7f8fb); }
-/* And a frame around the rows, so the report sits on the page as one sheet. */
-.production-page.production-on-white .production-flat .production-table-wrap {
-  border: 1px solid var(--glass-border); border-radius: var(--border-radius-md); overflow: hidden;
+/* Records keeps the workspace's own background, with the bar and the rows on
+   white the way every other page here does it. */
+.production-page .production-record-bar {
+  border: 1px solid var(--glass-border); border-radius: var(--border-radius-md);
+  background: var(--bg-secondary); padding: 16px; margin-bottom: 16px;
 }
-.production-page.production-on-white .production-flat thead th { background: var(--bg-tertiary, #f7f8fb); }
+.production-page .production-flat .production-table-wrap {
+  border: 1px solid var(--glass-border); border-radius: var(--border-radius-md);
+  background: var(--bg-secondary); overflow: hidden;
+}
+.production-page .production-flat thead th { background: var(--bg-tertiary); }
