@@ -438,3 +438,6 @@
   color: var(--accent-primary); font-weight: 600; font-size: .84rem;
 }
 .production-page .production-flat .production-detail-button:hover { text-decoration: underline; }
+/* Refresh belongs with the controls it refreshes, at the end of their row. */
+.production-page .production-record-bar .production-count { margin-left: auto; }
+.production-page .production-record-bar .production-refresh { margin-left: 12px; }
