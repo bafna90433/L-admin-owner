@@ -371,3 +371,10 @@
 .production-page .track-tile.is-on strong { color: var(--accent-primary); }
 .production-page .track-totals .track-tile:first-child strong { color: var(--success, #16a34a); }
 .production-page .track-totals .track-tile:first-child.is-on strong { color: var(--success, #16a34a); }
+
+/* Records is a page of rows, not a thing sitting on a page: no raised card
+   around a table that already has its own lines. */
+.production-page .production-card.production-flat {
+  background: transparent; border: none; box-shadow: none; padding: 0;
+}
+.production-page .production-flat .production-table-wrap { border: 1px solid var(--glass-border); border-radius: var(--border-radius-md); background: var(--bg-secondary); }
