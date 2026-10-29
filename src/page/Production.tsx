@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Factory, RefreshCw, Search, Trophy, UserCog } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Factory, RefreshCw, Search, UserCog } from 'lucide-react';
 import { flatName, sameJob } from '../names';
 import '../styles/Production.css';
 
@@ -350,9 +350,12 @@ export default function Production({ token, apiBase, view = 'report' }: { token:
     </>}
     {report.error && <p className="production-error" role="alert">{report.error} {report.data && 'Showing the last successful report; it may be out of date.'} Use Refresh to retry.</p>}
     {view === 'report' && report.data && <>
-      <div className="production-period">{dateLabel(report.data.from)} — {dateLabel(report.data.to)}</div>
       <section className="production-card production-flat">
-        <div className="production-section-heading"><div><h2 ref={leadersHeading} tabIndex={-1}>Top performers</h2><p>Regular production only, ranked against each work step's own target. Training records are excluded. A full bar is 100% of target; above that the figure keeps rising. Green from 90%, amber from 70%, red below 70%. Click a worker to see their work details for this report period.</p></div><Trophy size={22} aria-hidden="true" /></div>
+        {/* The period is already set above in the filters, and the rules are
+            in the user's own head after the first look — so the heading is
+            kept only for returning here by keyboard or screen reader after a
+            worker's detail page, not for anyone to read on screen. */}
+        <h2 ref={leadersHeading} tabIndex={-1} className="production-sr-only">Top performers</h2>
         {/* Cards, two to a row: the worker's name and standing up top, their
             jobs listed below. A table reads well across many rows but a
             worker here is one unit to take in at a glance, not a line item. */}
@@ -368,7 +371,6 @@ export default function Production({ token, apiBase, view = 'report' }: { token:
               </span>
               {row.percent === null ? <em>No target set</em> : <b>{number(row.percent)}%</b>}
             </div>
-            <small className="production-leader-card-total">{number(row.pieces)} pcs · {number(row.hours)} hr{row.expected ? ` · target ${number(Math.round(row.expected))} pcs` : ''}{row.untargetedHours ? ` · ${number(row.untargetedHours)} hr not compared` : ''}</small>
             <div className="production-leader-card-jobs">
               <div className="production-leader-card-jobs-head"><span>Work</span><span>Target pcs</span><span>Process pcs</span></div>
               {jobs.map(work => {
