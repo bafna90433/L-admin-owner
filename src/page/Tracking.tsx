@@ -231,6 +231,11 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
             {!card.steps.length && <li className="track-none">No work steps set up for this model yet.</li>}
           </ol>}
 
+          {/* A step of the model's own can be marked as finishing it, and the
+              line stops there. Said on the card, because a short line with no
+              reason given reads as missing work. */}
+          {!showBroken && card.markedEnd && <p className="track-limit">The line is marked to end at <strong>{sentence(card.steps[card.steps.length - 1]?.name || '')}</strong> — later steps are set aside in Categories &amp; toys.</p>}
+
 
           <div className="track-totals">
             {/* Every step's count is on the card already, so a ready tile only
