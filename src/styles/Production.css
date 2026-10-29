@@ -140,7 +140,7 @@
 .production-page .production-leader-card-job > strong { text-align: right; }
 .production-page .production-leader-card-job {
   --board: #15803d; --board-bar: #22c55e;
-  padding: 8px 0; font-size: .88rem; color: var(--text-secondary); border-top: 1px solid var(--glass-border);
+  padding: 8px 0; font-size: .88rem; color: var(--text-secondary);
 }
 .production-page .production-leader-card-job.is-mid { --board: #b45309; --board-bar: #f59e0b; }
 .production-page .production-leader-card-job.is-low { --board: #b91c1c; --board-bar: #ef4444; }
