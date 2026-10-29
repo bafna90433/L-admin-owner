@@ -125,14 +125,30 @@
 .production-page .production-leader-card-head > b { flex: none; color: var(--board); font-size: 1.1rem; font-weight: 800; }
 .production-page .production-leader-card-head > em { flex: none; font-style: normal; font-size: .76rem; color: var(--text-secondary); }
 .production-page .production-leader-card-total { display: block; margin-top: 7px; font-size: .76rem; color: var(--text-secondary); }
-.production-page .production-leader-card-jobs { list-style: none; margin: 10px 0 0; padding-top: 8px; border-top: 1px solid var(--glass-border); display: flex; flex-direction: column; gap: 5px; }
-.production-page .production-leader-card-jobs li {
-  display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 4px 10px; align-items: baseline;
-  font-size: .78rem; color: var(--text-secondary);
+/* The jobs under a card read like a small table: a header row naming the
+   columns, then one row per job lined up under it. */
+.production-page .production-leader-card-jobs { margin: 10px 0 0; border-top: 1px solid var(--glass-border); }
+.production-page .production-leader-card-jobs-head,
+.production-page .production-leader-card-job {
+  display: grid; grid-template-columns: minmax(0, 1fr) 90px 90px; gap: 4px 10px; align-items: baseline;
 }
-.production-page .production-leader-card-jobs li > span:first-child { overflow-wrap: anywhere; }
-.production-page .production-leader-card-jobs li > strong { font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
-.production-page .production-leader-card-jobs .production-figure { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.production-page .production-leader-card-jobs-head {
+  padding: 7px 0 4px; font-size: .64rem; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
+  color: var(--text-tertiary, var(--text-secondary));
+}
+.production-page .production-leader-card-jobs-head > span:not(:first-child),
+.production-page .production-leader-card-job .production-figure,
+.production-page .production-leader-card-job > strong { text-align: right; }
+.production-page .production-leader-card-job {
+  padding: 5px 0; font-size: .78rem; color: var(--text-secondary); border-top: 1px solid var(--glass-border);
+}
+.production-page .production-leader-card-job > span:first-child { overflow-wrap: anywhere; }
+.production-page .production-leader-card-job > strong { font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.production-page .production-leader-card-job .production-figure { font-variant-numeric: tabular-nums; white-space: nowrap; }
+@media (max-width: 560px) {
+  .production-page .production-leader-card-jobs-head,
+  .production-page .production-leader-card-job { grid-template-columns: minmax(0, 1fr) 70px 70px; }
+}
 @media (max-width: 720px) {
   .production-page .production-leader-grid { grid-template-columns: 1fr; }
 }

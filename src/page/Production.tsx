@@ -485,11 +485,14 @@ export default function Production({ token, apiBase, view = 'report' }: { token:
             </div>
             <span className="production-board-track"><span className="production-board-fill" style={{ width: `${Math.max(2, capped(row.percent) ?? 0)}%` }} /></span>
             <small className="production-leader-card-total">{number(row.pieces)} pcs · {number(row.hours)} hr{row.expected ? ` · target ${number(Math.round(row.expected))} pcs` : ''}{row.untargetedHours ? ` · ${number(row.untargetedHours)} hr not compared` : ''}</small>
-            <ul className="production-leader-card-jobs">{jobs.map(work => <li key={work.label}>
-              <span>{work.label}</span>
-              <span className="production-figure">{work.expected ? number(Math.round(work.expected)) : '—'}</span>
-              <strong>{number(work.pieces)}</strong>
-            </li>)}</ul>
+            <div className="production-leader-card-jobs">
+              <div className="production-leader-card-jobs-head"><span>Work</span><span>Target pcs</span><span>Process pcs</span></div>
+              {jobs.map(work => <div className="production-leader-card-job" key={work.label}>
+                <span>{work.label}</span>
+                <span className="production-figure">{work.expected ? number(Math.round(work.expected)) : '—'}</span>
+                <strong>{number(work.pieces)}</strong>
+              </div>)}
+            </div>
           </button>;
         })}</div> : <p className="production-empty">No regular production to rank in this period. Training output is shown separately above.</p>}
       </section>
