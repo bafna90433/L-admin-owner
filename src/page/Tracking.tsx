@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { AlertTriangle, ImageOff, PackageSearch, RefreshCw, X } from 'lucide-react';
+import { AlertTriangle, ImageOff, PackageSearch, RefreshCw } from 'lucide-react';
 import { number, today, useProductionRead } from './Production';
 
 interface Step { id: string; name: string; under: string; underType: string; imageUrl: string; pieces: number }
@@ -109,8 +108,6 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
       || a.name.localeCompare(b.name);
   });
 
-  const openBroken = cards.find(card => card.id === broken) || null;
-
   return <div className="production-page">
     <header className="production-header">
       <div>
@@ -191,6 +188,9 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
           ? card.steps[card.steps.length - 1]
           : own.find(step => /assembl/i.test(step.name)) || first;
         const top = Math.max(card.intake || 0, ...card.steps.map(step => step.pieces), 1);
+        // The card shows one list at a time: the line, or what broke on it.
+        const showBroken = broken === card.id;
+        const worst = Math.max(1, ...(card.damageParts || []).map(part => part.qty));
 
         const showing = open === card.id;
         return <article className="production-card track-card" key={card.id}>
@@ -211,7 +211,16 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
 
           {card.intakeFrom && <p className="track-limit">Limited by <strong>{card.intakeFrom}</strong> — the part that runs out first.</p>}
 
-          <ol className="track-steps">
+          {showBroken ? <ol className="track-steps">
+            {(card.damageParts || []).map(part => (
+              <li key={part.name}>
+                <span className="track-step-name">{sentence(part.name)}</span>
+                <span className="track-bar"><span style={{ width: `${Math.max(2, share(part.qty, worst))}%` }} /></span>
+                <span className="track-step-pcs">{number(part.qty)}</span>
+              </li>
+            ))}
+            {!(card.damageParts || []).length && <li className="track-none">No parts listed for this model yet.</li>}
+          </ol> : <ol className="track-steps">
             {card.steps.map(step => {
               // A bench step is named after the model it is doing, so printing
               // both reads "Fish in Bopp checking" four lines deep. The bench
@@ -232,19 +241,20 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
               );
             })}
             {!card.steps.length && <li className="track-none">No work steps set up for this model yet.</li>}
-          </ol>
+          </ol>}
 
           <div className="track-totals">
             {/* Ready is what the first step has made — the pieces that exist as
                 this model at all. The rest of the line is read off the steps
                 above and the breakdown below. */}
-            <div><span>Ready{made ? ` · ${sentence(made.name)}` : ''}</span><strong>{number(made?.pieces || 0)}</strong></div>
-            {(card.damageParts || []).length
-              ? <button type="button" className="track-damage" aria-expanded={broken === card.id} onClick={() => setBroken(broken === card.id ? '' : card.id)}>
-                  <span>Damage · {(card.damageParts || []).length} {(card.damageParts || []).length === 1 ? 'part' : 'parts'}</span>
-                  <strong>{number(card.damage)}</strong>
-                </button>
-              : <div><span>Damage</span><strong>{number(card.damage)}</strong></div>}
+            <button type="button" className={`track-tile${showBroken ? '' : ' is-on'}`} aria-pressed={!showBroken} onClick={() => setBroken('')}>
+              <span>Ready{made ? ` · ${sentence(made.name)}` : ''}</span>
+              <strong>{number(made?.pieces || 0)}</strong>
+            </button>
+            <button type="button" className={`track-tile${showBroken ? ' is-on' : ''}`} aria-pressed={showBroken} onClick={() => setBroken(showBroken ? '' : card.id)}>
+              <span>Damage{(card.damageParts || []).length ? ` · ${(card.damageParts || []).length} ${(card.damageParts || []).length === 1 ? 'part' : 'parts'}` : ''}</span>
+              <strong>{number(card.damage)}</strong>
+            </button>
           </div>
 
           {(card.waiting.length > 0 || card.notStarted) ? <>
@@ -280,34 +290,5 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
       })}
     </div>
 
-    {openBroken && createPortal(
-      <div className="track-modal" role="dialog" aria-modal="true" aria-label={`Damaged parts of ${openBroken.name}`}
-        onMouseDown={event => { if (event.target === event.currentTarget) setBroken(''); }}>
-        <div className="track-modal-body">
-          <button type="button" className="track-modal-close" aria-label="Close" onClick={() => setBroken('')}><X size={18} /></button>
-          <header>
-            {openBroken.imageUrl
-              ? <img src={openBroken.imageUrl} alt="" />
-              : <span className="track-nophoto" aria-hidden="true"><ImageOff size={22} /></span>}
-            <div>
-              <h2>{sentence(openBroken.name)}</h2>
-              <p>{number(openBroken.damage)} broken across {(openBroken.damageParts || []).length} {(openBroken.damageParts || []).length === 1 ? 'part' : 'parts'}</p>
-            </div>
-          </header>
-          <ol className="track-steps">
-            {(openBroken.damageParts || []).map(part => {
-              const worst = Math.max(1, ...(openBroken.damageParts || []).map(row => row.qty));
-              return <li key={part.name}>
-                <span className="track-step-name">{sentence(part.name)}</span>
-                <span className="track-bar"><span style={{ width: `${Math.max(2, share(part.qty, worst))}%` }} /></span>
-                <span className="track-step-pcs">{number(part.qty)}</span>
-              </li>;
-            })}
-          </ol>
-          {!(openBroken.damageParts || []).length && <p className="production-empty">No parts listed for this model yet.</p>}
-        </div>
-      </div>,
-      document.body
-    )}
   </div>;
 }
