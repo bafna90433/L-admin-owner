@@ -427,10 +427,15 @@ export default function Production({ token, apiBase, view = 'report' }: { token:
     </> : <section className="production-card"><h2>No work records in this selection</h2><p>The records may have been removed or changed. Return to production records to choose another worker or date.</p></section>}
   </div>;
   return <div className="production-page">
-    <header className="production-header">
-      <div><span className="production-eyebrow"><Factory size={16} aria-hidden="true" /> Owner overview · Read only</span><h1>{view === 'records' ? 'Production records' : 'Production'}</h1><p>{view === 'records' ? 'Every worker’s saved work for the chosen day or period. Click a name for the full detail.' : 'Output, worker performance and the record of every change.'}</p></div>
-      <button type="button" className="production-refresh" onClick={() => setRefresh(value => value + 1)}><RefreshCw size={17} aria-hidden="true" />Refresh</button>
-    </header>
+    {/* Records is a working screen, not a page to be introduced: the sidebar
+        already says where you are, so it opens straight on the rows and keeps
+        only the button that does something. */}
+    {view === 'records'
+      ? <div className="production-bare-head"><button type="button" className="production-refresh" onClick={() => setRefresh(value => value + 1)}><RefreshCw size={17} aria-hidden="true" />Refresh</button></div>
+      : <header className="production-header">
+          <div><span className="production-eyebrow"><Factory size={16} aria-hidden="true" /> Owner overview · Read only</span><h1>Production</h1><p>Output, worker performance and the record of every change.</p></div>
+          <button type="button" className="production-refresh" onClick={() => setRefresh(value => value + 1)}><RefreshCw size={17} aria-hidden="true" />Refresh</button>
+        </header>}
     {view === 'report' && <>
     <div className="production-filters production-card">
       <label>Report period<select value={period} onChange={event => choosePeriod(event.target.value)}><option value="today">Today</option><option value="yesterday">Yesterday</option><option value="day">Single day</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option></select></label>

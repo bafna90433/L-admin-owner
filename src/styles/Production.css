@@ -395,3 +395,4 @@
 .production-page .production-flat tbody tr:hover { background: color-mix(in srgb, var(--accent-primary) 7%, transparent); }
 .production-page .production-flat td { font-variant-numeric: tabular-nums; }
 .production-page .production-flat .production-table-wrap { max-height: calc(100vh - 320px); overflow: auto; }
+.production-page .production-bare-head { display: flex; justify-content: flex-end; margin-bottom: 10px; }
