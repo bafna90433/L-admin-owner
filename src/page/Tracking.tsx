@@ -172,6 +172,7 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
 
     <div className="track-grid">
       {cards.map(card => {
+        const first = card.steps[0];
         // What the breakdown adds up to: pieces waiting between steps, parts
         // never started, and anything reported broken.
         const total = card.waiting.reduce((sum, row) => sum + row.pieces, 0) + (card.notStarted || 0) + card.damage;
