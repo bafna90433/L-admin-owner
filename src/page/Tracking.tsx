@@ -180,6 +180,7 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
           ? card.steps[card.steps.length - 1]
           : own.find(step => /assembl/i.test(step.name)) || first;
         const top = Math.max(card.intake || 0, ...card.steps.map(step => step.pieces), 1);
+        const worst = Math.max(1, ...(card.damageParts || []).map(part => part.qty));
         const showing = open === card.id;
         return <article className="production-card track-card" key={card.id}>
           <header>
@@ -235,16 +236,17 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
               : <div><span>Damage</span><strong>{number(card.damage)}</strong></div>}
           </div>
 
-          {broken === card.id && <table className="track-gaps">
-            <tbody>
-              {(card.damageParts || []).map(part => <tr key={part.name}>
-                <th scope="row">{sentence(part.name)}</th>
-                <td>{part.qty ? 'reported broken' : 'nothing reported'}</td>
-                <td>{number(part.qty)}</td>
-              </tr>)}
-              <tr className="track-gaps-total"><th scope="row">Total</th><td /><td>{number(card.damage)}</td></tr>
-            </tbody>
-          </table>}
+          {/* The parts read the way the steps above do — same row, same bar —
+              because it is the same question asked of a different list. */}
+          {broken === card.id && <ol className="track-steps">
+            {(card.damageParts || []).map(part => (
+              <li key={part.name}>
+                <span className="track-step-name">{sentence(part.name)}</span>
+                <span className="track-bar"><span style={{ width: `${Math.max(2, share(part.qty, worst))}%` }} /></span>
+                <span className="track-step-pcs">{number(part.qty)}</span>
+              </li>
+            ))}
+          </ol>}
 
           {(card.waiting.length > 0 || card.notStarted) ? <>
             <button type="button" className="track-open" onClick={() => setOpen(showing ? '' : card.id)} aria-expanded={showing}>
