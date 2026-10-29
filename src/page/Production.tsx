@@ -357,7 +357,10 @@ export default function Production({ token, apiBase, view = 'report' }: { token:
   const records = viewScope === 'day' ? dayEntries : report;
   const entries = viewScope === 'day' ? (dayEntries.data?.entries || []).map(entry => ({ ...entry, date: entry.date || date })) : report.data?.entries || [];
   const workerRows = groupWorkerRecords(entries);
-  const PER_PAGE = 10;
+  // A screen's worth is a scroll, not a page turn: fifty rows cover a whole
+  // day's workforce, so the pager is for going further back, not for reading
+  // one day in four clicks.
+  const PER_PAGE = 50;
   const foundRows = workerRows.filter(row => !recordSearch.trim() || row.name.toLowerCase().includes(recordSearch.trim().toLowerCase()));
   const pages = Math.max(1, Math.ceil(foundRows.length / PER_PAGE));
   const page = Math.min(recordPage, pages);
