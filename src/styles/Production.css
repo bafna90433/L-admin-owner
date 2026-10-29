@@ -396,3 +396,45 @@
 .production-page .production-flat td { font-variant-numeric: tabular-nums; }
 .production-page .production-flat .production-table-wrap { max-height: calc(100vh - 320px); overflow: auto; }
 .production-page .production-bare-head { display: flex; justify-content: flex-end; margin-bottom: 10px; }
+
+/* ---------- Records, plainly ----------
+   A table that is read, not a box that is looked at: no frame around it, the
+   header a quiet label, one hairline between rows, and the figures lined up
+   on the right where they can be compared down the column. */
+.production-page .production-record-bar {
+  border: none; background: transparent; border-radius: 0;
+  padding: 0 2px 14px; margin-bottom: 0;
+  border-bottom: 1px solid var(--glass-border);
+}
+.production-page .production-flat .production-table-wrap {
+  border: none; background: transparent; border-radius: 0;
+}
+.production-page .production-flat table { border-collapse: collapse; }
+.production-page .production-flat thead th {
+  background: var(--bg-primary, transparent);
+  border-bottom: 1px solid var(--glass-border);
+  padding: 13px 14px;
+  font-size: .7rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.production-page .production-flat tbody tr { border-bottom: 1px solid color-mix(in srgb, var(--glass-border) 55%, transparent); }
+.production-page .production-flat tbody tr:nth-child(even) { background: transparent; }
+.production-page .production-flat tbody tr:last-child { border-bottom: none; }
+.production-page .production-flat tbody tr:hover { background: color-mix(in srgb, var(--accent-primary) 5%, transparent); }
+.production-page .production-flat tbody td,
+.production-page .production-flat tbody th { padding: 13px 14px; font-size: .88rem; }
+/* Counts and times belong under each other, not beside the words. */
+.production-page .production-flat tr > *:nth-child(3),
+.production-page .production-flat tr > *:nth-child(4),
+.production-page .production-flat tr > *:nth-child(5) { text-align: right; }
+.production-page .production-flat tr > *:last-child { text-align: right; }
+.production-page .production-flat .production-worker-name {
+  font-weight: 600; color: var(--text-primary); border: none; background: none; padding: 0; cursor: pointer; font-size: .9rem;
+}
+.production-page .production-flat .production-worker-name:hover { color: var(--accent-primary); text-decoration: underline; }
+/* The row is the link; the words at the end only point the way. */
+.production-page .production-flat .production-detail-button {
+  border: none; background: none; padding: 0; gap: 5px;
+  color: var(--accent-primary); font-weight: 600; font-size: .84rem;
+}
+.production-page .production-flat .production-detail-button:hover { text-decoration: underline; }
