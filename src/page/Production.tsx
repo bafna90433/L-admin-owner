@@ -438,7 +438,6 @@ export default function Production({ token, apiBase, view = 'report' }: { token:
       <div className="production-sync" role="status" aria-live="polite">{report.busy ? 'Updating report…' : report.updatedAt ? `Updated ${report.updatedAt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}` : 'Report unavailable'}<span>Refreshes every 30 seconds and on focus</span></div>
     </div>
     </>}
-    <p className="production-explanation">All quantities are <strong>process pieces</strong>. A toy can pass through multiple work steps; these totals do not count finished toys.</p>
     {report.error && <p className="production-error" role="alert">{report.error} {report.data && 'Showing the last successful report; it may be out of date.'} Use Refresh to retry.</p>}
     {view === 'report' && report.data && <>
       <div className="production-period">{dateLabel(report.data.from)} — {dateLabel(report.data.to)}</div>
