@@ -17,8 +17,8 @@ interface Card {
   intakeFrom: string;
   ready: number;
   damage: number;
-  /** What broke, part by part, largest first. */
-  damageParts: Broken[];
+  /** Every part of the toy with what has broken of it, largest first. */
+  damageParts?: Broken[];
   notStarted: number | null;
   waiting: Waiting[];
   steps: Step[];
@@ -227,9 +227,9 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
                 this model at all. The rest of the line is read off the steps
                 above and the breakdown below. */}
             <div><span>Ready{made ? ` · ${sentence(made.name)}` : ''}</span><strong>{number(made?.pieces || 0)}</strong></div>
-            {card.damageParts.length
+            {(card.damageParts || []).length
               ? <button type="button" className="track-damage" aria-expanded={broken === card.id} onClick={() => setBroken(broken === card.id ? '' : card.id)}>
-                  <span>Damage · {card.damageParts.length} {card.damageParts.length === 1 ? 'part' : 'parts'}</span>
+                  <span>Damage · {(card.damageParts || []).length} {(card.damageParts || []).length === 1 ? 'part' : 'parts'}</span>
                   <strong>{number(card.damage)}</strong>
                 </button>
               : <div><span>Damage</span><strong>{number(card.damage)}</strong></div>}
@@ -237,7 +237,7 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
 
           {broken === card.id && <table className="track-gaps">
             <tbody>
-              {card.damageParts.map(part => <tr key={part.name}>
+              {(card.damageParts || []).map(part => <tr key={part.name}>
                 <th scope="row">{sentence(part.name)}</th>
                 <td>{part.qty ? 'reported broken' : 'nothing reported'}</td>
                 <td>{number(part.qty)}</td>
