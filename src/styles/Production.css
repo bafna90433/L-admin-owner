@@ -378,3 +378,20 @@
   background: transparent; border: none; box-shadow: none; padding: 0;
 }
 .production-page .production-flat .production-table-wrap { border: 1px solid var(--glass-border); border-radius: var(--border-radius-md); background: var(--bg-secondary); }
+
+/* Records: one bar of controls, then rows. Nothing between the question and
+   the answer. */
+.production-page .production-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.production-page .production-record-bar {
+  display: flex; flex-wrap: wrap; align-items: end; gap: 14px;
+  padding: 14px 16px; margin-bottom: 14px;
+  border: 1px solid var(--glass-border); border-radius: var(--border-radius-md); background: var(--bg-secondary);
+}
+.production-page .production-record-bar .production-count { margin-left: auto; }
+/* The rows carry the page: a header that stays put, a stripe to follow across,
+   and figures that line up under each other. */
+.production-page .production-flat table thead th { position: sticky; top: 0; z-index: 1; background: var(--bg-tertiary); }
+.production-page .production-flat tbody tr:nth-child(even) { background: color-mix(in srgb, var(--bg-tertiary) 45%, transparent); }
+.production-page .production-flat tbody tr:hover { background: color-mix(in srgb, var(--accent-primary) 7%, transparent); }
+.production-page .production-flat td { font-variant-numeric: tabular-nums; }
+.production-page .production-flat .production-table-wrap { max-height: calc(100vh - 320px); overflow: auto; }
