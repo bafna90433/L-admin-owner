@@ -22,6 +22,9 @@ interface Card {
   notStarted: number | null;
   waiting: Waiting[];
   steps: Step[];
+  /** Work the model still goes through after its line is marked finished —
+   *  the cleaning or packing bench it is sent to afterwards. */
+  after?: Step[];
   /** Shared by the models that go into one packet, so their cards sit together. */
   pairKey: string;
   /** True when a step has been marked as finishing the toy, so the line ends there. */
@@ -242,6 +245,27 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
             })}
             {!card.steps.length && <li className="track-none">No work steps set up for this model yet.</li>}
           </ol>}
+
+          {/* The line is marked to end, but the floor still cleans and packs
+              the model afterwards and records it. Those figures are shown
+              apart so the ready count the mark was set for stays as it is. */}
+          {!showBroken && (card.after || []).length > 0 && <div className="track-after">
+            <h3>After it is finished</h3>
+            <ol className="track-steps">
+              {(card.after || []).map(step => {
+                const echo = flat(step.name) === flat(card.name);
+                const title = step.under && echo ? sentence(step.under) : sentence(step.name);
+                const where = step.under ? (echo ? sentence(step.underType) : `in ${sentence(step.under)}`) : '';
+                return (
+                  <li key={step.id}>
+                    <span className="track-step-name">{title}{where && <em>{where}</em>}</span>
+                    <span className="track-bar"><span style={{ width: `${Math.max(2, share(step.pieces, top))}%` }} /></span>
+                    <span className="track-step-pcs">{number(step.pieces)}</span>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>}
 
           <div className="track-totals">
             {/* Ready is what the first step has made — the pieces that exist as
