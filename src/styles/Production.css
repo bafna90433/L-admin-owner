@@ -136,6 +136,7 @@
 @media (max-width: 720px) {
   .production-page .production-leader-grid { grid-template-columns: 1fr; }
 }
+.production-page .production-board-track { display: block; position: relative; height: 10px; margin: 7px 0 5px; border-radius: 999px; background: var(--board-soft); overflow: hidden; }
 .production-page .production-board-fill { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--board-bar), var(--board)); }
 .production-page .production-board small { font-size: .76rem; color: var(--text-secondary); }
 .production-page .production-board li { padding: 0; }
