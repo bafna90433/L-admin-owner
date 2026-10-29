@@ -28,7 +28,7 @@ interface Card {
   /** Shared by the models that go into one packet, so their cards sit together. */
   pairKey: string;
   /** True when a step has been marked as finishing the toy, so the line ends there. */
-  markedEnd: boolean;
+  markedEnd?: boolean;
 }
 
 const sentence = (text: string) => (text ? text.charAt(0).toUpperCase() + text.slice(1).toLowerCase() : text);
@@ -100,13 +100,14 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
   // holes down the grid.
   const group = (card: Card) => card.pairKey || card.id;
   const tallest = new Map<string, number>();
-  for (const card of shown) tallest.set(group(card), Math.max(tallest.get(group(card)) || 0, card.steps.length));
+  const rows = (card: Card) => card.steps.length + (card.after || []).length;
+  for (const card of shown) tallest.set(group(card), Math.max(tallest.get(group(card)) || 0, rows(card)));
   const cards = [...shown].sort((a, b) => {
     if (order === 'name') return a.name.localeCompare(b.name);
     if (order === 'ready') return done(b) - done(a) || a.name.localeCompare(b.name);
     return (tallest.get(group(b)) || 0) - (tallest.get(group(a)) || 0)
       || group(a).localeCompare(group(b))
-      || b.steps.length - a.steps.length
+      || rows(b) - rows(a)
       || (b.intake || 0) - (a.intake || 0)
       || a.name.localeCompare(b.name);
   });
@@ -177,7 +178,7 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
         // What the breakdown adds up to: pieces waiting between steps, parts
         // never started, and anything reported broken.
         const total = card.waiting.reduce((sum, row) => sum + row.pieces, 0) + (card.notStarted || 0) + card.damage;
-        const top = Math.max(card.intake || 0, ...card.steps.map(step => step.pieces), 1);
+        const top = Math.max(card.intake || 0, ...card.steps.map(step => step.pieces), ...(card.after || []).map(step => step.pieces), 1);
         // The card shows one list at a time: the line, or what broke on it.
         const showBroken = broken === card.id;
         const worst = Math.max(1, ...(card.damageParts || []).map(part => part.qty));
