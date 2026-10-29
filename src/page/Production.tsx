@@ -3,7 +3,7 @@ import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Factory, RefreshCw, S
 import { sameJob } from '../names';
 import '../styles/Production.css';
 
-interface ProductionEntry {
+export interface ProductionEntry {
   id: string; date?: string; labourId?: string; processId?: string; workerName: string; typeName?: string; toyName: string; processName: string;
   minutes: number; pieces: number; enteredByName: string; note: string;
   isTraining?: boolean; workType?: string; createdAt?: string; updatedAt?: string;
@@ -24,8 +24,9 @@ interface ProductionRecord {
   rate: number; previousRate: number; improvement: number; pieces: number; hours: number; previousDate: string;
 }
 interface ProductionTrend { date: string; pieces: number; hours: number; perHour: number; workers: number }
-interface ProductionSubtotal { pieces: number; hours: number; perHour: number; entries: number; workers: number }
-interface ProductionReport {
+export interface ProductionSubtotal { pieces: number; hours: number; perHour: number; entries: number; workers: number }
+export interface BreakdownRow { id: string; name: string; sub?: string; pieces: number; minutes?: number; hours: number; perHour: number }
+export interface ProductionReport {
   from: string; to: string;
   totals: { pieces: number; hours: number; perHour: number; entries: number; workers: number };
   trend: ProductionTrend[]; workers: ProductionWorker[]; flags: ProductionFlag[]; records?: ProductionRecord[];
@@ -39,7 +40,7 @@ export const number = (value: number) => Number(value || 0).toLocaleString('en-I
 // A rate is whole pieces: half a piece an hour is not a thing anyone counts.
 export const rateLabel = (value: number) => Math.round(Number(value) || 0).toLocaleString('en-IN');
 // Green from 90% of target, amber from 70, red below that.
-const band = (percent: number | null) => percent === null ? '' : percent >= 90 ? 'is-good' : percent >= 70 ? 'is-mid' : 'is-low';
+export const band = (percent: number | null) => percent === null ? '' : percent >= 90 ? 'is-good' : percent >= 70 ? 'is-mid' : 'is-low';
 export const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 const shiftDay = (key: string, days: number) => new Date(new Date(`${key}T00:00:00Z`).getTime() + days * 86400000).toISOString().slice(0, 10);
 // A date can be missing — training is now also marked on the entry itself, with
@@ -51,7 +52,7 @@ export const dateLabel = (value?: string | null) => {
   return new Date(`${day}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 };
 const workerKey = (entry: ProductionEntry) => entry.labourId ? `id:${entry.labourId}` : `name:${entry.workerName || 'Archived worker'}`;
-const timeLabel = (minutes: number) => `${Math.floor(minutes / 60)} hr${minutes % 60 ? ` ${minutes % 60} min` : ''}`;
+export const timeLabel = (minutes: number) => `${Math.floor(minutes / 60)} hr${minutes % 60 ? ` ${minutes % 60} min` : ''}`;
 const viewParams = () => new URL(window.location.href).searchParams;
 const viewDate = (key: string) => /^\d{4}-\d{2}-\d{2}$/.test(viewParams().get(key) || '') ? viewParams().get(key)! : today();
 interface WorkerRecords { key: string; rowKey: string; date: string; name: string; entries: ProductionEntry[]; minutes: number; pieces: number; works: number; trainingEntries: number }
@@ -129,58 +130,6 @@ export function useProductionRead<T>(url: string, token: string | null, refresh:
   return snapshot.key === key && snapshot.token === token ? snapshot : { data: null, error: '', busy: true, updatedAt: null };
 }
 
-interface BreakdownRow { id: string; name: string; sub?: string; pieces: number; minutes?: number; hours: number; perHour: number }
-function WorkStepOutput({ rows, entries, targets }: { rows: BreakdownRow[]; entries: ProductionEntry[]; targets: Map<string, number> }) {
-  const [search, setSearch] = useState('');
-  // Pieces alone say which step is busiest, not which one is going well. The
-  // step's own target, the people on it and the records behind it do.
-  const detail = useMemo(() => {
-    const map = new Map<string, { target: number; workers: Set<string>; records: number }>();
-    for (const entry of entries) {
-      const key = entry.processId || '';
-      const row = map.get(key) || { target: 0, workers: new Set<string>(), records: 0 };
-      row.target += (targets.get(key) || 0) * entry.minutes / 60;
-      row.workers.add(entry.labourId || entry.workerName);
-      row.records += 1;
-      map.set(key, row);
-    }
-    return map;
-  }, [entries, targets]);
-  const sorted = [...rows].sort((a, b) => b.pieces - a.pieces || a.name.localeCompare(b.name));
-  const shown = sorted.filter(row => `${row.name} ${row.sub || ''}`.toLowerCase().includes(search.trim().toLowerCase()));
-  const total = rows.reduce((sum, row) => ({ pieces: sum.pieces + row.pieces, minutes: sum.minutes + (row.minutes ?? Math.round(row.hours * 60)) }), { pieces: 0, minutes: 0 });
-  const max = Math.max(1, ...rows.map(row => row.pieces));
-  return <section className="production-card production-work-output" aria-labelledby="work-output-title">
-    <div className="production-section-heading"><div><h2 id="work-output-title">Output by work step</h2><p>Every work step against the target it was due in the time recorded, with the people behind it. Largest output first.</p></div><Factory size={22} aria-hidden="true" /></div>
-    <div className="production-output-summary">{[{ label:'Work steps', value:rows.length },{ label:'Total pcs', value:number(total.pieces) },{ label:'Recorded time', value:timeLabel(total.minutes) }].map(metric=><div key={metric.label}><span>{metric.label}</span><strong>{metric.value}</strong></div>)}</div>
-    {!!rows.length&&<label className="production-output-search">Search work steps<input value={search} onChange={event=>setSearch(event.target.value)} placeholder="Toy name or work step" /></label>}
-    {shown.length ? <ol className="production-step-grid">{shown.map(row => {
-      const extra = detail.get(row.id);
-      const target = Math.round(extra?.target || 0);
-      const percent = target ? Math.round(row.pieces / target * 100) : null;
-      const minutes = row.minutes ?? Math.round(row.hours * 60);
-      const share = total.pieces ? row.pieces / total.pieces * 100 : 0;
-      return <li key={row.id} className={percent === null ? 'is-untargeted' : band(percent)}>
-        <div className="production-step-top">
-          <span className="production-step-rank">{sorted.indexOf(row) + 1}</span>
-          <div className="production-step-name"><strong>{row.name}</strong>{row.sub && <span>{row.sub}</span>}</div>
-          <div className="production-step-count"><b>{number(row.pieces)}</b><small>pcs</small></div>
-        </div>
-        <div className="production-step-track" aria-hidden="true"><span style={{ width: `${percent === null ? Math.max(1, row.pieces / max * 100) : Math.max(2, Math.min(100, percent))}%` }} /></div>
-        <p className="production-step-vs">{percent === null
-          ? <>No target set for this step · <em>{number(share)}% of output</em></>
-          : <><b>{number(percent)}%</b> of the {number(target)} pcs this step was due · <em>{number(share)}% of output</em></>}</p>
-        <dl className="production-step-stats">
-          <div><dt>Time</dt><dd>{timeLabel(minutes)}</dd></div>
-          <div><dt>Rate</dt><dd>{rateLabel(row.perHour)}/hr</dd></div>
-          <div><dt>{extra && extra.workers.size === 1 ? 'Worker' : 'Workers'}</dt><dd>{extra?.workers.size || 0}</dd></div>
-          <div><dt>Records</dt><dd>{extra?.records || 0}</dd></div>
-        </dl>
-      </li>;
-    })}</ol> : <p className="production-empty">{rows.length ? 'No work steps match this search.' : 'No work step output recorded in this period.'}</p>}
-    {!!search&&<p className="production-output-match" role="status">{shown.length} of {rows.length} work steps</p>}
-  </section>;
-}
 
 interface ChangeRow { id: string; action: string; summary: string; byName: string; at: string; entryId?: string; before: Record<string, unknown> | null; after: Record<string, unknown> | null }
 const CHANGED_FIELDS: [string, string][] = [['pieces', 'Process pcs'], ['minutes', 'Minutes'], ['toyId', 'Toy'], ['processId', 'Work step'], ['labourId', 'Worker'], ['date', 'Date'], ['workType', 'Work type'], ['note', 'Note']];
@@ -422,8 +371,6 @@ export default function Production({ token, apiBase, view = 'report' }: { token:
           </button>;
         })}</div> : <p className="production-empty">No regular production to rank in this period. Training output is shown separately above.</p>}
       </section>
-      <section className="production-card"><h2>Training production</h2><p>Included in factory output. Training records are excluded from rankings, performance flags and their baseline.</p><strong>{number(report.data.trainingTotals?.pieces || 0)} pcs · {number(report.data.trainingTotals?.hours || 0)} hours · {report.data.trainingTotals?.entries || 0} entries</strong>{!!report.data.trainingWorkers?.length&&<div className="production-table-wrap" role="region" aria-label="Training production" tabIndex={0}><table><thead><tr><th>Worker</th><th>Training dates</th><th>Pcs</th><th>Hours</th></tr></thead><tbody>{report.data.trainingWorkers.map(worker=><tr key={worker.id}><th scope="row">{worker.name}</th><td>{worker.trainingStart || worker.trainingEnd ? `${dateLabel(worker.trainingStart)} — ${dateLabel(worker.trainingEnd)}` : 'Marked on the entry'}</td><td>{number(worker.pieces)}</td><td>{number(worker.hours)}</td></tr>)}</tbody></table></div>}</section>
-      <WorkStepOutput rows={(report.data.processes || []).map(row => ({ ...row, sub: row.toyName }))} entries={report.data.entries || []} targets={rate} />
     </>}
     {view === 'records' && <section className="production-card production-flat">
       {/* The page title says what this is; saying it again above the filters

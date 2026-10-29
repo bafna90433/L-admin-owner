@@ -300,7 +300,7 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
 
   // Router Tab
-  const adminValidTabs = ['notifications', 'dashboard', 'production', 'production-records', 'production-board', 'production-ask', 'production-damage', 'production-tracking', 'advances', 'advance-history', 'deleted-logs', 'ai-council', 'announcement-bell', 'reminders', 'tasks', 'operations', 'chat', 'settings', 'profile'] as const;
+  const adminValidTabs = ['notifications', 'dashboard', 'production', 'production-records', 'production-output', 'production-board', 'production-ask', 'production-damage', 'production-tracking', 'advances', 'advance-history', 'deleted-logs', 'ai-council', 'announcement-bell', 'reminders', 'tasks', 'operations', 'chat', 'settings', 'profile'] as const;
   type AdminTabType = typeof adminValidTabs[number];
   const adminSavedTab = localStorage.getItem('admin_active_tab') as AdminTabType | null;
   // The MD can hide the AI Council from Settings; the menu follows that.
@@ -1986,12 +1986,12 @@ export default function App() {
     }
   };
 
-  if (activeTab === 'production' || activeTab === 'production-records' || activeTab === 'production-board' || activeTab === 'production-ask' || activeTab === 'production-damage' || activeTab === 'production-tracking') {
-    const workspacePages = { records: 'production-records', board: 'production-board', damage: 'production-damage', ask: 'production-ask', tracking: 'production-tracking', report: 'production' } as const;
+  if (activeTab === 'production' || activeTab === 'production-records' || activeTab === 'production-output' || activeTab === 'production-board' || activeTab === 'production-ask' || activeTab === 'production-damage' || activeTab === 'production-tracking') {
+    const workspacePages = { records: 'production-records', output: 'production-output', board: 'production-board', damage: 'production-damage', ask: 'production-ask', tracking: 'production-tracking', report: 'production' } as const;
     return <ProductionWorkspace
       token={token}
       apiBase={API_BASE}
-      view={activeTab === 'production-records' ? 'records' : activeTab === 'production-board' ? 'board' : activeTab === 'production-damage' ? 'damage' : activeTab === 'production-ask' ? 'ask' : activeTab === 'production-tracking' ? 'tracking' : 'report'}
+      view={activeTab === 'production-records' ? 'records' : activeTab === 'production-output' ? 'output' : activeTab === 'production-board' ? 'board' : activeTab === 'production-damage' ? 'damage' : activeTab === 'production-ask' ? 'ask' : activeTab === 'production-tracking' ? 'tracking' : 'report'}
       onView={next => navigateTo(workspacePages[next])}
       onExit={() => navigateTo('dashboard')}
     />;
