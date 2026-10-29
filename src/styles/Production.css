@@ -107,37 +107,34 @@
 .production-page .production-board-name strong { font-size: .92rem; overflow-wrap: anywhere; }
 .production-page .production-board-name b { flex: none; color: var(--board); font-size: 1.05rem; font-weight: 800; }
 .production-page .production-board-name em { flex: none; font-size: .75rem; color: var(--text-secondary); font-style: normal; }
-/* Top performers as a table: a worker keeps one name cell and one standing,
-   with a row for each job they did. The band colour comes off the worker's
-   own row and tints the whole group, so a red worker is red across. */
-.production-page .production-leader-table { width: 100%; border-collapse: collapse; }
-.production-page .production-leader-table tr {
+/* Top performers as cards, two to a row: the worker's own name and standing
+   up top, their jobs listed below. The band colour tints the whole card, so
+   how a worker is doing reads at a glance before the figure is read. */
+.production-page .production-leader-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 16px; }
+.production-page .production-leader-card {
   --board: #15803d; --board-bar: #22c55e; --board-soft: rgba(22, 163, 74, .12); --board-tint: rgba(22, 163, 74, .05);
+  display: block; width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer;
+  border: 1px solid var(--glass-border); border-radius: 12px; padding: 14px; background: var(--board-tint);
 }
-.production-page .production-leader-table tr.is-mid { --board: #b45309; --board-bar: #f59e0b; --board-soft: rgba(217, 119, 6, .16); --board-tint: rgba(217, 119, 6, .07); }
-.production-page .production-leader-table tr.is-low { --board: #b91c1c; --board-bar: #ef4444; --board-soft: rgba(185, 28, 28, .14); --board-tint: rgba(185, 28, 28, .06); }
-.production-page .production-leader-table tr.is-first { background: var(--board-soft); }
-.production-page .production-leader-table tr.is-head:not(.is-first) { background: var(--board-tint); }
-.production-page .production-leader-table tr.is-head > * { border-top: 1px solid var(--glass-border); }
-.production-page .production-leader-table :is(th, td) { padding: 8px 10px; vertical-align: top; font-size: .82rem; }
-.production-page .production-leader-table thead th {
-  background: var(--bg-tertiary); font-size: .7rem; letter-spacing: .04em; text-transform: uppercase;
-  color: var(--text-secondary); text-align: left; white-space: nowrap;
+.production-page .production-leader-card:hover { border-color: var(--board); }
+.production-page .production-leader-card.is-mid { --board: #b45309; --board-bar: #f59e0b; --board-soft: rgba(217, 119, 6, .16); --board-tint: rgba(217, 119, 6, .07); }
+.production-page .production-leader-card.is-low { --board: #b91c1c; --board-bar: #ef4444; --board-soft: rgba(185, 28, 28, .14); --board-tint: rgba(185, 28, 28, .06); }
+.production-page .production-leader-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.production-page .production-leader-card-name { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; }
+.production-page .production-leader-card-name strong { font-size: .94rem; overflow-wrap: anywhere; }
+.production-page .production-leader-card-head > b { flex: none; color: var(--board); font-size: 1.1rem; font-weight: 800; }
+.production-page .production-leader-card-head > em { flex: none; font-style: normal; font-size: .76rem; color: var(--text-secondary); }
+.production-page .production-leader-card-total { display: block; margin-top: 7px; font-size: .76rem; color: var(--text-secondary); }
+.production-page .production-leader-card-jobs { list-style: none; margin: 10px 0 0; padding-top: 8px; border-top: 1px solid var(--glass-border); display: flex; flex-direction: column; gap: 5px; }
+.production-page .production-leader-card-jobs li {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 4px 10px; align-items: baseline;
+  font-size: .78rem; color: var(--text-secondary);
 }
-.production-page .production-leader-table thead th:nth-child(n+4) { text-align: right; }
-.production-page .production-leader-table .production-figure { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.production-page .production-leader-table .production-leader-rank { width: 44px; }
-.production-page .production-leader-table th[scope="rowgroup"] { min-width: 150px; font-weight: 700; }
-.production-page .production-leader-table th[scope="rowgroup"] small {
-  display: block; margin-top: 3px; font-weight: 500; font-size: .72rem; color: var(--text-secondary);
-}
-.production-page .production-leader-share { width: 140px; text-align: right; }
-.production-page .production-leader-share b { display: block; color: var(--board); font-size: 1.05rem; font-weight: 800; }
-.production-page .production-leader-share em { font-style: normal; font-size: .72rem; color: var(--text-secondary); }
-.production-page .production-leader-share .production-board-track { margin-top: 5px; }
+.production-page .production-leader-card-jobs li > span:first-child { overflow-wrap: anywhere; }
+.production-page .production-leader-card-jobs li > strong { font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.production-page .production-leader-card-jobs .production-figure { font-variant-numeric: tabular-nums; white-space: nowrap; }
 @media (max-width: 720px) {
-  .production-page .production-leader-table :is(th, td) { padding: 7px 8px; }
-  .production-page .production-leader-share .production-board-track { display: none; }
+  .production-page .production-leader-grid { grid-template-columns: 1fr; }
 }
 .production-page .production-board-fill { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--board-bar), var(--board)); }
 .production-page .production-board small { font-size: .76rem; color: var(--text-secondary); }

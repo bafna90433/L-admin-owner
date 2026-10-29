@@ -469,32 +469,29 @@ export default function Production({ token, apiBase, view = 'report' }: { token:
       <div className="production-period">{dateLabel(report.data.from)} — {dateLabel(report.data.to)}</div>
       <section className="production-card">
         <div className="production-section-heading"><div><h2 ref={leadersHeading} tabIndex={-1}>Top performers</h2><p>Regular production only, ranked against each work step's own target. Training records are excluded. A full bar is 100% of target; above that the figure keeps rising. Green from 90%, amber from 70%, red below 70%. Click a worker to see their work details for this report period.</p></div><Trophy size={22} aria-hidden="true" /></div>
-        {/* A table, because the question is read across: who, on what job,
-            against what target, for how many pieces. A worker who did several
-            jobs keeps one name cell and one standing, with a row per job. */}
-        {leaders.length ? <div className="production-table-wrap" role="region" aria-label="Top performers" tabIndex={0}><table className="production-leader-table">
-          <thead><tr>{['#', 'Worker', 'Work', 'Target pcs', 'Process pcs', 'Of target'].map(label => <th key={label} scope="col">{label}</th>)}</tr></thead>
-          <tbody>{leaders.map((row, index) => {
-            const jobs = row.works.length ? row.works : [{ label: 'No work recorded', pieces: row.pieces, expected: row.expected }];
-            return jobs.map((work, line) => <tr key={`${row.id}|${work.label}`} className={`${band(row.percent)}${line === 0 ? ' is-head' : ''}${index === 0 ? ' is-first' : ''}`}>
-              {line === 0 && <td rowSpan={jobs.length} className="production-leader-rank"><span className="production-rank">{index + 1}</span></td>}
-              {line === 0 && <th scope="rowgroup" rowSpan={jobs.length}>
-                <button type="button" className="production-worker-name" aria-label={`View performance details for ${row.name}`} onClick={() => openWorker({ key: row.id }, 'leaders')}>{row.name}</button>
+        {/* Cards, two to a row: the worker's name and standing up top, their
+            jobs listed below. A table reads well across many rows but a
+            worker here is one unit to take in at a glance, not a line item. */}
+        {leaders.length ? <div className="production-leader-grid">{leaders.map((row, index) => {
+          const jobs = row.works.length ? row.works : [{ label: 'No work recorded', pieces: row.pieces, expected: row.expected }];
+          return <button type="button" key={row.id} className={`production-leader-card ${band(row.percent)}`} onClick={() => openWorker({ key: row.id }, 'leaders')} aria-label={`View performance details for ${row.name}`}>
+            <div className="production-leader-card-head">
+              <span className="production-rank">{index + 1}</span>
+              <span className="production-leader-card-name">
+                <strong>{row.name}</strong>
                 {row.entryCount > 1 && <span className="production-work-count" title={`${row.entryCount} regular work entries in this report period`}>Multi work</span>}
-                <small>{number(row.pieces)} pcs · {number(row.hours)} hr{row.expected ? ` · target ${number(Math.round(row.expected))} pcs` : ''}{row.untargetedHours ? ` · ${number(row.untargetedHours)} hr not compared` : ''}</small>
-              </th>}
-              <td>{work.label}</td>
-              <td className="production-figure">{work.expected ? number(Math.round(work.expected)) : '—'}</td>
-              <td className="production-figure"><strong>{number(work.pieces)}</strong></td>
-              {line === 0 && <td rowSpan={jobs.length} className="production-leader-share">
-                {row.percent === null ? <em>No target set</em> : <>
-                  <b>{number(row.percent)}%</b>
-                  <span className="production-board-track"><span className="production-board-fill" style={{ width: `${Math.max(2, capped(row.percent) ?? 0)}%` }} /></span>
-                </>}
-              </td>}
-            </tr>);
-          })}</tbody>
-        </table></div> : <p className="production-empty">No regular production to rank in this period. Training output is shown separately above.</p>}
+              </span>
+              {row.percent === null ? <em>No target set</em> : <b>{number(row.percent)}%</b>}
+            </div>
+            <span className="production-board-track"><span className="production-board-fill" style={{ width: `${Math.max(2, capped(row.percent) ?? 0)}%` }} /></span>
+            <small className="production-leader-card-total">{number(row.pieces)} pcs · {number(row.hours)} hr{row.expected ? ` · target ${number(Math.round(row.expected))} pcs` : ''}{row.untargetedHours ? ` · ${number(row.untargetedHours)} hr not compared` : ''}</small>
+            <ul className="production-leader-card-jobs">{jobs.map(work => <li key={work.label}>
+              <span>{work.label}</span>
+              <span className="production-figure">{work.expected ? number(Math.round(work.expected)) : '—'}</span>
+              <strong>{number(work.pieces)}</strong>
+            </li>)}</ul>
+          </button>;
+        })}</div> : <p className="production-empty">No regular production to rank in this period. Training output is shown separately above.</p>}
       </section>
       <WorkSuggestions entries={report.data.entries || []} targets={rate} />
       <section className="production-card"><h2>Training production</h2><p>Included in factory output. Training records are excluded from rankings, performance flags and their baseline.</p><strong>{number(report.data.trainingTotals?.pieces || 0)} pcs · {number(report.data.trainingTotals?.hours || 0)} hours · {report.data.trainingTotals?.entries || 0} entries</strong>{!!report.data.trainingWorkers?.length&&<div className="production-table-wrap" role="region" aria-label="Training production" tabIndex={0}><table><thead><tr><th>Worker</th><th>Training dates</th><th>Pcs</th><th>Hours</th></tr></thead><tbody>{report.data.trainingWorkers.map(worker=><tr key={worker.id}><th scope="row">{worker.name}</th><td>{worker.trainingStart || worker.trainingEnd ? `${dateLabel(worker.trainingStart)} — ${dateLabel(worker.trainingEnd)}` : 'Marked on the entry'}</td><td>{number(worker.pieces)}</td><td>{number(worker.hours)}</td></tr>)}</tbody></table></div>}</section>
