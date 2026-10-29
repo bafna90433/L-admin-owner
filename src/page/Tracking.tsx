@@ -22,9 +22,6 @@ interface Card {
   notStarted: number | null;
   waiting: Waiting[];
   steps: Step[];
-  /** Work the model still goes through after its line is marked finished —
-   *  the cleaning or packing bench it is sent to afterwards. */
-  after?: Step[];
   /** Shared by the models that go into one packet, so their cards sit together. */
   pairKey: string;
   /** True when a step has been marked as finishing the toy, so the line ends there. */
@@ -100,7 +97,7 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
   // holes down the grid.
   const group = (card: Card) => card.pairKey || card.id;
   const tallest = new Map<string, number>();
-  const rows = (card: Card) => card.steps.length + (card.after || []).length;
+  const rows = (card: Card) => card.steps.length;
   for (const card of shown) tallest.set(group(card), Math.max(tallest.get(group(card)) || 0, rows(card)));
   const cards = [...shown].sort((a, b) => {
     if (order === 'name') return a.name.localeCompare(b.name);
@@ -178,7 +175,7 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
         // What the breakdown adds up to: pieces waiting between steps, parts
         // never started, and anything reported broken.
         const total = card.waiting.reduce((sum, row) => sum + row.pieces, 0) + (card.notStarted || 0) + card.damage;
-        const top = Math.max(card.intake || 0, ...card.steps.map(step => step.pieces), ...(card.after || []).map(step => step.pieces), 1);
+        const top = Math.max(card.intake || 0, ...card.steps.map(step => step.pieces), 1);
         // The card shows one list at a time: the line, or what broke on it.
         const showBroken = broken === card.id;
         const worst = Math.max(1, ...(card.damageParts || []).map(part => part.qty));
@@ -234,26 +231,6 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
             {!card.steps.length && <li className="track-none">No work steps set up for this model yet.</li>}
           </ol>}
 
-          {/* The line is marked to end, but the floor still cleans and packs
-              the model afterwards and records it. Those figures are shown
-              apart so the ready count the mark was set for stays as it is. */}
-          {!showBroken && (card.after || []).length > 0 && <div className="track-after">
-            <h3>After it is finished</h3>
-            <ol className="track-steps">
-              {(card.after || []).map(step => {
-                const echo = flat(step.name) === flat(card.name);
-                const title = step.under && echo ? sentence(step.under) : sentence(step.name);
-                const where = step.under ? (echo ? sentence(step.underType) : `in ${sentence(step.under)}`) : '';
-                return (
-                  <li key={step.id}>
-                    <span className="track-step-name">{title}{where && <em>{where}</em>}</span>
-                    <span className="track-bar"><span style={{ width: `${Math.max(2, share(step.pieces, top))}%` }} /></span>
-                    <span className="track-step-pcs">{number(step.pieces)}</span>
-                  </li>
-                );
-              })}
-            </ol>
-          </div>}
 
           <div className="track-totals">
             {/* Every step's count is on the card already, so a ready tile only

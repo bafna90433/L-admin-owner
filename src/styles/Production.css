@@ -512,12 +512,3 @@
 }
 .production-page .production-flat thead th { background: var(--bg-tertiary); }
 
-/* Work that happens after a model's line is marked finished — cleaning, a
-   packing bench — set apart so it reads as an afterword to the line rather
-   than another step of it. */
-.production-page .track-after { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--glass-border); }
-.production-page .track-after h3 {
-  margin: 0 0 6px; font-size: .72rem; font-weight: 700; letter-spacing: .04em;
-  text-transform: uppercase; color: var(--text-tertiary, var(--text-secondary));
-}
-.production-page .track-after .track-steps li { opacity: .85; }
