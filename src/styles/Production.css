@@ -504,3 +504,13 @@
 .production-page.production-on-white .production-search,
 .production-page.production-on-white select,
 .production-page.production-on-white input[type="date"] { background: #fff; }
+
+/* With the page white too, the sidebar's edge disappeared: give the content a
+   line of its own and a faint tint behind the menu so the two read apart. */
+.production-page.production-on-white { border-left: 1px solid var(--glass-border); }
+.factory-workspace:has(.production-on-white) .factory-side { background: var(--bg-tertiary, #f7f8fb); }
+/* And a frame around the rows, so the report sits on the page as one sheet. */
+.production-page.production-on-white .production-flat .production-table-wrap {
+  border: 1px solid var(--glass-border); border-radius: var(--border-radius-md); overflow: hidden;
+}
+.production-page.production-on-white .production-flat thead th { background: var(--bg-tertiary, #f7f8fb); }
