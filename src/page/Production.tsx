@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Factory, RefreshCw, Search, Trophy } from 'lucide-react';
-import { sameJob } from '../names';
+import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Factory, RefreshCw, Search, Trophy, UserCog } from 'lucide-react';
+import { flatName, sameJob } from '../names';
 import '../styles/Production.css';
 
 export interface ProductionEntry {
@@ -8,7 +8,7 @@ export interface ProductionEntry {
   minutes: number; pieces: number; enteredByName: string; note: string;
   isTraining?: boolean; workType?: string; createdAt?: string; updatedAt?: string;
 }
-interface ProductionMasters { processes: { id: string; targetPerHour?: number; target8h?: number; target12h?: number }[] }
+interface ProductionMasters { processes: { id: string; targetPerHour?: number; target8h?: number; target12h?: number }[]; workers?: { id: string; name: string; isSupervisor?: boolean }[] }
 interface LeaderRow { id: string; name: string; entryCount: number; pieces: number; hours: number; expected: number; percent: number | null; untargetedHours: number; works: { label: string; pieces: number; expected: number }[] }
 interface ProductionWorker {
   id: string; name: string; pieces: number; hours: number; perHour: number;
@@ -216,6 +216,20 @@ export default function Production({ token, apiBase, view = 'report' }: { token:
   const [refresh, setRefresh] = useState(0);
   const report = useProductionRead<ProductionReport>(`${apiBase}/production/report?days=${days}&to=${to}`, token, refresh);
   const masters = useProductionRead<ProductionMasters>(`${apiBase}/production/masters`, token, refresh);
+  // Supervisors are ordinary workers with a mark on them, not a list of their
+  // own, so the badge is read off the same catalogue wherever a worker's name
+  // shows — matched by id where an entry carries one, by name otherwise, since
+  // older entries only ever recorded who worked, never their id.
+  const supervisors = useMemo(() => {
+    const ids = new Set<string>(), names = new Set<string>();
+    for (const worker of masters.data?.workers || []) {
+      if (!worker.isSupervisor) continue;
+      ids.add(worker.id);
+      names.add(flatName(worker.name));
+    }
+    return { ids, names };
+  }, [masters.data]);
+  const isSupervisor = (id: string, name: string) => (id.startsWith('id:') && supervisors.ids.has(id.slice(3))) || supervisors.names.has(flatName(name));
   const dayEntries = useProductionRead<{ entries: ProductionEntry[] }>(`${apiBase}/production/day?date=${date}`, token, refresh);
   const viewScope = selectedWorker && detailSource === 'leaders' ? 'period' : recordScope;
   // Moving between Overview and Records should show that page, not whichever
@@ -337,7 +351,7 @@ export default function Production({ token, apiBase, view = 'report' }: { token:
     {report.error && <p className="production-error" role="alert">{report.error} {report.data && 'Showing the last successful report; it may be out of date.'} Use Refresh to retry.</p>}
     {view === 'report' && report.data && <>
       <div className="production-period">{dateLabel(report.data.from)} — {dateLabel(report.data.to)}</div>
-      <section className="production-card">
+      <section className="production-card production-flat">
         <div className="production-section-heading"><div><h2 ref={leadersHeading} tabIndex={-1}>Top performers</h2><p>Regular production only, ranked against each work step's own target. Training records are excluded. A full bar is 100% of target; above that the figure keeps rising. Green from 90%, amber from 70%, red below 70%. Click a worker to see their work details for this report period.</p></div><Trophy size={22} aria-hidden="true" /></div>
         {/* Cards, two to a row: the worker's name and standing up top, their
             jobs listed below. A table reads well across many rows but a
@@ -349,6 +363,7 @@ export default function Production({ token, apiBase, view = 'report' }: { token:
               <span className="production-rank">{index + 1}</span>
               <span className="production-leader-card-name">
                 <strong>{row.name}</strong>
+                {isSupervisor(row.id, row.name) && <span className="production-supervisor-badge"><UserCog size={12} aria-hidden="true" />Supervisor</span>}
                 {row.entryCount > 1 && <span className="production-work-count" title={`${row.entryCount} regular work entries in this report period`}>Multi work</span>}
               </span>
               {row.percent === null ? <em>No target set</em> : <b>{number(row.percent)}%</b>}

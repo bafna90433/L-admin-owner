@@ -96,21 +96,27 @@
    standing reads the same whichever part of the card you look at. */
 .production-page .production-rank { flex: none; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: var(--board-soft); color: var(--board); font-size: .82rem; font-weight: 800; }
 /* Top performers as cards, two to a row: the worker's own name and standing
-   up top, their jobs listed below. The band colour tints the whole card, so
-   how a worker is doing reads at a glance before the figure is read. */
-.production-page .production-leader-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 16px; }
+   up top, their jobs listed below. White, like every other card on this
+   page — the band colour carries on the rank badge, the figure, the left
+   edge and each job's own dot, so a worker's standing still reads at a
+   glance without a wash of colour behind the text. */
+/* align-items: start keeps a short card its own height instead of being
+   stretched to match a taller neighbour in the same grid row. */
+.production-page .production-leader-grid { display: grid; grid-template-columns: repeat(2, 1fr); align-items: start; gap: 12px; margin-top: 16px; }
 .production-page .production-leader-card {
   --board: #15803d; --board-bar: #22c55e; --board-soft: rgba(22, 163, 74, .12); --board-tint: rgba(22, 163, 74, .05);
   display: block; width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer;
-  border: 1px solid var(--glass-border); border-radius: 12px; padding: 14px; background: var(--board-tint);
+  border: 1px solid var(--glass-border); border-radius: 12px;
+  padding: 14px; background: var(--bg-secondary);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
 }
-.production-page .production-leader-card:hover { border-color: var(--board); }
+.production-page .production-leader-card:hover { border-color: var(--board); box-shadow: 0 2px 8px rgba(15, 23, 42, .08); }
 .production-page .production-leader-card.is-mid { --board: #b45309; --board-bar: #f59e0b; --board-soft: rgba(217, 119, 6, .16); --board-tint: rgba(217, 119, 6, .07); }
 .production-page .production-leader-card.is-low { --board: #b91c1c; --board-bar: #ef4444; --board-soft: rgba(185, 28, 28, .14); --board-tint: rgba(185, 28, 28, .06); }
 .production-page .production-leader-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .production-page .production-leader-card-name { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; }
-.production-page .production-leader-card-name strong { font-size: .94rem; overflow-wrap: anywhere; }
-.production-page .production-leader-card-head > b { flex: none; color: var(--board); font-size: 1.1rem; font-weight: 800; }
+.production-page .production-leader-card-name strong { font-size: .95rem; font-weight: 700; color: var(--text-primary); overflow-wrap: anywhere; }
+.production-page .production-leader-card-head > b { flex: none; color: var(--board); font-size: 1.15rem; font-weight: 800; letter-spacing: -.01em; }
 .production-page .production-leader-card-head > em { flex: none; font-style: normal; font-size: .76rem; color: var(--text-secondary); }
 .production-page .production-leader-card-total { display: block; margin-top: 7px; font-size: .76rem; color: var(--text-secondary); }
 /* The jobs under a card read like a small table: a header row naming the
@@ -121,15 +127,16 @@
   display: grid; grid-template-columns: minmax(0, 1fr) 90px 90px; gap: 4px 10px; align-items: baseline;
 }
 .production-page .production-leader-card-jobs-head {
-  padding: 7px 0 4px; font-size: .64rem; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
-  color: var(--text-tertiary, var(--text-secondary));
+  padding: 6px 8px; margin: 0 -8px 2px; border-radius: 6px; background: var(--board-soft);
+  font-size: .64rem; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
+  color: var(--board);
 }
 .production-page .production-leader-card-jobs-head > span:not(:first-child),
 .production-page .production-leader-card-job .production-figure,
 .production-page .production-leader-card-job > strong { text-align: right; }
 .production-page .production-leader-card-job {
   --board: #15803d; --board-bar: #22c55e;
-  padding: 5px 0; font-size: .78rem; color: var(--text-secondary); border-top: 1px solid var(--glass-border);
+  padding: 6px 0; font-size: .78rem; color: var(--text-secondary); border-top: 1px solid var(--glass-border);
 }
 .production-page .production-leader-card-job.is-mid { --board: #b45309; --board-bar: #f59e0b; }
 .production-page .production-leader-card-job.is-low { --board: #b91c1c; --board-bar: #ef4444; }
@@ -154,6 +161,12 @@
 .production-page .production-worker-name:hover { text-decoration: underline; }
 .production-page .production-detail-button { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px 12px; border: 1px solid var(--glass-border-hover); border-radius: 8px; background: var(--bg-secondary); color: var(--accent-primary); font: inherit; font-weight: 600; cursor: pointer; }
 .production-page .production-work-count { display: inline-block; margin-left: 10px; padding: 3px 8px; background: var(--bg-tertiary); border-radius: 6px; color: var(--accent-primary); font-size: .75rem; }
+/* A supervisor is an ordinary worker with a mark on them, so it rides beside
+   their name wherever it shows rather than taking a list of its own. */
+.production-page .production-supervisor-badge {
+  display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px;
+  background: #ecfdf5; color: #047857; font-size: .68rem; font-weight: 800; letter-spacing: .02em; white-space: nowrap;
+}
 .production-page .production-performer-identity { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; }
 .production-page .production-performer-identity .production-work-count { margin-left: 0; white-space: nowrap; }
 .production-page .production-back { margin-bottom: 18px; }

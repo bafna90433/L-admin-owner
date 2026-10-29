@@ -6,5 +6,7 @@
  * it reads as a duplicate and the eye stops on it, so wherever the two sit
  * together the pair is said once.
  */
-const bare = (text?: string) => String(text || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-export const sameJob = (toy?: string, step?: string) => !!bare(toy) && bare(toy) === bare(step);
+// Shared by anything that compares two hand-typed names without caring how
+// either one was capitalised, spaced or punctuated.
+export const flatName = (text?: string) => String(text || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+export const sameJob = (toy?: string, step?: string) => !!flatName(toy) && flatName(toy) === flatName(step);
