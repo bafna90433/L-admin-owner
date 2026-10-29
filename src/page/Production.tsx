@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Factory, Lightbulb, RefreshCw, Search, Trophy } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Factory, RefreshCw, Search, Trophy } from 'lucide-react';
 import { sameJob } from '../names';
 import '../styles/Production.css';
 
@@ -247,81 +247,6 @@ function EntryTable({ entries, hideWorker = false, targets, token, apiBase }: { 
   </table></div><div className="production-entry-cards" role="list" aria-label="Worker work entries">{entries.map(entry => <article className="production-entry-card" key={entry.id} role="listitem"><header><strong>{entry.toyName || 'Toy not recorded'}</strong><span>{entry.date ? dateLabel(entry.date) : '—'}</span></header><p>{entry.typeName ? `${entry.typeName} · ` : ''}{sameJob(entry.toyName, entry.processName) ? 'The model is the work itself' : (entry.processName || 'Work step not recorded')}</p><dl><div><dt>Time</dt><dd>{timeLabel(entry.minutes)}</dd></div><div><dt>Process pcs</dt><dd>{number(entry.pieces)}</dd></div><div><dt>Target pcs</dt><dd>{targetFor(entry) === null ? 'Not set' : number(targetFor(entry)!)}</dd></div><div><dt>Pcs/hour</dt><dd>{rateLabel(entry.minutes > 0 ? entry.pieces * 60 / entry.minutes : 0)}</dd></div></dl><p>{entry.isTraining ? 'Training' : 'Regular'} · Entry by {entry.enteredByName || 'Not recorded'}</p>{entry.note && <p className="production-note">{entry.note}</p>}</article>)}</div><p className="production-entry-total">Total: {number(total.pieces)} pcs · {timeLabel(total.minutes)} · {entries.length} work entries</p></> : <p className="production-empty">No production records for this selection.</p>;
 }
 
-interface Suggestion {
-  id: string; name: string; overall: number; records: number;
-  best: { work: string; percent: number; records: number; minutes: number } | null;
-  worst: { work: string; percent: number } | null;
-  firm: boolean;
-}
-/**
- * Which work each person is actually good at.
- *
- * Comparing raw output would only find whoever was given the fastest step, so
- * every pairing is scored against that step's own target. A suggestion is
- * marked as an early read until it rests on more than one record — one good
- * afternoon is not a reason to move somebody's job.
- */
-function WorkSuggestions({ entries, targets }: { entries: ProductionEntry[]; targets: Map<string, number> }) {
-  const rows = useMemo<Suggestion[]>(() => {
-    const pair = new Map<string, { worker: string; work: string; pieces: number; minutes: number; expected: number; records: number }>();
-    const whole = new Map<string, { name: string; pieces: number; expected: number; records: number }>();
-    for (const entry of entries) {
-      if (entry.isTraining) continue;
-      const perHour = targets.get(entry.processId || '') || 0;
-      if (!perHour) continue;
-      const who = entry.labourId || entry.workerName;
-      const key = `${who}|${entry.processId}`;
-      const row = pair.get(key) || { worker: entry.workerName || 'Archived worker', work: sameJob(entry.toyName, entry.processName) ? (entry.toyName || 'Toy') : `${entry.toyName || 'Toy'} — ${entry.processName || 'Work step'}`, pieces: 0, minutes: 0, expected: 0, records: 0 };
-      row.pieces += entry.pieces; row.minutes += entry.minutes; row.expected += perHour * entry.minutes / 60; row.records += 1;
-      pair.set(key, row);
-      const all = whole.get(who) || { name: entry.workerName || 'Archived worker', pieces: 0, expected: 0, records: 0 };
-      all.pieces += entry.pieces; all.expected += perHour * entry.minutes / 60; all.records += 1;
-      whole.set(who, all);
-    }
-    const byWorker = new Map<string, { work: string; percent: number; records: number; minutes: number }[]>();
-    for (const [key, row] of pair) {
-      const who = key.slice(0, key.lastIndexOf('|'));
-      const list = byWorker.get(who) || [];
-      list.push({ work: row.work, percent: Math.round(row.pieces / row.expected * 100), records: row.records, minutes: row.minutes });
-      byWorker.set(who, list);
-    }
-    return [...whole].map(([who, all]) => {
-      const list = (byWorker.get(who) || []).sort((a, b) => b.percent - a.percent);
-      const best = list[0] || null;
-      return {
-        id: who, name: all.name, records: all.records,
-        overall: all.expected ? Math.round(all.pieces / all.expected * 100) : 0,
-        best, worst: list.length > 1 ? list[list.length - 1] : null,
-        firm: !!best && best.records > 1 && best.minutes >= 120
-      };
-    }).filter(row => row.best).sort((a, b) => (b.best!.percent - b.overall) - (a.best!.percent - a.overall));
-  }, [entries, targets]);
-
-  const advice = (row: Suggestion) => {
-    const gain = row.best!.percent - row.overall;
-    if (gain >= 10) return { text: `Put more of their hours on ${row.best!.work}`, lift: `+${gain} points above their own average` };
-    if (row.overall >= 100) return { text: 'Working at target across their jobs — leave as is', lift: '' };
-    if (row.overall < 70) return { text: `Below target on everything so far. ${row.best!.work} is their least weak job — check materials, machine or training first`, lift: '' };
-    return { text: 'No single job stands out yet — give it a few more days', lift: '' };
-  };
-
-  return <section className="production-card">
-    <div className="production-section-heading"><div><h2>Who should do what</h2><p>Each worker scored on every job they did, against that job's own target. Sorted by how much they would gain from moving.</p></div><Lightbulb size={22} aria-hidden="true" /></div>
-    {rows.length ? <ul className="production-advice">{rows.map(row => {
-      const note = advice(row);
-      return <li key={row.id} className={band(row.best!.percent)}>
-        <div className="production-advice-head"><strong>{row.name}</strong><span>Overall {number(row.overall)}% of target · {row.records} {row.records === 1 ? 'record' : 'records'}</span></div>
-        <p className="production-advice-call">{note.text}{note.lift && <em>{note.lift}</em>}</p>
-        <dl className="production-advice-jobs">
-          <div><dt>Best job</dt><dd>{row.best!.work} <b>{number(row.best!.percent)}%</b><small>{row.best!.records} {row.best!.records === 1 ? 'record' : 'records'} · {timeLabel(row.best!.minutes)}</small></dd></div>
-          {row.worst && <div><dt>Weakest job</dt><dd>{row.worst.work} <b>{number(row.worst.percent)}%</b></dd></div>}
-        </dl>
-        {!row.firm && <p className="production-advice-thin">Early read — resting on {row.best!.records === 1 ? 'a single record' : 'very little time'}. Treat it as a hint, not a decision.</p>}
-      </li>;
-    })}</ul> : <p className="production-empty">Not enough recorded work with targets to suggest anything yet.</p>}
-  </section>;
-}
-
 export default function Production({ token, apiBase, view = 'report' }: { token: string | null; apiBase: string; view?: 'report' | 'records' }) {
   const [days, setDays] = useState(() => ['1','7','30','90'].includes(viewParams().get('productionDays') || '') ? viewParams().get('productionDays')! : '30');
   const [to, setTo] = useState(() => viewDate('productionTo'));
@@ -426,10 +351,6 @@ export default function Production({ token, apiBase, view = 'report' }: { token:
       .map(row => ({ ...row, percent: row.expected ? Math.round(row.targetedPieces / row.expected * 100) : null, works: [...row.work].map(([label, job]) => ({ label, pieces: job.pieces, expected: job.expected })).sort((a, b) => b.pieces - a.pieces) }))
       .sort((a, b) => (b.percent ?? -1) - (a.percent ?? -1) || b.pieces - a.pieces);
   }, [report.data, rate]);
-  // The bar always leaves room for the 100% mark, so beating the target shows.
-  // The bar stops at a full 100% of target; the figure beside it keeps counting,
-  // so beating the target is visible instead of being flattened to 100.
-  const capped = (percent: number | null) => percent === null ? null : Math.min(100, percent);
   // Green from 90% of target, amber from 70, red below that.
   const todayKey = today(), yesterdayKey = shiftDay(todayKey, -1);
   // The dropdown reads back from the two values it sets, so moving the ending
@@ -483,20 +404,24 @@ export default function Production({ token, apiBase, view = 'report' }: { token:
               </span>
               {row.percent === null ? <em>No target set</em> : <b>{number(row.percent)}%</b>}
             </div>
-            <span className="production-board-track"><span className="production-board-fill" style={{ width: `${Math.max(2, capped(row.percent) ?? 0)}%` }} /></span>
             <small className="production-leader-card-total">{number(row.pieces)} pcs · {number(row.hours)} hr{row.expected ? ` · target ${number(Math.round(row.expected))} pcs` : ''}{row.untargetedHours ? ` · ${number(row.untargetedHours)} hr not compared` : ''}</small>
             <div className="production-leader-card-jobs">
               <div className="production-leader-card-jobs-head"><span>Work</span><span>Target pcs</span><span>Process pcs</span></div>
-              {jobs.map(work => <div className="production-leader-card-job" key={work.label}>
-                <span>{work.label}</span>
-                <span className="production-figure">{work.expected ? number(Math.round(work.expected)) : '—'}</span>
-                <strong>{number(work.pieces)}</strong>
-              </div>)}
+              {jobs.map(work => {
+                // Each job is judged against its own target, so its dot is its
+                // own colour — a worker's overall % can be green while one job
+                // inside it is actually behind, and the dot is where that shows.
+                const jobPercent = work.expected ? Math.round(work.pieces / work.expected * 100) : null;
+                return <div className={`production-leader-card-job ${band(jobPercent)}`} key={work.label}>
+                  <span><i className="production-leader-dot" aria-hidden="true" />{work.label}</span>
+                  <span className="production-figure">{work.expected ? number(Math.round(work.expected)) : '—'}</span>
+                  <strong>{number(work.pieces)}</strong>
+                </div>;
+              })}
             </div>
           </button>;
         })}</div> : <p className="production-empty">No regular production to rank in this period. Training output is shown separately above.</p>}
       </section>
-      <WorkSuggestions entries={report.data.entries || []} targets={rate} />
       <section className="production-card"><h2>Training production</h2><p>Included in factory output. Training records are excluded from rankings, performance flags and their baseline.</p><strong>{number(report.data.trainingTotals?.pieces || 0)} pcs · {number(report.data.trainingTotals?.hours || 0)} hours · {report.data.trainingTotals?.entries || 0} entries</strong>{!!report.data.trainingWorkers?.length&&<div className="production-table-wrap" role="region" aria-label="Training production" tabIndex={0}><table><thead><tr><th>Worker</th><th>Training dates</th><th>Pcs</th><th>Hours</th></tr></thead><tbody>{report.data.trainingWorkers.map(worker=><tr key={worker.id}><th scope="row">{worker.name}</th><td>{worker.trainingStart || worker.trainingEnd ? `${dateLabel(worker.trainingStart)} — ${dateLabel(worker.trainingEnd)}` : 'Marked on the entry'}</td><td>{number(worker.pieces)}</td><td>{number(worker.hours)}</td></tr>)}</tbody></table></div>}</section>
       <WorkStepOutput rows={(report.data.processes || []).map(row => ({ ...row, sub: row.toyName }))} entries={report.data.entries || []} targets={rate} />
     </>}
