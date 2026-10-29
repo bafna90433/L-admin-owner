@@ -131,9 +131,9 @@
   display: grid; grid-template-columns: minmax(0, 1fr) 96px 96px; gap: 4px 12px; align-items: baseline;
 }
 .production-page .production-leader-card-jobs-head {
-  padding: 0 0 8px; border-bottom: 1px solid var(--glass-border);
-  font-size: .74rem; font-weight: 700; letter-spacing: .02em; text-transform: uppercase;
-  color: var(--text-tertiary, var(--text-secondary));
+  padding: 0 0 9px; margin-bottom: 2px; border-bottom: 2px solid var(--glass-border-hover, var(--glass-border));
+  font-size: .74rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--text-secondary);
 }
 .production-page .production-leader-card-jobs-head > span:not(:first-child),
 .production-page .production-leader-card-job .production-figure,
