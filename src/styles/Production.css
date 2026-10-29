@@ -443,3 +443,35 @@
 /* Refresh belongs with the controls it refreshes, at the end of their row. */
 .production-page .production-record-bar .production-count { margin-left: auto; }
 .production-page .production-record-bar .production-refresh { margin-left: 12px; }
+
+/* ---------- Records: a report, read top to bottom ---------- */
+.production-page .production-report-head { margin-bottom: 14px; }
+.production-page .production-report-head h2 { margin: 0; font-size: 1.5rem; letter-spacing: -.02em; }
+.production-page .production-report-head p { margin: 3px 0 0; font-size: .88rem; color: var(--text-secondary); }
+.production-page .production-search {
+  display: flex; align-items: center; gap: 8px; flex: 1 1 240px; min-width: 200px;
+  padding: 0 12px; height: 40px; align-self: end;
+  border: 1px solid var(--glass-border); border-radius: 10px; background: var(--bg-secondary); color: var(--text-secondary);
+}
+.production-page .production-search input { flex: 1; border: none; background: none; outline: none; font: inherit; font-size: .9rem; color: var(--text-primary); padding: 0; height: 100%; }
+.production-page .production-record-bar .production-refresh {
+  background: var(--accent-primary); color: #fff; border: none; height: 40px; padding: 0 16px; border-radius: 10px; font-weight: 700;
+}
+.production-page .production-record-bar .production-refresh:hover { filter: brightness(1.06); }
+/* The page's own foot: how much of the list is on screen, and the way on. */
+.production-page .production-pager {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 14px 2px 4px; font-size: .84rem; color: var(--text-secondary);
+}
+.production-page .production-pager-pages { display: flex; align-items: center; gap: 6px; }
+.production-page .production-pager-pages span { display: inline-flex; align-items: center; gap: 6px; }
+.production-page .production-pager-pages em { font-style: normal; color: var(--text-secondary); }
+.production-page .production-pager-pages button {
+  min-width: 34px; height: 34px; padding: 0 9px; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--glass-border); border-radius: 9px; background: var(--bg-secondary);
+  font: inherit; font-size: .85rem; font-weight: 600; color: var(--text-primary);
+}
+.production-page .production-pager-pages button:hover:not(:disabled) { border-color: var(--accent-primary); color: var(--accent-primary); }
+.production-page .production-pager-pages button.is-on { background: var(--accent-primary); border-color: var(--accent-primary); color: #fff; }
+.production-page .production-pager-pages button:disabled { opacity: .45; cursor: not-allowed; }

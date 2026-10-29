@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Factory, Lightbulb, RefreshCw, Trophy } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Factory, Lightbulb, RefreshCw, Search, Trophy } from 'lucide-react';
 import '../styles/Production.css';
 
 interface ProductionEntry {
@@ -326,6 +326,10 @@ export default function Production({ token, apiBase, view = 'report' }: { token:
   const [to, setTo] = useState(() => viewDate('productionTo'));
   const [date, setDate] = useState(() => viewDate('productionDate'));
   const [recordScope, setRecordScope] = useState(() => viewParams().get('productionScope') === 'period' ? 'period' : 'day');
+  // Thirty-five workers over a month is more rows than anybody reads at once,
+  // so the list is searched by name and walked a page at a time.
+  const [recordSearch, setRecordSearch] = useState('');
+  const [recordPage, setRecordPage] = useState(1);
   const [selectedWorker, setSelectedWorker] = useState(() => viewParams().get('productionWorker') || '');
   const [detailSource, setDetailSource] = useState(() => viewParams().get('productionSource') === 'leaders' ? 'leaders' : 'records');
   const [openedHere, setOpenedHere] = useState(false);
@@ -352,6 +356,11 @@ export default function Production({ token, apiBase, view = 'report' }: { token:
   const records = viewScope === 'day' ? dayEntries : report;
   const entries = viewScope === 'day' ? (dayEntries.data?.entries || []).map(entry => ({ ...entry, date: entry.date || date })) : report.data?.entries || [];
   const workerRows = groupWorkerRecords(entries);
+  const PER_PAGE = 10;
+  const foundRows = workerRows.filter(row => !recordSearch.trim() || row.name.toLowerCase().includes(recordSearch.trim().toLowerCase()));
+  const pages = Math.max(1, Math.ceil(foundRows.length / PER_PAGE));
+  const page = Math.min(recordPage, pages);
+  const pagedRows = foundRows.slice((page - 1) * PER_PAGE, page * PER_PAGE);
   // A row opened from the records table is one shift; one opened from the
   // ranking is the whole period, so every day of that worker is merged.
   const detailRows = workerRows.filter(row => row.rowKey === selectedWorker || row.key === selectedWorker);
@@ -466,10 +475,28 @@ export default function Production({ token, apiBase, view = 'report' }: { token:
     {view === 'records' && <section className="production-card production-flat">
       {/* The page title says what this is; saying it again above the filters
           only pushed the rows down. The controls and the count share one bar. */}
-      <h2 ref={recordsHeading} tabIndex={-1} className="production-sr-only">Production records</h2>
-      <div className="production-record-filters production-record-bar"><label>Show records<select aria-label="Show records" value={recordScope} onChange={event => setRecordScope(event.target.value)}><option value="day">Selected day</option><option value="period">Report period</option></select></label>{recordScope === 'day' && <label>Record date<input type="date" value={date} onChange={event => dateChange(event.target.value, setDate)} /></label>}{recordScope === 'period' && <><label>Days<select value={days} onChange={event => setDays(event.target.value)}><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option>{days === '1' && <option value="1">Single day</option>}</select></label><label>Ending date<input type="date" value={to} max={todayKey} onChange={event => dateChange(event.target.value, setTo)} /></label></>}<span className="production-count">{workerRows.length} workers · {entries.length} work entries</span><button type="button" className="production-refresh" onClick={() => setRefresh(value => value + 1)}><RefreshCw size={17} aria-hidden="true" />Refresh</button></div>
+      <div className="production-report-head">
+        <h2 ref={recordsHeading} tabIndex={-1}>Production report</h2>
+        <p>Worker activity and production records.</p>
+      </div>
+      <div className="production-record-filters production-record-bar"><label>Show records<select aria-label="Show records" value={recordScope} onChange={event => setRecordScope(event.target.value)}><option value="day">Selected day</option><option value="period">Report period</option></select></label>{recordScope === 'day' && <label>Record date<input type="date" value={date} onChange={event => dateChange(event.target.value, setDate)} /></label>}{recordScope === 'period' && <><label>Days<select value={days} onChange={event => setDays(event.target.value)}><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option>{days === '1' && <option value="1">Single day</option>}</select></label><label>Ending date<input type="date" value={to} max={todayKey} onChange={event => dateChange(event.target.value, setTo)} /></label></>}<label className="production-search"><span className="production-sr-only">Search worker</span><Search size={16} aria-hidden="true" /><input value={recordSearch} placeholder="Search worker by name" onChange={event => { setRecordSearch(event.target.value); setRecordPage(1); }} /></label><span className="production-count">{workerRows.length} workers · {entries.length} work entries</span><button type="button" className="production-refresh" onClick={() => setRefresh(value => value + 1)}><RefreshCw size={17} aria-hidden="true" />Refresh</button></div>
       {records.error && <p className="production-error" role="alert">{records.error} {records.data && 'Records may be out of date.'} Use Refresh to retry.</p>}
-      {records.busy && !records.data ? <p className="production-empty" role="status">Loading records…</p> : <WorkerRecordTable rows={workerRows} onOpen={openWorker} />}
+      {records.busy && !records.data ? <p className="production-empty" role="status">Loading records…</p> : <>
+        <WorkerRecordTable rows={pagedRows} onOpen={openWorker} />
+        {foundRows.length > 0 && <div className="production-pager">
+          <span>Showing {(page - 1) * PER_PAGE + 1}–{Math.min(page * PER_PAGE, foundRows.length)} of {foundRows.length} {foundRows.length === 1 ? 'row' : 'rows'}</span>
+          {pages > 1 && <div className="production-pager-pages">
+            <button type="button" aria-label="Previous page" disabled={page === 1} onClick={() => setRecordPage(page - 1)}><ChevronLeft size={16} /></button>
+            {Array.from({ length: pages }, (_, at) => at + 1)
+              .filter(number => number === 1 || number === pages || Math.abs(number - page) <= 2)
+              .map((number, at, list) => <span key={number}>
+                {at > 0 && number - list[at - 1] > 1 && <em>…</em>}
+                <button type="button" className={number === page ? 'is-on' : ''} aria-current={number === page ? 'page' : undefined} onClick={() => setRecordPage(number)}>{number}</button>
+              </span>)}
+            <button type="button" aria-label="Next page" disabled={page === pages} onClick={() => setRecordPage(page + 1)}><ChevronRight size={16} /></button>
+          </div>}
+        </div>}
+      </>}
     </section>}
   </div>;
 }
