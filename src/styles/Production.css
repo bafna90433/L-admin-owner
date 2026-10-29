@@ -100,15 +100,19 @@
    page — the band colour carries on the rank badge, the figure, the left
    edge and each job's own dot, so a worker's standing still reads at a
    glance without a wash of colour behind the text. */
-/* align-items: start keeps a short card its own height instead of being
-   stretched to match a taller neighbour in the same grid row. */
-.production-page .production-leader-grid { display: grid; grid-template-columns: repeat(2, 1fr); align-items: start; gap: 12px; margin-top: 16px; }
+/* A two-column grid pairs cards into rows and sizes each row to its tallest
+   member, so a worker with one job sat in a tall gap beside a worker with
+   eight. Columns flow independently instead: each card takes only the
+   height its own content needs, and the next card follows straight after
+   it in the same column. */
+.production-page .production-leader-grid { column-count: 2; column-gap: 12px; margin-top: 16px; }
 .production-page .production-leader-card {
   --board: #15803d; --board-bar: #22c55e; --board-soft: rgba(22, 163, 74, .12); --board-tint: rgba(22, 163, 74, .05);
   display: block; width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer;
   border: 1px solid var(--glass-border); border-radius: 12px;
   padding: 14px; background: var(--bg-secondary);
   box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+  break-inside: avoid; margin-bottom: 12px;
 }
 .production-page .production-leader-card:hover { border-color: var(--board); box-shadow: 0 2px 8px rgba(15, 23, 42, .08); }
 .production-page .production-leader-card.is-mid { --board: #b45309; --board-bar: #f59e0b; --board-soft: rgba(217, 119, 6, .16); --board-tint: rgba(217, 119, 6, .07); }
@@ -127,9 +131,9 @@
   display: grid; grid-template-columns: minmax(0, 1fr) 90px 90px; gap: 4px 10px; align-items: baseline;
 }
 .production-page .production-leader-card-jobs-head {
-  padding: 6px 8px; margin: 0 -8px 2px; border-radius: 6px; background: var(--board-soft);
+  padding: 6px 8px; margin: 0 -8px 2px; border-radius: 6px; background: var(--bg-tertiary);
   font-size: .64rem; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
-  color: var(--board);
+  color: var(--text-tertiary, var(--text-secondary));
 }
 .production-page .production-leader-card-jobs-head > span:not(:first-child),
 .production-page .production-leader-card-job .production-figure,
@@ -155,7 +159,7 @@
   .production-page .production-leader-card-job { grid-template-columns: minmax(0, 1fr) 70px 70px; }
 }
 @media (max-width: 720px) {
-  .production-page .production-leader-grid { grid-template-columns: 1fr; }
+  .production-page .production-leader-grid { column-count: 1; }
 }
 .production-page .production-worker-name { min-height: 44px; border: 0; background: transparent; color: var(--accent-primary); font: inherit; font-weight: 700; padding: 4px 0; cursor: pointer; text-align: left; }
 .production-page .production-worker-name:hover { text-decoration: underline; }
