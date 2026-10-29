@@ -475,3 +475,25 @@
 .production-page .production-pager-pages button:hover:not(:disabled) { border-color: var(--accent-primary); color: var(--accent-primary); }
 .production-page .production-pager-pages button.is-on { background: var(--accent-primary); border-color: var(--accent-primary); color: #fff; }
 .production-page .production-pager-pages button:disabled { opacity: .45; cursor: not-allowed; }
+
+/* The search is a row, not a column: labels on this page stack by default,
+   which left the icon above a stretched, centred input. */
+.production-page .production-record-bar .production-search {
+  flex-direction: row; align-items: center; gap: 8px;
+  flex: 0 1 300px; min-width: 220px; height: 44px; padding: 0 12px; align-self: end;
+}
+.production-page .production-record-bar .production-search input { min-width: 0; min-height: 0; height: 100%; border: none; background: none; padding: 0; text-align: left; }
+.production-page .production-record-bar .production-search input:focus-visible { outline: none; }
+.production-page .production-record-bar .production-search:focus-within { border-color: var(--accent-primary); }
+/* One height for everything on the bar, and the count beside the button it
+   belongs with rather than adrift between them. */
+.production-page .production-record-bar select,
+.production-page .production-record-bar input[type="date"] { min-height: 44px; min-width: 150px; }
+.production-page .production-record-bar .production-refresh { height: 44px; }
+.production-page .production-record-bar .production-count { margin-left: auto; align-self: center; }
+/* Rows closer together: a report is read down the page, and air between lines
+   is air between a number and the name it belongs to. */
+.production-page .production-flat tbody td,
+.production-page .production-flat tbody th { padding: 11px 14px; font-size: .875rem; }
+.production-page .production-flat thead th { padding: 11px 14px; }
+.production-page .production-flat .production-work-count { font-size: .7rem; }
