@@ -9,7 +9,7 @@ interface ProductionEntry {
   isTraining?: boolean; workType?: string; createdAt?: string; updatedAt?: string;
 }
 interface ProductionMasters { processes: { id: string; targetPerHour?: number; target8h?: number; target12h?: number }[] }
-interface LeaderRow { id: string; name: string; entryCount: number; pieces: number; hours: number; expected: number; percent: number | null; untargetedHours: number; works: { label: string; pieces: number }[] }
+interface LeaderRow { id: string; name: string; entryCount: number; pieces: number; hours: number; expected: number; percent: number | null; untargetedHours: number; works: { label: string; pieces: number; expected: number }[] }
 interface ProductionWorker {
   id: string; name: string; pieces: number; hours: number; perHour: number;
   daysWorked: number;
@@ -401,23 +401,29 @@ export default function Production({ token, apiBase, view = 'report' }: { token:
   // rather than counted as free credit.
   const rate = useMemo(() => new Map((masters.data?.processes || []).map(step => [step.id, step.targetPerHour || (step.target8h ? step.target8h / 8 : step.target12h ? step.target12h / 12 : 0)])), [masters.data]);
   const leaders = useMemo<LeaderRow[]>(() => {
-    const rows = new Map<string, Omit<LeaderRow, 'works'> & { targetedPieces: number; work: Map<string, number> }>();
+    const rows = new Map<string, Omit<LeaderRow, 'works'> & { targetedPieces: number; work: Map<string, { pieces: number; expected: number }> }>();
     for (const entry of report.data?.entries || []) {
       if (entry.isTraining) continue;
       const key = workerKey(entry);
-      const row = rows.get(key) || { id: key, name: entry.workerName || 'Archived worker', entryCount: 0, pieces: 0, hours: 0, expected: 0, percent: null, untargetedHours: 0, targetedPieces: 0, work: new Map<string, number>() };
+      const row = rows.get(key) || { id: key, name: entry.workerName || 'Archived worker', entryCount: 0, pieces: 0, hours: 0, expected: 0, percent: null, untargetedHours: 0, targetedPieces: 0, work: new Map<string, { pieces: number; expected: number }>() };
       row.entryCount++; row.pieces += entry.pieces; row.hours += entry.minutes / 60;
       const label = sameJob(entry.toyName, entry.processName)
         ? (entry.toyName || 'Toy not recorded')
         : `${entry.toyName || 'Toy not recorded'} — ${entry.processName || 'Work step not recorded'}`;
-      row.work.set(label, (row.work.get(label) || 0) + entry.pieces);
+      // Each job keeps its own target as well as its pieces: a worker who did
+      // three different jobs is read job by job, which is the only way the
+      // figures mean anything — a packing target says nothing about gumming.
       const perHour = rate.get(entry.processId || '') || 0;
+      const job = row.work.get(label) || { pieces: 0, expected: 0 };
+      job.pieces += entry.pieces;
+      job.expected += perHour * entry.minutes / 60;
+      row.work.set(label, job);
       if (perHour) { row.expected += perHour * entry.minutes / 60; row.targetedPieces += entry.pieces; }
       else row.untargetedHours += entry.minutes / 60;
       rows.set(key, row);
     }
     return [...rows.values()]
-      .map(row => ({ ...row, percent: row.expected ? Math.round(row.targetedPieces / row.expected * 100) : null, works: [...row.work].map(([label, pieces]) => ({ label, pieces })).sort((a, b) => b.pieces - a.pieces) }))
+      .map(row => ({ ...row, percent: row.expected ? Math.round(row.targetedPieces / row.expected * 100) : null, works: [...row.work].map(([label, job]) => ({ label, pieces: job.pieces, expected: job.expected })).sort((a, b) => b.pieces - a.pieces) }))
       .sort((a, b) => (b.percent ?? -1) - (a.percent ?? -1) || b.pieces - a.pieces);
   }, [report.data, rate]);
   // The bar always leaves room for the 100% mark, so beating the target shows.
@@ -468,9 +474,19 @@ export default function Production({ token, apiBase, view = 'report' }: { token:
           <span className="production-rank">{index + 1}</span>
           <span className="production-board-body">
             <span className="production-board-name"><span className="production-performer-identity"><strong>{row.name}</strong>{row.entryCount > 1 && <span className="production-work-count" title={`${row.entryCount} regular work entries in this report period`}>Multi work</span>}</span>{row.percent === null ? <em>No target set for this work</em> : <b>{number(row.percent)}%</b>}</span>
-            {row.works.length ? <span className="production-board-work">{row.works.slice(0, 3).map(work => work.label).join(' · ')}{row.works.length > 3 ? ` · +${row.works.length - 3} more` : ''}</span> : null}
             <span className="production-board-track"><span className="production-board-fill" style={{ width: `${Math.max(2, capped(row.percent) ?? 0)}%` }} /></span>
-            <small>{number(row.pieces)} pcs · {number(row.hours)} hr{row.expected ? ` · target ${number(Math.round(row.expected))} pcs` : ''}{row.untargetedHours ? ` · ${number(row.untargetedHours)} hr not compared` : ''}</small>
+            {/* Job by job, because that is the question behind the ranking:
+                what did this worker do, what was it meant to make, what did it
+                make. A run-on list of names answered none of the three. */}
+            {row.works.length ? <span className="production-board-jobs">
+              {row.works.slice(0, 4).map(work => <span className="production-board-job" key={work.label}>
+                <span>{work.label}</span>
+                <b>{number(work.pieces)} pcs</b>
+                <em>{work.expected ? `target ${number(Math.round(work.expected))}` : 'no target'}</em>
+              </span>)}
+              {row.works.length > 4 && <span className="production-board-job is-more"><span>+{row.works.length - 4} more {row.works.length - 4 === 1 ? 'job' : 'jobs'}</span></span>}
+            </span> : null}
+            <small>Total {number(row.pieces)} pcs · {number(row.hours)} hr{row.expected ? ` · target ${number(Math.round(row.expected))} pcs` : ''}{row.untargetedHours ? ` · ${number(row.untargetedHours)} hr not compared` : ''}</small>
           </span></button>
         </li>)}</ol> : <p className="production-empty">No regular production to rank in this period. Training output is shown separately above.</p>}
       </section>

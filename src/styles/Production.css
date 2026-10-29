@@ -107,14 +107,30 @@
 .production-page .production-board-name strong { font-size: .92rem; overflow-wrap: anywhere; }
 .production-page .production-board-name b { flex: none; color: var(--board); font-size: 1.05rem; font-weight: 800; }
 .production-page .production-board-name em { flex: none; font-size: .75rem; color: var(--text-secondary); font-style: normal; }
-.production-page .production-board-work { font-size: .78rem; color: var(--text-secondary); margin-top: 3px; overflow-wrap: anywhere; }
+/* The jobs behind a worker's figure, one to a line: what the job was, what it
+   made, what it was meant to make. */
+.production-page .production-board-jobs { display: block; margin-top: 7px; }
+.production-page .production-board-job {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 4px 12px;
+  align-items: baseline; padding: 3px 0; font-size: .78rem; color: var(--text-secondary);
+  border-top: 1px solid var(--glass-border);
+}
+.production-page .production-board-job:first-child { border-top: none; }
+.production-page .production-board-job > span { overflow-wrap: anywhere; }
+.production-page .production-board-job > b { font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.production-page .production-board-job > em { font-style: normal; font-variant-numeric: tabular-nums; }
+.production-page .production-board-job.is-more { color: var(--text-tertiary, var(--text-secondary)); }
+@media (max-width: 560px) {
+  .production-page .production-board-job { grid-template-columns: minmax(0, 1fr) auto; }
+  .production-page .production-board-job > em { grid-column: 2; }
+}
 .production-page .production-board-track { position: relative; height: 10px; margin: 7px 0 5px; border-radius: 999px; background: var(--board-soft); }
 .production-page .production-board-fill { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--board-bar), var(--board)); }
 .production-page .production-board small { font-size: .76rem; color: var(--text-secondary); }
 .production-page .production-board li { padding: 0; }
 .production-page .production-performer { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 44px; padding: 13px 12px; border: 0; border-radius: 12px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .production-page .production-performer:hover { background: var(--board-soft); }
-.production-page .production-performer :is(.production-board-body, .production-board-work, .production-board-track) { display: block; }
+.production-page .production-performer :is(.production-board-body, .production-board-jobs, .production-board-track) { display: block; }
 .production-page .production-worker-name { min-height: 44px; border: 0; background: transparent; color: var(--accent-primary); font: inherit; font-weight: 700; padding: 4px 0; cursor: pointer; text-align: left; }
 .production-page .production-worker-name:hover { text-decoration: underline; }
 .production-page .production-detail-button { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px 12px; border: 1px solid var(--glass-border-hover); border-radius: 8px; background: var(--bg-secondary); color: var(--accent-primary); font: inherit; font-weight: 600; cursor: pointer; }
