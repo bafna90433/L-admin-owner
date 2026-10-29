@@ -94,7 +94,7 @@
 @media (prefers-reduced-motion: reduce) { .production-page .production-refresh { transition: none; } }
 /* One colour per row drives the rank badge and the figure, so a worker's
    standing reads the same whichever part of the card you look at. */
-.production-page .production-rank { flex: none; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; background: var(--board-soft); color: var(--board); font-size: .82rem; font-weight: 800; }
+.production-page .production-rank { flex: none; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; background: var(--board-soft); color: var(--board); font-size: .9rem; font-weight: 800; }
 /* Top performers as cards, two to a row: the worker's own name and standing
    up top, their jobs listed below. White, like every other card on this
    page — the band colour carries on the rank badge, the figure, the left
@@ -109,30 +109,30 @@
 .production-page .production-leader-card {
   --board: #15803d; --board-bar: #22c55e; --board-soft: rgba(22, 163, 74, .12); --board-tint: rgba(22, 163, 74, .05);
   display: block; width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer;
-  border: 1px solid var(--glass-border); border-radius: 12px;
-  padding: 14px; background: var(--bg-secondary);
+  border: 1px solid var(--glass-border); border-radius: 14px;
+  padding: 18px; background: var(--bg-secondary);
   box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
-  break-inside: avoid; margin-bottom: 12px;
+  break-inside: avoid; margin-bottom: 14px;
 }
 .production-page .production-leader-card:hover { border-color: var(--board); box-shadow: 0 2px 8px rgba(15, 23, 42, .08); }
 .production-page .production-leader-card.is-mid { --board: #b45309; --board-bar: #f59e0b; --board-soft: rgba(217, 119, 6, .16); --board-tint: rgba(217, 119, 6, .07); }
 .production-page .production-leader-card.is-low { --board: #b91c1c; --board-bar: #ef4444; --board-soft: rgba(185, 28, 28, .14); --board-tint: rgba(185, 28, 28, .06); }
-.production-page .production-leader-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-.production-page .production-leader-card-name { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; }
-.production-page .production-leader-card-name strong { font-size: .95rem; font-weight: 700; color: var(--text-primary); overflow-wrap: anywhere; }
-.production-page .production-leader-card-head > b { flex: none; color: var(--board); font-size: 1.15rem; font-weight: 800; letter-spacing: -.01em; }
-.production-page .production-leader-card-head > em { flex: none; font-style: normal; font-size: .76rem; color: var(--text-secondary); }
+.production-page .production-leader-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.production-page .production-leader-card-name { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.production-page .production-leader-card-name strong { font-size: 1.08rem; font-weight: 700; color: var(--text-primary); overflow-wrap: anywhere; }
+.production-page .production-leader-card-head > b { flex: none; color: var(--board); font-size: 1.35rem; font-weight: 800; letter-spacing: -.01em; }
+.production-page .production-leader-card-head > em { flex: none; font-style: normal; font-size: .82rem; color: var(--text-secondary); }
 .production-page .production-leader-card-total { display: block; margin-top: 7px; font-size: .76rem; color: var(--text-secondary); }
 /* The jobs under a card read like a small table: a header row naming the
    columns, then one row per job lined up under it. */
 .production-page .production-leader-card-jobs { margin: 10px 0 0; border-top: 1px solid var(--glass-border); }
 .production-page .production-leader-card-jobs-head,
 .production-page .production-leader-card-job {
-  display: grid; grid-template-columns: minmax(0, 1fr) 90px 90px; gap: 4px 10px; align-items: baseline;
+  display: grid; grid-template-columns: minmax(0, 1fr) 96px 96px; gap: 4px 12px; align-items: baseline;
 }
 .production-page .production-leader-card-jobs-head {
-  padding: 0 0 6px; border-bottom: 1px solid var(--glass-border);
-  font-size: .64rem; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
+  padding: 0 0 8px; border-bottom: 1px solid var(--glass-border);
+  font-size: .74rem; font-weight: 700; letter-spacing: .02em; text-transform: uppercase;
   color: var(--text-tertiary, var(--text-secondary));
 }
 .production-page .production-leader-card-jobs-head > span:not(:first-child),
@@ -140,7 +140,7 @@
 .production-page .production-leader-card-job > strong { text-align: right; }
 .production-page .production-leader-card-job {
   --board: #15803d; --board-bar: #22c55e;
-  padding: 6px 0; font-size: .78rem; color: var(--text-secondary); border-top: 1px solid var(--glass-border);
+  padding: 8px 0; font-size: .88rem; color: var(--text-secondary); border-top: 1px solid var(--glass-border);
 }
 .production-page .production-leader-card-job.is-mid { --board: #b45309; --board-bar: #f59e0b; }
 .production-page .production-leader-card-job.is-low { --board: #b91c1c; --board-bar: #ef4444; }
