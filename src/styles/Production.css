@@ -339,3 +339,14 @@
 .production-page .track-damage strong { font-size: 1.05rem; font-variant-numeric: tabular-nums; }
 .production-page .track-damage:hover { background: color-mix(in srgb, var(--accent-primary) 10%, var(--bg-tertiary)); }
 .production-page .track-clear { border: none; background: none; padding: 0; cursor: pointer; font: inherit; font-size: .84rem; font-weight: 700; color: var(--accent-primary); align-self: end; margin-bottom: 9px; }
+
+/* What broke, over the page: the toy first, then its parts. */
+.track-modal { position: fixed; inset: 0; z-index: 120; display: grid; place-items: center; padding: 24px; background: rgba(15, 23, 42, .66); backdrop-filter: blur(6px); }
+.track-modal-body { position: relative; width: min(94vw, 520px); max-height: 84vh; overflow: auto; padding: 22px; border-radius: 18px; background: var(--bg-secondary); box-shadow: 0 24px 60px rgba(15, 23, 42, .4); }
+.track-modal-body > header { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+.track-modal-body > header img, .track-modal-body > header .track-nophoto { width: 84px; height: 84px; flex: none; object-fit: cover; border-radius: 14px; border: 1px solid var(--glass-border); background: var(--bg-tertiary); }
+.track-modal-body h2 { margin: 0; font-size: 1.1rem; }
+.track-modal-body > header p { margin: 3px 0 0; font-size: .84rem; color: var(--text-secondary); }
+.track-modal-close { position: absolute; top: 14px; right: 14px; width: 34px; height: 34px; display: grid; place-items: center; border: none; border-radius: 10px; cursor: pointer; background: var(--bg-tertiary); color: var(--text-secondary); }
+.track-modal-close:hover { background: color-mix(in srgb, var(--accent-primary) 12%, var(--bg-tertiary)); }
+.track-modal-body .track-steps { display: grid; gap: 9px; }

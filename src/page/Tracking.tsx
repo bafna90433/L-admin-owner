@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { AlertTriangle, ImageOff, PackageSearch, RefreshCw } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { AlertTriangle, ImageOff, PackageSearch, RefreshCw, X } from 'lucide-react';
 import { number, today, useProductionRead } from './Production';
 
 interface Step { id: string; name: string; under: string; underType: string; imageUrl: string; pieces: number }
@@ -51,6 +52,14 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
   const [refresh, setRefresh] = useState(0);
   const [open, setOpen] = useState<string>('');
   const [broken, setBroken] = useState<string>('');
+  // What broke opens over the page rather than pushing the card about: the
+  // toy, then its parts, which is how the floor asks the question.
+  useEffect(() => {
+    if (!broken) return;
+    const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setBroken(''); };
+    window.addEventListener('keydown', close);
+    return () => window.removeEventListener('keydown', close);
+  }, [broken]);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
   const [doing, setDoing] = useState<'all' | 'working' | 'idle'>('all');
@@ -99,6 +108,8 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
       || (b.intake || 0) - (a.intake || 0)
       || a.name.localeCompare(b.name);
   });
+
+  const openBroken = cards.find(card => card.id === broken) || null;
 
   return <div className="production-page">
     <header className="production-header">
@@ -180,7 +191,7 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
           ? card.steps[card.steps.length - 1]
           : own.find(step => /assembl/i.test(step.name)) || first;
         const top = Math.max(card.intake || 0, ...card.steps.map(step => step.pieces), 1);
-        const worst = Math.max(1, ...(card.damageParts || []).map(part => part.qty));
+
         const showing = open === card.id;
         return <article className="production-card track-card" key={card.id}>
           <header>
@@ -236,18 +247,6 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
               : <div><span>Damage</span><strong>{number(card.damage)}</strong></div>}
           </div>
 
-          {/* The parts read the way the steps above do — same row, same bar —
-              because it is the same question asked of a different list. */}
-          {broken === card.id && <ol className="track-steps">
-            {(card.damageParts || []).map(part => (
-              <li key={part.name}>
-                <span className="track-step-name">{sentence(part.name)}</span>
-                <span className="track-bar"><span style={{ width: `${Math.max(2, share(part.qty, worst))}%` }} /></span>
-                <span className="track-step-pcs">{number(part.qty)}</span>
-              </li>
-            ))}
-          </ol>}
-
           {(card.waiting.length > 0 || card.notStarted) ? <>
             <button type="button" className="track-open" onClick={() => setOpen(showing ? '' : card.id)} aria-expanded={showing}>
               {showing ? 'Hide where it is sitting' : 'Where is it sitting?'}
@@ -280,5 +279,35 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
         </article>;
       })}
     </div>
+
+    {openBroken && createPortal(
+      <div className="track-modal" role="dialog" aria-modal="true" aria-label={`Damaged parts of ${openBroken.name}`}
+        onMouseDown={event => { if (event.target === event.currentTarget) setBroken(''); }}>
+        <div className="track-modal-body">
+          <button type="button" className="track-modal-close" aria-label="Close" onClick={() => setBroken('')}><X size={18} /></button>
+          <header>
+            {openBroken.imageUrl
+              ? <img src={openBroken.imageUrl} alt="" />
+              : <span className="track-nophoto" aria-hidden="true"><ImageOff size={22} /></span>}
+            <div>
+              <h2>{sentence(openBroken.name)}</h2>
+              <p>{number(openBroken.damage)} broken across {(openBroken.damageParts || []).length} {(openBroken.damageParts || []).length === 1 ? 'part' : 'parts'}</p>
+            </div>
+          </header>
+          <ol className="track-steps">
+            {(openBroken.damageParts || []).map(part => {
+              const worst = Math.max(1, ...(openBroken.damageParts || []).map(row => row.qty));
+              return <li key={part.name}>
+                <span className="track-step-name">{sentence(part.name)}</span>
+                <span className="track-bar"><span style={{ width: `${Math.max(2, share(part.qty, worst))}%` }} /></span>
+                <span className="track-step-pcs">{number(part.qty)}</span>
+              </li>;
+            })}
+          </ol>
+          {!(openBroken.damageParts || []).length && <p className="production-empty">No parts listed for this model yet.</p>}
+        </div>
+      </div>,
+      document.body
+    )}
   </div>;
 }
