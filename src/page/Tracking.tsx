@@ -174,22 +174,9 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
 
     <div className="track-grid">
       {cards.map(card => {
-        const first = card.steps[0];
         // What the breakdown adds up to: pieces waiting between steps, parts
         // never started, and anything reported broken.
         const total = card.waiting.reduce((sum, row) => sum + row.pieces, 0) + (card.notStarted || 0) + card.damage;
-        // How many pieces exist as this toy. Assembly is where the parts become
-        // the model, so that is the step read — and a zero there is the answer,
-        // not a gap to paper over: a hen with heads joined and legs gummed is
-        // still not a hen until it is assembled. Models with no assembly step
-        // of their own fall back to their first step, named on the tile.
-        // Where the floor has said a step finishes the toy, that step is the
-        // answer. Otherwise assembly is, because that is where the parts become
-        // the model — a hen with its heads joined is still not a hen.
-        const own = card.steps.filter(step => !step.under);
-        const made = card.markedEnd
-          ? card.steps[card.steps.length - 1]
-          : own.find(step => /assembl/i.test(step.name)) || first;
         const top = Math.max(card.intake || 0, ...card.steps.map(step => step.pieces), 1);
         // The card shows one list at a time: the line, or what broke on it.
         const showBroken = broken === card.id;
@@ -268,13 +255,8 @@ export default function Tracking({ token, apiBase }: { token: string | null; api
           </div>}
 
           <div className="track-totals">
-            {/* Ready is what the first step has made — the pieces that exist as
-                this model at all. The rest of the line is read off the steps
-                above and the breakdown below. */}
-            <button type="button" className={`track-tile${showBroken ? '' : ' is-on'}`} aria-pressed={!showBroken} onClick={() => setBroken('')}>
-              <span>Ready{made ? ` · ${sentence(made.name)}` : ''}</span>
-              <strong>{number(made?.pieces || 0)}</strong>
-            </button>
+            {/* Every step's count is on the card already, so a ready tile only
+                repeated one of them. What is left is the switch to what broke. */}
             <button type="button" className={`track-tile${showBroken ? ' is-on' : ''}`} aria-pressed={showBroken} onClick={() => setBroken(showBroken ? '' : card.id)}>
               <span>Damage{(card.damageParts || []).length ? ` · ${(card.damageParts || []).length} ${(card.damageParts || []).length === 1 ? 'part' : 'parts'}` : ''}</span>
               <strong>{number(card.damage)}</strong>
