@@ -350,3 +350,12 @@
 .track-modal-close { position: absolute; top: 14px; right: 14px; width: 34px; height: 34px; display: grid; place-items: center; border: none; border-radius: 10px; cursor: pointer; background: var(--bg-tertiary); color: var(--text-secondary); }
 .track-modal-close:hover { background: color-mix(in srgb, var(--accent-primary) 12%, var(--bg-tertiary)); }
 .track-modal-body .track-steps { display: grid; gap: 9px; }
+/* The modal is portalled to the body, outside .production-page, so the row
+   styles it borrows are repeated here rather than inherited. */
+.track-modal-body .track-steps { list-style: none; margin: 0; padding: 0; }
+.track-modal-body .track-steps li { display: grid; grid-template-columns: minmax(130px, 1.2fr) minmax(70px, 1fr) auto; align-items: center; gap: 12px; }
+.track-modal-body .track-step-name { font-size: .86rem; font-weight: 600; overflow-wrap: break-word; }
+.track-modal-body .track-bar { height: 10px; border-radius: 999px; background: color-mix(in srgb, var(--accent-primary) 12%, transparent); overflow: hidden; }
+.track-modal-body .track-bar span { display: block; height: 100%; border-radius: 999px; background: var(--accent-primary); }
+.track-modal-body .track-step-pcs { font-variant-numeric: tabular-nums; font-weight: 700; text-align: right; font-size: .9rem; }
+.track-modal-body .track-nophoto { display: grid; place-items: center; border-style: dashed; color: var(--text-secondary); }
