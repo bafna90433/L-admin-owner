@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Award, Medal, RefreshCw, TrendingUp, Trophy } from 'lucide-react';
 import { dateLabel, number, today, useProductionRead } from './Production';
 import { dailyRecords, type DailyEntry } from '../daily-records';
+import { sameJob } from '../names';
 
 interface Broken {
   toyId: string; processId: string;
@@ -63,7 +64,7 @@ export default function RecordBoard({ token, apiBase }: { token: string | null; 
         <div className="production-section-heading"><div><h2>Current records improved in this period</h2><p>{broken.length ? 'These are the latest standing records that improved during this period.' : 'Nothing was beaten in the chosen period.'}</p></div><Medal size={22} aria-hidden="true" /></div>
         {broken.length ? <ol className="production-break-list">{broken.map(row => <li key={`${row.date}-${row.workerName}-${row.processName}`}>
           <span className="production-break-badge"><Trophy size={13} aria-hidden="true" />New record</span>
-          <div className="production-break-head"><span className="production-break-icon" aria-hidden="true"><Award size={20} /></span><div><strong>{row.workerName}</strong><small>{row.categoryName} · {row.toyName} — {row.processName}</small></div><span className="production-break-date">{dateLabel(row.date)}</span></div>
+          <div className="production-break-head"><span className="production-break-icon" aria-hidden="true"><Award size={20} /></span><div><strong>{row.workerName}</strong><small>{row.categoryName} · {sameJob(row.toyName, row.processName) ? row.toyName : `${row.toyName} — ${row.processName}`}</small></div><span className="production-break-date">{dateLabel(row.date)}</span></div>
           <div className="production-break-rates">
             <b>{number(row.pieces)}<small>pcs/day</small></b>
             <span>{row.competitorName && row.competitorDate ? <>beat {row.competitorName}&rsquo;s {number(row.competitorPieces || 0)} pcs from {dateLabel(row.competitorDate)}</> : row.previousWorkerName !== row.workerName ? <>beat {row.previousWorkerName}&rsquo;s {number(row.previousPieces)} pcs from {dateLabel(row.previousDate)}</> : <>Previous best: {number(row.previousPieces)} pcs from {dateLabel(row.previousDate)}</>}</span>
@@ -81,7 +82,7 @@ export default function RecordBoard({ token, apiBase }: { token: string | null; 
             <th scope="row"><span className={`production-rank-badge rank-${index < 3 ? index + 1 : 'plain'}`}>{index < 3 ? <Medal size={13} aria-hidden="true" /> : null}{index + 1}</span>{row.workerName || 'Archived worker'}</th>
             <td>{row.categoryName}</td>
             <td>{row.toyName}</td>
-            <td>{row.processName}</td>
+            <td>{sameJob(row.toyName, row.processName) ? '—' : row.processName}</td>
             <td><strong>{number(row.pieces)}</strong> pcs</td>
             <td title="Current work-step target for the recorded work time">{targets.get(row.processId) ? `${number(Math.round(targets.get(row.processId)! * row.hours))} pcs` : masters.busy && !masters.data ? 'Loading…' : masters.error && !masters.data ? 'Unavailable' : 'Not set'}</td>
             <td>{dateLabel(row.date)}</td>

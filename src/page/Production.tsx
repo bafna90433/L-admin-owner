@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Factory, Lightbulb, RefreshCw, Search, Trophy } from 'lucide-react';
+import { sameJob } from '../names';
 import '../styles/Production.css';
 
 interface ProductionEntry {
@@ -234,7 +235,7 @@ function EntryTable({ entries, hideWorker = false, targets, token, apiBase }: { 
     <tbody>{entries.flatMap((entry, index) => [<tr key={entry.id} className={editedAt(entry) ? 'is-edited' : ''}>
       <td>{index + 1}</td>
       <td>{entry.date ? dateLabel(entry.date) : '—'}{editedAt(entry) && apiBase ? <button type="button" className="production-edited" aria-expanded={open === entry.id} onClick={() => setOpen(open === entry.id ? '' : entry.id)}>Edited {whenLabel(editedAt(entry))}</button> : null}</td>{!hideWorker && <th scope="row">{entry.workerName || 'Archived worker'}</th>}
-      <td>{entry.typeName || '—'}</td><td>{entry.toyName || '—'}</td><td>{entry.processName || '—'}</td><td>{timeLabel(entry.minutes)}</td>
+      <td>{entry.typeName || '—'}</td><td>{entry.toyName || '—'}</td><td>{sameJob(entry.toyName, entry.processName) ? '—' : (entry.processName || '—')}</td><td>{timeLabel(entry.minutes)}</td>
       {showShare && <td><span className="production-share"><span className="production-share-bar" aria-hidden="true"><span style={{ width: `${Math.max(2, share(entry))}%` }} /></span><small>{share(entry)}%</small></span></td>}
       <td>{number(entry.pieces)}</td><td>{targetFor(entry) === null ? '—' : number(targetFor(entry)!)}</td><td>{rateLabel(entry.minutes > 0 ? entry.pieces * 60 / entry.minutes : 0)}</td>
       <td>{entry.isTraining ? 'Training' : entry.workType === 'cover' ? 'Cover' : 'Regular'}</td>
@@ -243,7 +244,7 @@ function EntryTable({ entries, hideWorker = false, targets, token, apiBase }: { 
     ...(open === entry.id && apiBase ? [<tr key={`${entry.id}-changes`} className="production-change-row"><td colSpan={12 + (hideWorker ? 0 : 1) + (showShare ? 1 : 0)}><EntryChanges entry={entry} token={token ?? null} apiBase={apiBase} /></td></tr>] : [])
     ])}</tbody>
     <tfoot><tr><th scope="row" colSpan={hideWorker ? 5 : 6}>Total</th><td>{timeLabel(total.minutes)}</td>{showShare && <td>100%</td>}<td><strong>{number(total.pieces)} pcs</strong></td><td>{total.target ? `${number(total.target)} pcs` : '—'}</td><td>{rateLabel(total.minutes > 0 ? total.pieces * 60 / total.minutes : 0)}</td><td colSpan={3}>{entries.length} work entries</td></tr></tfoot>
-  </table></div><div className="production-entry-cards" role="list" aria-label="Worker work entries">{entries.map(entry => <article className="production-entry-card" key={entry.id} role="listitem"><header><strong>{entry.toyName || 'Toy not recorded'}</strong><span>{entry.date ? dateLabel(entry.date) : '—'}</span></header><p>{entry.typeName ? `${entry.typeName} · ` : ''}{entry.processName || 'Work step not recorded'}</p><dl><div><dt>Time</dt><dd>{timeLabel(entry.minutes)}</dd></div><div><dt>Process pcs</dt><dd>{number(entry.pieces)}</dd></div><div><dt>Target pcs</dt><dd>{targetFor(entry) === null ? 'Not set' : number(targetFor(entry)!)}</dd></div><div><dt>Pcs/hour</dt><dd>{rateLabel(entry.minutes > 0 ? entry.pieces * 60 / entry.minutes : 0)}</dd></div></dl><p>{entry.isTraining ? 'Training' : 'Regular'} · Entry by {entry.enteredByName || 'Not recorded'}</p>{entry.note && <p className="production-note">{entry.note}</p>}</article>)}</div><p className="production-entry-total">Total: {number(total.pieces)} pcs · {timeLabel(total.minutes)} · {entries.length} work entries</p></> : <p className="production-empty">No production records for this selection.</p>;
+  </table></div><div className="production-entry-cards" role="list" aria-label="Worker work entries">{entries.map(entry => <article className="production-entry-card" key={entry.id} role="listitem"><header><strong>{entry.toyName || 'Toy not recorded'}</strong><span>{entry.date ? dateLabel(entry.date) : '—'}</span></header><p>{entry.typeName ? `${entry.typeName} · ` : ''}{sameJob(entry.toyName, entry.processName) ? 'The model is the work itself' : (entry.processName || 'Work step not recorded')}</p><dl><div><dt>Time</dt><dd>{timeLabel(entry.minutes)}</dd></div><div><dt>Process pcs</dt><dd>{number(entry.pieces)}</dd></div><div><dt>Target pcs</dt><dd>{targetFor(entry) === null ? 'Not set' : number(targetFor(entry)!)}</dd></div><div><dt>Pcs/hour</dt><dd>{rateLabel(entry.minutes > 0 ? entry.pieces * 60 / entry.minutes : 0)}</dd></div></dl><p>{entry.isTraining ? 'Training' : 'Regular'} · Entry by {entry.enteredByName || 'Not recorded'}</p>{entry.note && <p className="production-note">{entry.note}</p>}</article>)}</div><p className="production-entry-total">Total: {number(total.pieces)} pcs · {timeLabel(total.minutes)} · {entries.length} work entries</p></> : <p className="production-empty">No production records for this selection.</p>;
 }
 
 interface Suggestion {
@@ -270,7 +271,7 @@ function WorkSuggestions({ entries, targets }: { entries: ProductionEntry[]; tar
       if (!perHour) continue;
       const who = entry.labourId || entry.workerName;
       const key = `${who}|${entry.processId}`;
-      const row = pair.get(key) || { worker: entry.workerName || 'Archived worker', work: `${entry.toyName || 'Toy'} — ${entry.processName || 'Work step'}`, pieces: 0, minutes: 0, expected: 0, records: 0 };
+      const row = pair.get(key) || { worker: entry.workerName || 'Archived worker', work: sameJob(entry.toyName, entry.processName) ? (entry.toyName || 'Toy') : `${entry.toyName || 'Toy'} — ${entry.processName || 'Work step'}`, pieces: 0, minutes: 0, expected: 0, records: 0 };
       row.pieces += entry.pieces; row.minutes += entry.minutes; row.expected += perHour * entry.minutes / 60; row.records += 1;
       pair.set(key, row);
       const all = whole.get(who) || { name: entry.workerName || 'Archived worker', pieces: 0, expected: 0, records: 0 };
@@ -403,7 +404,9 @@ export default function Production({ token, apiBase, view = 'report' }: { token:
       const key = workerKey(entry);
       const row = rows.get(key) || { id: key, name: entry.workerName || 'Archived worker', entryCount: 0, pieces: 0, hours: 0, expected: 0, percent: null, untargetedHours: 0, targetedPieces: 0, work: new Map<string, number>() };
       row.entryCount++; row.pieces += entry.pieces; row.hours += entry.minutes / 60;
-      const label = `${entry.toyName || 'Toy not recorded'} — ${entry.processName || 'Work step not recorded'}`;
+      const label = sameJob(entry.toyName, entry.processName)
+        ? (entry.toyName || 'Toy not recorded')
+        : `${entry.toyName || 'Toy not recorded'} — ${entry.processName || 'Work step not recorded'}`;
       row.work.set(label, (row.work.get(label) || 0) + entry.pieces);
       const perHour = rate.get(entry.processId || '') || 0;
       if (perHour) { row.expected += perHour * entry.minutes / 60; row.targetedPieces += entry.pieces; }
